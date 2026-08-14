@@ -74,7 +74,7 @@ def home(
 
     recent_trades = db.scalars(trade_query.order_by(Trade.reported_date.desc()).limit(10)).all()
     all_trades = db.scalars(select(Trade)).all()
-    total_amount = sum(float(trade.amount) for trade in all_trades)
+    total_amount = float(sum(float(trade.amount) for trade in all_trades) or 0.0)
 
     unique_chambers = db.scalars(select(Politician.chamber).distinct()).all()
     unique_parties = db.scalars(select(Politician.party).distinct()).all()
