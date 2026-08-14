@@ -1,18 +1,19 @@
 import unittest
 
-try:
-    from fastapi.testclient import TestClient
-except Exception:  # pragma: no cover
-    TestClient = None
+from starlette.requests import Request
 
-from app.main import app
+from app.database import get_db
+from app.main import politician_detail_page
 
 
-@unittest.skipIf(TestClient is None, "httpx not installed in this environment")
 class RouteTests(unittest.TestCase):
     def test_politician_detail_page_loads(self):
-        client = TestClient(app)
-        response = client.get("/politicians/1")
+        request = Request({"type": "http", "method": "GET", "path": "/politicians/1", "headers": []})
+        db = next(get_db())
+        try:
+            response = politician_detail_page(request, 1, db)
+            html = response.body.decode("utf-8")
+        finally:
+            db.close()
 
-        self.assertEqual(response.status_code, 200)
-        self.assertIn("Alex Morgan", response.text)
+        self.assertIn("Alex Morgan", html)

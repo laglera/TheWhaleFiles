@@ -13,11 +13,18 @@ from sqlalchemy.orm import Session
 from app.database import get_db, init_db
 from app.ingestion import load_filing_into_db
 from app.models import Politician, Trade
+from app.scheduler import start_polling_loop
+from app.sources import poll_official_sources
 
 app = FastAPI(title="TheWhaleFiles", version="0.1.0")
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 templates = Jinja2Templates(directory="app/templates")
 init_db()
+
+
+@app.on_event("startup")
+def startup_event() -> None:
+    start_polling_loop()
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -186,4 +193,18 @@ def load_sample_filing() -> dict[str, Any]:
         "politician": "Alex Morgan",
         "imported_count": len(imported_trades),
         "records": imported_trades,
+    }
+
+
+@app.get("/health")
+def health_check() -> dict[str, str]:
+    return {"status": "ok", "service": "TheWhaleFiles"}
+
+
+@app.post("/api/poll-sources")
+def poll_sources_endpoint() -> dict[str, Any]:
+    imported = poll_official_sources()
+    return {
+        "imported_count": len(imported),
+        "records": imported[:10],
     }
