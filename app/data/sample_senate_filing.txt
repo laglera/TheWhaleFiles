@@ -1,0 +1,17 @@
+Senate Financial Disclosure - Periodic Transaction Report
+
+Politician: Alex Morgan
+Office: Senate
+State: California
+
+Transaction 1:
+Ticker: AAPL
+Type: Buy
+Amount: $15,000
+Date: 2026-07-12
+
+Transaction 2:
+Ticker: NVDA
+Type: Buy
+Amount: $25,000
+Date: 2026-07-18
