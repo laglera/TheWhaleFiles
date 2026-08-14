@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{{ politician.name }} | TheWhaleFiles</title>
+    <link rel="stylesheet" href="/static/styles.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand-block detail-header">
+        <div>
+          <a class="back-link" href="/">← Volver</a>
+          <h1>{{ politician.name }}</h1>
+        </div>
+        <p>{{ politician.chamber }} · {{ politician.state }} · {{ politician.party }}</p>
+      </div>
+    </header>
+
+    <main class="container detail-container">
+      <section class="stats-row detail-stats">
+        <div class="stat-card">
+          <span>Operaciones</span>
+          <strong>{{ trades|length }}</strong>
+        </div>
+        <div class="stat-card">
+          <span>Capital reportado</span>
+          <strong>${{ '{:,.0f}'.format(total_amount) }}</strong>
+        </div>
+        <div class="stat-card">
+          <span>Última operación</span>
+          <strong>{{ trades[0].reported_date.strftime('%Y-%m-%d') if trades else 'Sin datos' }}</strong>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>Historial de operaciones</h2>
+        <div class="history-list">
+          {% for trade in trades %}
+          <article class="history-item">
+            <div class="trade-topline">
+              <span class="trade-type {{ 'buy' if trade.trade_type == 'Buy' else 'sell' }}">{{ trade.trade_type }}</span>
+              <span class="trade-date">{{ trade.reported_date.strftime('%Y-%m-%d') }}</span>
+            </div>
+            <div class="history-content">
+              <div>
+                <strong>{{ trade.ticker.symbol }}</strong>
+                <p>{{ trade.ticker.name }}</p>
+              </div>
+              <div class="history-amount">
+                <span>Monto</span>
+                <strong>${{ '{:,.0f}'.format(trade.amount) }}</strong>
+              </div>
+            </div>
+          </article>
+          {% else %}
+          <p class="empty-state">Este político aún no tiene operaciones registradas.</p>
+          {% endfor %}
+        </div>
+      </section>
+    </main>
+  </body>
+</html>

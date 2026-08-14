@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional
 
 from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.responses import HTMLResponse
@@ -24,9 +24,9 @@ init_db()
 def home(
     request: Request,
     db: Session = Depends(get_db),
-    chamber: str | None = None,
-    party: str | None = None,
-    q: str | None = None,
+    chamber: Optional[str] = None,
+    party: Optional[str] = None,
+    q: Optional[str] = None,
 ) -> Any:
     filters = []
     if chamber:
@@ -148,6 +148,30 @@ def get_politician_detail(politician_id: int, db: Session = Depends(get_db)) -> 
             for trade in politician.trades
         ],
     }
+
+
+@app.get("/politicians/{politician_id}", response_class=HTMLResponse)
+def politician_detail_page(
+    request: Request,
+    politician_id: int,
+    db: Session = Depends(get_db),
+) -> Any:
+    politician = db.get(Politician, politician_id)
+    if not politician:
+        raise HTTPException(status_code=404, detail="Politician not found")
+
+    ordered_trades = sorted(politician.trades, key=lambda trade: trade.reported_date, reverse=True)
+    total_amount = sum(float(trade.amount) for trade in ordered_trades)
+
+    return templates.TemplateResponse(
+        "politician_detail.html",
+        {
+            "request": request,
+            "politician": politician,
+            "trades": ordered_trades,
+            "total_amount": total_amount,
+        },
+    )
 
 
 @app.post("/api/load-sample-filing")

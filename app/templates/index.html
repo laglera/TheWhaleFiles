@@ -92,13 +92,13 @@
         <h2>Políticos</h2>
         <div class="politicians-list">
           {% for politician in politicians %}
-          <div class="politician-item">
+          <a class="politician-item politician-link" href="/politicians/{{ politician.id }}">
             <div>
               <h3>{{ politician.name }}</h3>
               <small>{{ politician.chamber }} · {{ politician.state }} · {{ politician.party }}</small>
             </div>
             <span>{{ politician.trades|length }} operaciones</span>
-          </div>
+          </a>
           {% else %}
           <p class="empty-state">No hay políticos que coincidan con esta búsqueda.</p>
           {% endfor %}

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Optional
 
 from sqlalchemy import select
 from sqlalchemy.orm import sessionmaker
@@ -10,7 +11,11 @@ from app.models import Base, Politician, Ticker, Trade
 from app.scraper import parse_senate_filing
 
 
-def load_filing_into_db(raw_text: str, politician_name: str, database_url: str | None = None) -> list[dict[str, object]]:
+def load_filing_into_db(
+    raw_text: str,
+    politician_name: str,
+    database_url: Optional[str] = None,
+) -> list[dict[str, object]]:
     """Parse a filing and store the transactions in the database."""
     trades = parse_senate_filing(raw_text, politician_name)
     engine = get_engine(database_url or "sqlite:///./thewhalefiles.db")
