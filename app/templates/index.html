@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>TheWhaleFiles</title>
+    <link rel="stylesheet" href="/static/styles.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand-block">
+        <h1>TheWhaleFiles</h1>
+        <p>Seguimiento de carteras declaradas por políticos y figuras públicas</p>
+      </div>
+    </header>
+
+    <main class="container">
+      <section class="panel">
+        <h2>Trades recientes</h2>
+        <div class="stats-grid">
+          {% for trade in recent_trades %}
+          <article class="trade-card">
+            <div class="trade-topline">
+              <span class="trade-type {{ 'buy' if trade.trade_type == 'Buy' else 'sell' }}">{{ trade.trade_type }}</span>
+              <span class="trade-date">{{ trade.reported_date.strftime('%Y-%m-%d') }}</span>
+            </div>
+            <h3>{{ trade.politician.name }}</h3>
+            <p>{{ trade.ticker.symbol }} · {{ trade.politician.chamber }}</p>
+            <strong>${{ '{:,.0f}'.format(trade.amount) }}</strong>
+          </article>
+          {% endfor %}
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>Políticos</h2>
+        <div class="politicians-list">
+          {% for politician in politicians %}
+          <div class="politician-item">
+            <div>
+              <h3>{{ politician.name }}</h3>
+              <small>{{ politician.chamber }} · {{ politician.state }} · {{ politician.party }}</small>
+            </div>
+            <span>{{ politician.trades|length }} operaciones</span>
+          </div>
+          {% endfor %}
+        </div>
+      </section>
+    </main>
+  </body>
+</html>
