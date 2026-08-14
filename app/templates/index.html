@@ -15,16 +15,19 @@
     </header>
 
     <main class="container">
-      <section class="panel actions-panel">
-        <div>
-          <h2>Acciones rápidas</h2>
-          <p class="panel-copy">Rastrea nuevas declaraciones y revisa la actividad reciente del mercado.</p>
+      <section class="panel hero-panel">
+        <div class="hero-copy">
+          <span class="eyebrow">Inteligencia pública</span>
+          <h2>Radiografía de las compras y ventas declaradas por políticos.</h2>
+          <p>Se sigue la actividad pública, filtrada por cámara, partido y ticker para ver quién compra y cuándo.</p>
         </div>
-        <button id="load-sample" class="primary-button">Cargar filing de ejemplo</button>
+        <div class="hero-actions">
+          <button id="load-sample" class="primary-button">Cargar filing de ejemplo</button>
+        </div>
       </section>
 
       <section class="stats-row">
-        <div class="stat-card">
+        <div class="stat-card accent">
           <span>Total de trades</span>
           <strong>{{ total_trades }}</strong>
         </div>

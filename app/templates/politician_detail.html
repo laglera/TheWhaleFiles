@@ -18,8 +18,22 @@
     </header>
 
     <main class="container detail-container">
+      <section class="panel profile-summary">
+        <div class="profile-overview">
+          <div>
+            <span class="eyebrow">Perfil público</span>
+            <h2>{{ politician.name }}</h2>
+          </div>
+          <div class="profile-tags">
+            <span>{{ politician.chamber }}</span>
+            <span>{{ politician.state }}</span>
+            <span>{{ politician.party }}</span>
+          </div>
+        </div>
+      </section>
+
       <section class="stats-row detail-stats">
-        <div class="stat-card">
+        <div class="stat-card accent">
           <span>Operaciones</span>
           <strong>{{ trades|length }}</strong>
         </div>
