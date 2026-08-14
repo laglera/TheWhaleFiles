@@ -1,3 +1,4 @@
+import json
 import unittest
 from pathlib import Path
 
@@ -49,6 +50,64 @@ class ScraperParsingTests(unittest.TestCase):
         self.assertEqual(trades[0]["trade_type"], "Buy")
         self.assertEqual(trades[1]["ticker"], "MSFT")
         self.assertEqual(trades[1]["trade_type"], "Sell")
+
+    def test_parse_real_dataset_extracts_transactions(self):
+        payload = json.dumps([
+            {
+                "transaction_date": "07/17/2026",
+                "disclosure_date": "08/12/2026",
+                "ticker": "ABT",
+                "type": "Sale",
+                "amount": "$1,001 - $15,000",
+                "amount_mid": 8000,
+                "representative": "Mike Kelly",
+                "district": "PA16",
+                "owner": "Spouse",
+            },
+            {
+                "transaction_date": "07/18/2026",
+                "disclosure_date": "08/16/2026",
+                "ticker": "PEP",
+                "type": "Purchase",
+                "amount": "$15,001 - $50,000",
+                "amount_mid": 32500,
+                "representative": "Mike Kelly",
+                "district": "PA16",
+                "owner": "Spouse",
+            },
+        ])
+
+        from app.sources import parse_real_dataset
+
+        trades = parse_real_dataset(payload)
+
+        self.assertEqual(len(trades), 2)
+        self.assertEqual(trades[0]["politician_name"], "Mike Kelly")
+        self.assertEqual(trades[0]["ticker"], "ABT")
+        self.assertEqual(trades[0]["trade_type"], "Sale")
+        self.assertEqual(trades[0]["amount"], 8000.0)
+        self.assertEqual(trades[1]["ticker"], "PEP")
+        self.assertEqual(trades[1]["trade_type"], "Purchase")
+
+    def test_ingest_real_dataset_imports_records(self):
+        from app.sources import ingest_real_dataset
+
+        raw_payload = json.dumps([
+            {
+                "transaction_date": "07/17/2026",
+                "ticker": "ABT",
+                "type": "Sale",
+                "amount": "$1,001 - $15,000",
+                "amount_mid": 8000,
+                "representative": "Mike Kelly",
+            }
+        ])
+
+        records = ingest_real_dataset(raw_json=raw_payload, database_url="sqlite:////tmp/thewhalefiles_real_test.db")
+
+        self.assertEqual(len(records), 1)
+        self.assertEqual(records[0]["politician"], "Mike Kelly")
+        self.assertEqual(records[0]["ticker"], "ABT")
 
 
 if __name__ == "__main__":

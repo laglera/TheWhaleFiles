@@ -25,9 +25,15 @@ SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
 
 
 def init_db() -> None:
+    from app.sources import ingest_real_dataset
+
     Base.metadata.create_all(bind=engine)
     with SessionLocal() as db:
         if db.query(Politician).first():
+            return
+
+        imported = ingest_real_dataset()
+        if imported:
             return
 
         senator = Politician(

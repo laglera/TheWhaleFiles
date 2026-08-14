@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import re
 from html import unescape
 from typing import Any
@@ -13,6 +14,54 @@ DEFAULT_SOURCE_URLS = [
     "https://efdsearch.senate.gov/search/",
     "https://disclosures-clerk.house.gov/",
 ]
+
+REAL_DATASET_URL = "https://raw.githubusercontent.com/TattooedHead/house-stock-watcher-data/master/data/all_transactions.json"
+
+
+def parse_real_dataset(raw_json: str) -> list[dict[str, Any]]:
+    """Parse a public House Stock Watcher JSON export into trade records."""
+    try:
+        payload = json.loads(raw_json or "[]")
+    except json.JSONDecodeError:
+        return []
+
+    if not isinstance(payload, list):
+        return []
+
+    records: list[dict[str, Any]] = []
+    for item in payload:
+        ticker = (item.get("ticker") or "").strip()
+        if not ticker:
+            continue
+
+        representative = (item.get("representative") or "Unknown Representative").strip()
+        trade_type = str(item.get("type") or "Unknown")
+        amount = item.get("amount_mid")
+        if amount is None:
+            amount_match = re.search(r"\$?([0-9,]+(?:\.\d+)?)", str(item.get("amount") or ""), flags=re.IGNORECASE)
+            if amount_match:
+                amount = float(amount_match.group(1).replace(",", ""))
+            else:
+                amount = 0.0
+
+        date_value = item.get("transaction_date") or "01/01/2026"
+        try:
+            month, day, year = date_value.split("/")
+            reported_date = f"{int(year):04d}-{int(month):02d}-{int(day):02d}"
+        except Exception:
+            reported_date = "2026-01-01"
+
+        records.append(
+            {
+                "politician_name": representative,
+                "ticker": ticker.upper(),
+                "trade_type": trade_type.title(),
+                "amount": float(amount),
+                "reported_date": reported_date,
+            }
+        )
+
+    return records
 
 
 def parse_official_html_filing(raw_html: str, politician_name: str) -> list[dict[str, Any]]:
@@ -118,10 +167,56 @@ def ingest_official_filing(url: str, politician_name: str, database_url: str | N
     return imported
 
 
+def fetch_real_dataset(url: str = REAL_DATASET_URL) -> str:
+    """Download the public House Stock Watcher JSON export."""
+    request = Request(url, headers={"User-Agent": "TheWhaleFiles/1.0"})
+    with urlopen(request, timeout=30) as response:
+        payload = response.read()
+    return payload.decode("utf-8", errors="ignore")
+
+
+def ingest_real_dataset(
+    url: str = REAL_DATASET_URL,
+    database_url: str | None = None,
+    raw_json: str | None = None,
+) -> list[dict[str, Any]]:
+    """Import a public real dataset into the app database."""
+    raw_json = raw_json if raw_json is not None else fetch_real_dataset(url)
+    parsed = parse_real_dataset(raw_json)
+    if not parsed:
+        return []
+
+    engine = get_engine(database_url or "sqlite:///./thewhalefiles.db")
+    Base.metadata.create_all(bind=engine)
+
+    imported: list[dict[str, Any]] = []
+    for trade in parsed:
+        imported.extend(
+            load_filing_into_db(
+                "\n".join([
+                    "Transaction:",
+                    f"Ticker: {trade['ticker']}",
+                    f"Type: {trade['trade_type']}",
+                    f"Amount: ${trade['amount']:,.0f}",
+                    f"Date: {trade['reported_date']}",
+                ]),
+                trade["politician_name"],
+                database_url=database_url,
+            )
+        )
+    return imported
+
+
 def poll_official_sources(urls: list[str] | None = None, database_url: str | None = None) -> list[dict[str, Any]]:
     """Poll known official source URLs and import any new filings found."""
     source_urls = urls or DEFAULT_SOURCE_URLS
     results: list[dict[str, Any]] = []
+
+    try:
+        results.extend(ingest_real_dataset(database_url=database_url))
+    except Exception:
+        pass
+
     for url in source_urls:
         try:
             results.extend(ingest_official_filing(url, "Alex Morgan", database_url=database_url))
