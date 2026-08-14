@@ -7,7 +7,7 @@ from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from sqlalchemy import select
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
 from app.database import get_db, init_db
@@ -21,11 +21,56 @@ init_db()
 
 
 @app.get("/", response_class=HTMLResponse)
-def home(request: Request, db: Session = Depends(get_db)) -> Any:
-    politicians = db.scalars(select(Politician)).all()
-    recent_trades = db.scalars(
-        select(Trade).order_by(Trade.reported_date.desc()).limit(10)
-    ).all()
+def home(
+    request: Request,
+    db: Session = Depends(get_db),
+    chamber: str | None = None,
+    party: str | None = None,
+    q: str | None = None,
+) -> Any:
+    filters = []
+    if chamber:
+        filters.append(Politician.chamber == chamber)
+    if party:
+        filters.append(Politician.party == party)
+
+    politician_query = select(Politician)
+    if filters:
+        politician_query = politician_query.where(*filters)
+    politician_query = politician_query.order_by(Politician.name)
+
+    politicians = db.scalars(politician_query).all()
+
+    if q:
+        search_value = q.strip().lower()
+        politicians = [
+            politician
+            for politician in politicians
+            if search_value in politician.name.lower()
+            or any(search_value in trade.ticker.symbol.lower() for trade in politician.trades)
+        ]
+
+    trade_query = select(Trade).join(Politician).join(Trade.ticker)
+    if chamber:
+        trade_query = trade_query.where(Politician.chamber == chamber)
+    if party:
+        trade_query = trade_query.where(Politician.party == party)
+    if q:
+        search_value = q.strip().lower()
+        trade_query = trade_query.where(
+            or_(
+                func.lower(Politician.name).contains(search_value),
+                func.lower(Trade.trade_type).contains(search_value),
+                func.lower(Trade.ticker.symbol).contains(search_value),
+            )
+        )
+
+    recent_trades = db.scalars(trade_query.order_by(Trade.reported_date.desc()).limit(10)).all()
+    all_trades = db.scalars(select(Trade)).all()
+    total_amount = sum(float(trade.amount) for trade in all_trades)
+
+    unique_chambers = db.scalars(select(Politician.chamber).distinct()).all()
+    unique_parties = db.scalars(select(Politician.party).distinct()).all()
 
     return templates.TemplateResponse(
         "index.html",
@@ -33,6 +78,14 @@ def home(request: Request, db: Session = Depends(get_db)) -> Any:
             "request": request,
             "politicians": politicians,
             "recent_trades": recent_trades,
+            "total_trades": len(all_trades),
+            "total_amount": total_amount,
+            "total_politicians": len(db.scalars(select(Politician)).all()),
+            "active_chamber": chamber,
+            "active_party": party,
+            "active_query": q or "",
+            "chambers": [value for value in unique_chambers if value],
+            "parties": [value for value in unique_parties if value],
         },
     )
 

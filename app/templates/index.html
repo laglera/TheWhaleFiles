@@ -16,8 +16,57 @@
 
     <main class="container">
       <section class="panel actions-panel">
-        <h2>Acciones rápidas</h2>
+        <div>
+          <h2>Acciones rápidas</h2>
+          <p class="panel-copy">Rastrea nuevas declaraciones y revisa la actividad reciente del mercado.</p>
+        </div>
         <button id="load-sample" class="primary-button">Cargar filing de ejemplo</button>
+      </section>
+
+      <section class="stats-row">
+        <div class="stat-card">
+          <span>Total de trades</span>
+          <strong>{{ total_trades }}</strong>
+        </div>
+        <div class="stat-card">
+          <span>Capital reportado</span>
+          <strong>${{ '{:,.0f}'.format(total_amount) }}</strong>
+        </div>
+        <div class="stat-card">
+          <span>Políticos</span>
+          <strong>{{ total_politicians }}</strong>
+        </div>
+      </section>
+
+      <section class="panel filters-panel">
+        <form class="filters-form" method="get">
+          <label>
+            <span>Buscar</span>
+            <input type="text" name="q" value="{{ active_query }}" placeholder="Nombre, ticker o tipo" />
+          </label>
+
+          <label>
+            <span>Cámara</span>
+            <select name="chamber">
+              <option value="">Todas</option>
+              {% for chamber_name in chambers %}
+              <option value="{{ chamber_name }}" {% if chamber_name == active_chamber %}selected{% endif %}>{{ chamber_name }}</option>
+              {% endfor %}
+            </select>
+          </label>
+
+          <label>
+            <span>Partido</span>
+            <select name="party">
+              <option value="">Todos</option>
+              {% for party_name in parties %}
+              <option value="{{ party_name }}" {% if party_name == active_party %}selected{% endif %}>{{ party_name }}</option>
+              {% endfor %}
+            </select>
+          </label>
+
+          <button type="submit" class="secondary-button">Aplicar filtros</button>
+        </form>
       </section>
 
       <section class="panel">
@@ -33,6 +82,8 @@
             <p>{{ trade.ticker.symbol }} · {{ trade.politician.chamber }}</p>
             <strong>${{ '{:,.0f}'.format(trade.amount) }}</strong>
           </article>
+          {% else %}
+          <p class="empty-state">No hay trades para los filtros actuales.</p>
           {% endfor %}
         </div>
       </section>
@@ -48,6 +99,8 @@
             </div>
             <span>{{ politician.trades|length }} operaciones</span>
           </div>
+          {% else %}
+          <p class="empty-state">No hay políticos que coincidan con esta búsqueda.</p>
           {% endfor %}
         </div>
       </section>
