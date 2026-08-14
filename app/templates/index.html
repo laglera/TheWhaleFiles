@@ -15,6 +15,11 @@
     </header>
 
     <main class="container">
+      <section class="panel actions-panel">
+        <h2>Acciones rápidas</h2>
+        <button id="load-sample" class="primary-button">Cargar filing de ejemplo</button>
+      </section>
+
       <section class="panel">
         <h2>Trades recientes</h2>
         <div class="stats-grid">
@@ -47,5 +52,28 @@
         </div>
       </section>
     </main>
+
+    <script>
+      document.getElementById('load-sample')?.addEventListener('click', async () => {
+        const button = document.getElementById('load-sample');
+        if (!button) return;
+
+        button.disabled = true;
+        button.textContent = 'Cargando...';
+
+        try {
+          const response = await fetch('/api/load-sample-filing', { method: 'POST' });
+          if (!response.ok) {
+            throw new Error('No se pudo cargar el filing');
+          }
+
+          window.location.reload();
+        } catch (error) {
+          button.disabled = false;
+          button.textContent = 'Cargar filing de ejemplo';
+          alert('No se pudo cargar el filing de prueba.');
+        }
+      });
+    </script>
   </body>
 </html>

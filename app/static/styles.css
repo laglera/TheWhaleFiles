@@ -60,6 +60,29 @@ body {
   font-size: 1.5rem;
 }
 
+.actions-panel {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+}
+
+.primary-button {
+  cursor: pointer;
+  background: linear-gradient(135deg, #7aa2ff, #5e86ff);
+  color: white;
+  border: none;
+  border-radius: 10px;
+  padding: 12px 18px;
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.primary-button:disabled {
+  opacity: 0.7;
+  cursor: wait;
+}
+
 .stats-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));

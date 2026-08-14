@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any
 
 from fastapi import Depends, FastAPI, HTTPException, Request
@@ -10,6 +11,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.database import get_db, init_db
+from app.ingestion import load_filing_into_db
 from app.models import Politician, Trade
 
 app = FastAPI(title="TheWhaleFiles", version="0.1.0")
@@ -92,4 +94,19 @@ def get_politician_detail(politician_id: int, db: Session = Depends(get_db)) -> 
             }
             for trade in politician.trades
         ],
+    }
+
+
+@app.post("/api/load-sample-filing")
+def load_sample_filing() -> dict[str, Any]:
+    sample_file = Path("app/data/sample_senate_filing.txt")
+    if not sample_file.exists():
+        raise HTTPException(status_code=404, detail="Sample filing not found")
+
+    raw_text = sample_file.read_text(encoding="utf-8")
+    imported_trades = load_filing_into_db(raw_text, "Alex Morgan")
+    return {
+        "politician": "Alex Morgan",
+        "imported_count": len(imported_trades),
+        "records": imported_trades,
     }
