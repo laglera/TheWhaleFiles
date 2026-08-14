@@ -3,11 +3,24 @@ from datetime import date
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy.pool import StaticPool
 
 from app.models import Base, Politician, Ticker, Trade
 
 DATABASE_URL = "sqlite:///./thewhalefiles.db"
-engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
+_ENGINE_CACHE: dict[str, object] = {}
+
+
+def get_engine(database_url: str = DATABASE_URL):
+    if database_url not in _ENGINE_CACHE:
+        engine_kwargs = {"connect_args": {"check_same_thread": False}}
+        if database_url.startswith("sqlite://"):
+            engine_kwargs["poolclass"] = StaticPool
+        _ENGINE_CACHE[database_url] = create_engine(database_url, **engine_kwargs)
+    return _ENGINE_CACHE[database_url]
+
+
+engine = get_engine()
 SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
 
 
