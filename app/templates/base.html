@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="{{ lang }}">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{% block title %}TheWhaleFiles{% endblock %}</title>
+    <meta name="description" content="{{ t.meta_description }}" />
+    <script>
+      // Se aplica antes de pintar para que no haya destello blanco en modo noche.
+      (() => {
+        const stored = localStorage.getItem('twf:theme');
+        const dark = stored
+          ? stored === 'dark'
+          : window.matchMedia('(prefers-color-scheme: dark)').matches;
+        document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+      })();
+    </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600&family=Inter:wght@400;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/static/styles.css" />
+  </head>
+  <body>
+    <nav class="nav">
+      <div class="nav__inner">
+        <a class="nav__brand" href="/">
+          <span class="nav__mark">🐋</span>
+          TheWhaleFiles
+        </a>
+        <div class="nav__links">
+          <a href="/#operaciones">{{ t.nav_trades }}</a>
+          <a href="/#tendencias">{{ t.nav_trends }}</a>
+          <a href="/#politicos">{{ t.nav_people }}</a>
+        </div>
+        <div class="nav__actions">
+          {# lang_switch_url conserva los filtros activos #}
+          <a class="nav__lang" href="{{ lang_switch_url }}" title="{{ t.lang_switch }}">
+            {{ other_lang|upper }}
+          </a>
+          <button
+            class="nav__theme"
+            type="button"
+            title="{{ t.theme_dark }}"
+            aria-label="{{ t.theme_dark }}"
+          >
+            <span class="nav__theme-icon" aria-hidden="true"></span>
+          </button>
+          {% block nav_action %}
+          <button id="load-sample" class="btn btn--primary btn--sm">{{ t.nav_load_sample }}</button>
+          {% endblock %}
+        </div>
+      </div>
+    </nav>
+
+    {% block body %}{% endblock %}
+
+    <footer class="footer">
+      <div class="inner">
+        <div class="footer__grid">
+          <div>
+            <h4>TheWhaleFiles</h4>
+            <p>{{ t.footer_about }}</p>
+          </div>
+          <div>
+            <h4>{{ t.footer_sources }}</h4>
+            <ul>
+              <li><a href="https://efdsearch.senate.gov" rel="noopener">{{ t.footer_senate }}</a></li>
+              <li>
+                <a href="https://disclosures-clerk.house.gov" rel="noopener">{{ t.footer_house }}</a>
+              </li>
+            </ul>
+          </div>
+          <div>
+            <h4>{{ t.footer_data }}</h4>
+            <ul>
+              <li><a href="/api/trades">{{ t.footer_trades_json }}</a></li>
+              <li><a href="/api/politicians">{{ t.footer_people_json }}</a></li>
+              <li><a href="/health">{{ t.footer_health }}</a></li>
+            </ul>
+          </div>
+        </div>
+        <p class="footer__note">{{ t.footer_note }}</p>
+      </div>
+    </footer>
+
+    <script>
+      // Modo noche: la elección manual gana sobre la preferencia del sistema.
+      (() => {
+        const button = document.querySelector('.nav__theme');
+        if (!button) return;
+
+        button.addEventListener('click', () => {
+          const dark = document.documentElement.getAttribute('data-theme') === 'dark';
+          const next = dark ? 'light' : 'dark';
+          document.documentElement.setAttribute('data-theme', next);
+          localStorage.setItem('twf:theme', next);
+        });
+      })();
+    </script>
+
+    {% block scripts %}{% endblock %}
+  </body>
+</html>

@@ -1,0 +1,83 @@
+{# Iniciales para el avatar de una persona o el símbolo de un ticker #}
+{% macro initials(value) -%}
+{%- set parts = (value or '?').split() -%}
+{%- if parts|length > 1 -%}
+{{ (parts[0][0] ~ parts[-1][0])|upper }}
+{%- else -%}
+{{ (value or '?')[:2]|upper }}
+{%- endif -%}
+{%- endmacro %}
+
+{# Retrato del político: foto oficial si existe, iniciales de reserva #}
+{% macro face(name, modifier='') -%}
+{%- set src = name|photo_url -%}
+{%- if src -%}
+<img class="avatar avatar--photo {{ modifier }}" src="{{ src }}" alt="" loading="lazy" width="115" height="140" />
+{%- else -%}
+<span class="avatar {{ modifier }}" data-slot="{{ name|accent_slot }}">{{ initials(name) }}</span>
+{%- endif -%}
+{%- endmacro %}
+
+{# Importe compacto: $164.5B / $91.4M / $320K / $8,000 #}
+{% macro money(value) -%}
+{%- set amount = value|default(0)|float -%}
+{%- if amount >= 1000000000 -%}
+${{ '{:,.1f}'.format(amount / 1000000000) }}B
+{%- elif amount >= 1000000 -%}
+${{ '{:,.1f}'.format(amount / 1000000) }}M
+{%- elif amount >= 1000 -%}
+${{ '{:,.0f}'.format(amount / 1000) }}K
+{%- else -%}
+${{ '{:,.0f}'.format(amount) }}
+{%- endif -%}
+{%- endmacro %}
+
+{# Etiqueta de operación: compra / venta / sin clasificar #}
+{% macro side_tag(trade_type, t) -%}
+{%- set side = trade_type|trade_side -%}
+<span class="tag tag--{{ side }}">
+  {%- if side == 'buy' -%}{{ t.side_buy }}{%- elif side == 'sell' -%}{{ t.side_sell }}
+  {%- else -%}{{ t.side_other }}{%- endif -%}
+</span>
+{%- endmacro %}
+
+{# Reparto compra/venta: par divergente con etiquetas directas #}
+{% macro split_chart(side_counts, t) -%}
+{% set total = (side_counts.buy + side_counts.sell + side_counts.other) or 1 %}
+<div class="split">
+  <div
+    class="split__bar"
+    role="img"
+    aria-label="{{ side_counts.buy }} {{ t.side_buys }}, {{ side_counts.sell }} {{ t.side_sells }}, {{ side_counts.other }} {{ t.side_other }}"
+  >
+    {% if side_counts.buy %}
+    <span class="split__seg split__seg--buy" style="width: {{ (side_counts.buy / total * 100)|round(1) }}%"></span>
+    {% endif %}
+    {% if side_counts.sell %}
+    <span class="split__seg split__seg--sell" style="width: {{ (side_counts.sell / total * 100)|round(1) }}%"></span>
+    {% endif %}
+    {% if side_counts.other %}
+    <span class="split__seg split__seg--other" style="width: {{ (side_counts.other / total * 100)|round(1) }}%"></span>
+    {% endif %}
+  </div>
+  <div class="split__legend">
+    <div class="split__item">
+      <i style="background: var(--buy)"></i>
+      {{ t.side_buys }} <span>{{ (side_counts.buy / total * 100)|round(1) }}%</span>
+      <b>{{ '{:,.0f}'.format(side_counts.buy) }}</b>
+    </div>
+    <div class="split__item">
+      <i style="background: var(--sell)"></i>
+      {{ t.side_sells }} <span>{{ (side_counts.sell / total * 100)|round(1) }}%</span>
+      <b>{{ '{:,.0f}'.format(side_counts.sell) }}</b>
+    </div>
+    {% if side_counts.other %}
+    <div class="split__item">
+      <i style="background: var(--faint)"></i>
+      {{ t.side_other }} <span>{{ (side_counts.other / total * 100)|round(1) }}%</span>
+      <b>{{ '{:,.0f}'.format(side_counts.other) }}</b>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{%- endmacro %}

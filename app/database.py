@@ -24,10 +24,34 @@ engine = get_engine()
 SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
 
 
+def ensure_schema(target_engine=None) -> None:
+    """Migración mínima para bases creadas antes de existir `category`.
+
+    `create_all` no añade columnas a tablas que ya existen, así que cualquier
+    base anterior necesita este ALTER.
+    """
+    from sqlalchemy import inspect, text
+
+    target_engine = target_engine or engine
+    inspector = inspect(target_engine)
+    if "politicians" not in inspector.get_table_names():
+        return
+    columns = {column["name"] for column in inspector.get_columns("politicians")}
+    if "category" not in columns:
+        with target_engine.begin() as connection:
+            connection.execute(
+                text(
+                    "ALTER TABLE politicians "
+                    "ADD COLUMN category VARCHAR(20) NOT NULL DEFAULT 'congress'"
+                )
+            )
+
+
 def init_db() -> None:
     from app.sources import ingest_real_dataset
 
     Base.metadata.create_all(bind=engine)
+    ensure_schema()
     with SessionLocal() as db:
         if db.query(Politician).first():
             return

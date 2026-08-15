@@ -6,7 +6,7 @@ from html import unescape
 from typing import Any
 from urllib.request import Request, urlopen
 
-from app.database import get_engine
+from app.database import ensure_schema, get_engine
 from app.ingestion import load_filing_into_db
 from app.models import Base
 
@@ -148,6 +148,7 @@ def ingest_official_filing(url: str, politician_name: str, database_url: str | N
 
     engine = get_engine(database_url or "sqlite:///./thewhalefiles.db")
     Base.metadata.create_all(bind=engine)
+    ensure_schema(engine)
 
     imported: list[dict[str, Any]] = []
     for trade in parsed:
@@ -188,6 +189,7 @@ def ingest_real_dataset(
 
     engine = get_engine(database_url or "sqlite:///./thewhalefiles.db")
     Base.metadata.create_all(bind=engine)
+    ensure_schema(engine)
 
     imported: list[dict[str, Any]] = []
     for trade in parsed:

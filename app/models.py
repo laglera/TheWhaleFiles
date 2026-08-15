@@ -13,9 +13,11 @@ class Politician(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
+    # Para los insiders corporativos, chamber guarda el cargo y state la empresa.
     chamber: Mapped[str] = mapped_column(String(80), nullable=False)
     state: Mapped[str] = mapped_column(String(80), nullable=False)
     party: Mapped[str] = mapped_column(String(60), nullable=False, default="")
+    category: Mapped[str] = mapped_column(String(20), nullable=False, default="congress")
 
     trades: Mapped[list["Trade"]] = relationship(back_populates="politician")
 

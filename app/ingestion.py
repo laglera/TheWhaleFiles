@@ -6,7 +6,7 @@ from typing import Optional
 from sqlalchemy import select
 from sqlalchemy.orm import sessionmaker
 
-from app.database import get_engine
+from app.database import ensure_schema, get_engine
 from app.models import Base, Politician, Ticker, Trade
 from app.scraper import parse_senate_filing
 
@@ -20,6 +20,7 @@ def load_filing_into_db(
     trades = parse_senate_filing(raw_text, politician_name)
     engine = get_engine(database_url or "sqlite:///./thewhalefiles.db")
     Base.metadata.create_all(bind=engine)
+    ensure_schema(engine)
     SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
 
     with SessionLocal() as db:

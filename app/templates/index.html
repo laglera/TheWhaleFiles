@@ -1,135 +1,300 @@
-<!DOCTYPE html>
-<html lang="es">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>TheWhaleFiles</title>
-    <link rel="stylesheet" href="/static/styles.css" />
-  </head>
-  <body>
-    <header class="topbar">
-      <div class="brand-block">
-        <h1>TheWhaleFiles</h1>
-        <p>Seguimiento de carteras declaradas por políticos y figuras públicas</p>
+{% extends "base.html" %}
+{% import "_macros.html" as ui %}
+
+{% block body %}
+<div class="brand-canvas">
+  <div class="canvas-decor" aria-hidden="true">
+    <span class="orb orb--1"></span>
+    <span class="orb orb--2"></span>
+    <span class="orb orb--3"></span>
+  </div>
+
+  <header class="hero">
+    <div class="hero__inner">
+      <h1 class="hero__title">TheWhaleFiles</h1>
+      <p class="hero__claim">
+        {{ t.hero_claim_1 }}
+        <span>{{ t.hero_claim_2 }}</span>
+      </p>
+      <div class="hero__actions">
+        <a class="btn btn--primary" href="#ranking">{{ t.hero_cta }}</a>
       </div>
-    </header>
+    </div>
 
-    <main class="container">
-      <section class="panel hero-panel">
-        <div class="hero-copy">
-          <span class="eyebrow">Inteligencia pública</span>
-          <h2>Radiografía de las compras y ventas declaradas por políticos.</h2>
-          <p>Se sigue la actividad pública, filtrada por cámara, partido y ticker para ver quién compra y cuándo.</p>
+    <div class="hero__stats">
+      <div class="stat-band">
+        <div class="stat-tile stat-tile--white">
+          <span>{{ t.stat_trades }}</span>
+          <strong>{{ '{:,.0f}'.format(total_trades) }}</strong>
+          <small>{{ t.stat_trades_sub }}</small>
         </div>
-        <div class="hero-actions">
-          <button id="load-sample" class="primary-button">Cargar filing de ejemplo</button>
+        <div class="stat-tile stat-tile--teal">
+          <span>{{ t.stat_capital }}</span>
+          <strong>{{ ui.money(total_amount) }}</strong>
+          <small>{{ t.stat_capital_sub }}</small>
         </div>
-      </section>
-
-      <section class="stats-row">
-        <div class="stat-card accent">
-          <span>Total de trades</span>
-          <strong>{{ total_trades }}</strong>
+        <div class="stat-tile stat-tile--pink">
+          <span>{{ t.stat_people }}</span>
+          <strong>{{ '{:,.0f}'.format(total_politicians) }}</strong>
+          <small>{{ t.stat_people_sub }}</small>
         </div>
-        <div class="stat-card">
-          <span>Capital reportado</span>
-          <strong>${{ '{:,.0f}'.format(total_amount|default(0)) }}</strong>
+        <div class="stat-tile stat-tile--glass">
+          <span>{{ t.stat_last }}</span>
+          <strong>{{ last_reported.strftime('%d/%m/%Y') if last_reported else '—' }}</strong>
+          <small>{{ t.stat_last_sub }}</small>
         </div>
-        <div class="stat-card">
-          <span>Políticos</span>
-          <strong>{{ total_politicians }}</strong>
+      </div>
+    </div>
+  </header>
+
+  {% if leaderboard %}
+  <section class="band band--brand" id="ranking">
+    <div class="inner">
+      <div class="band-head band-head--center">
+        <div>
+          <h2>{{ t.rank_title }}</h2>
+          <p>{{ t.rank_sub }}</p>
         </div>
-      </section>
+      </div>
 
-      <section class="panel filters-panel">
-        <form class="filters-form" method="get">
-          <label>
-            <span>Buscar</span>
-            <input type="text" name="q" value="{{ active_query }}" placeholder="Nombre, ticker o tipo" />
-          </label>
+      <div class="rank-card">
+        <div class="rank-legend">
+          <span>{{ t.rank_investor }}</span>
+          <span>{{ t.rank_capital }}</span>
+        </div>
+        {% set max_volume = leaderboard|map(attribute='volume')|max %}
+        {% for person in leaderboard %}
+        <a
+          class="rank-row {% if loop.index <= 3 %}rank-row--top{% endif %}"
+          href="/politicians/{{ person.id }}"
+        >
+          <span class="rank-row__pos">{{ loop.index }}</span>
+          {{ ui.face(person.name, 'avatar--sm') }}
+          <span class="rank-row__name">
+            <b>{{ person.name }}</b>
+            <small>
+              <i class="dot dot--{{ person.category }}"></i>
+              {{ person.chamber }} · {{ person.state }}
+            </small>
+          </span>
+          <span class="rank-row__bar">
+            <span class="bar-track">
+              <span
+                class="bar-fill"
+                style="width: {{ (person.volume / max_volume * 100)|round(1) }}%"
+              ></span>
+            </span>
+          </span>
+          <span class="rank-row__amount">
+            <b>{{ ui.money(person.volume) }}</b>
+            <small>{{ '{:,.0f}'.format(person.operations) }} {{ t.rank_ops }}</small>
+          </span>
+        </a>
+        {% endfor %}
+      </div>
+    </div>
+  </section>
+  {% endif %}
+</div>
 
-          <label>
-            <span>Cámara</span>
-            <select name="chamber">
-              <option value="">Todas</option>
-              {% for chamber_name in chambers %}
-              <option value="{{ chamber_name }}" {% if chamber_name == active_chamber %}selected{% endif %}>{{ chamber_name }}</option>
-              {% endfor %}
-            </select>
-          </label>
+<section class="band band--light" id="operaciones">
+  <div class="inner">
+    <div class="band-head">
+      <div>
+        <h2>{{ t.trades_title }}</h2>
+        <p>{{ t.trades_sub }}</p>
+      </div>
+    </div>
 
-          <label>
-            <span>Partido</span>
-            <select name="party">
-              <option value="">Todos</option>
-              {% for party_name in parties %}
-              <option value="{{ party_name }}" {% if party_name == active_party %}selected{% endif %}>{{ party_name }}</option>
-              {% endfor %}
-            </select>
-          </label>
+    <form class="filters" method="get">
+      <input type="hidden" name="lang" value="{{ lang }}" />
+      <label class="field">
+        <span>{{ t.filter_search }}</span>
+        <input type="text" name="q" value="{{ active_query }}" placeholder="{{ t.filter_search_ph }}" />
+      </label>
 
-          <button type="submit" class="secondary-button">Aplicar filtros</button>
-        </form>
-      </section>
+      <label class="field">
+        <span>{{ t.filter_category }}</span>
+        <select name="category">
+          <option value="">{{ t.cat_all }}</option>
+          <option value="congress" {% if active_category == 'congress' %}selected{% endif %}>
+            {{ t.cat_congress }}
+          </option>
+          <option value="business" {% if active_category == 'business' %}selected{% endif %}>
+            {{ t.cat_business }}
+          </option>
+        </select>
+      </label>
 
-      <section class="panel">
-        <h2>Trades recientes</h2>
-        <div class="stats-grid">
-          {% for trade in recent_trades %}
-          <article class="trade-card">
-            <div class="trade-topline">
-              <span class="trade-type {{ 'buy' if trade.trade_type == 'Buy' else 'sell' }}">{{ trade.trade_type }}</span>
-              <span class="trade-date">{{ trade.reported_date.strftime('%Y-%m-%d') }}</span>
-            </div>
-            <h3>{{ trade.politician.name }}</h3>
-            <p>{{ trade.ticker.symbol }} · {{ trade.politician.chamber }}</p>
-            <strong>${{ '{:,.0f}'.format(trade.amount|default(0)) }}</strong>
-          </article>
-          {% else %}
-          <p class="empty-state">No hay trades para los filtros actuales.</p>
+      <label class="field">
+        <span>{{ t.filter_chamber }}</span>
+        <select name="chamber">
+          <option value="">{{ t.filter_all_f }}</option>
+          {% for chamber_name in chambers %}
+          <option value="{{ chamber_name }}" {% if chamber_name == active_chamber %}selected{% endif %}>
+            {{ chamber_name }}
+          </option>
+          {% endfor %}
+        </select>
+      </label>
+
+      <label class="field">
+        <span>{{ t.filter_party }}</span>
+        <select name="party">
+          <option value="">{{ t.filter_all_m }}</option>
+          {% for party_name in parties %}
+          <option value="{{ party_name }}" {% if party_name == active_party %}selected{% endif %}>
+            {{ party_name }}
+          </option>
+          {% endfor %}
+        </select>
+      </label>
+
+      <button type="submit" class="btn btn--cobalt">{{ t.filter_submit }}</button>
+      {% if has_filters %}
+      <a class="btn btn--soft" href="/?lang={{ lang }}">{{ t.filter_clear }}</a>
+      {% endif %}
+    </form>
+
+    <div class="trade-grid">
+      {% for trade in recent_trades %}
+      <a class="trade-card" href="/politicians/{{ trade.politician.id }}">
+        <div class="trade-card__top">
+          {{ ui.side_tag(trade.trade_type, t) }}
+          <span class="trade-card__date">{{ trade.reported_date.strftime('%d/%m/%Y') }}</span>
+        </div>
+        <div class="trade-card__ident">
+          <span class="avatar" data-slot="{{ trade.ticker.symbol|accent_slot }}">
+            {{ ui.initials(trade.ticker.symbol) }}
+          </span>
+          <div>
+            <h3>{{ trade.ticker.symbol }}</h3>
+            <small>{{ trade.politician.name }} · {{ trade.politician.chamber }}</small>
+          </div>
+        </div>
+        <div class="trade-card__foot">
+          <div>
+            <span>{{ t.trade_amount }}</span>
+            <strong>{{ ui.money(trade.amount) }}</strong>
+          </div>
+          <span class="tag tag--plain">{{ trade.politician.state }}</span>
+        </div>
+      </a>
+      {% else %}
+      <p class="empty-state empty-state--wide">{{ t.trades_empty }}</p>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+
+{% if top_tickers %}
+<section class="band band--soft" id="tendencias">
+  <div class="inner">
+    <div class="band-head">
+      <div>
+        <h2>{{ t.trends_title }}</h2>
+        <p>{{ t.trends_sub }}</p>
+      </div>
+    </div>
+
+    <div class="viz-grid">
+      <div class="card">
+        <h3 class="card__title">{{ t.trends_top_title }}</h3>
+        <p class="card__sub">{{ t.trends_top_sub.format(n=top_tickers|length) }}</p>
+        {% set max_ops = top_tickers|map(attribute='operations')|max %}
+        <div class="bars">
+          {% for item in top_tickers %}
+          {% set ratio = item.operations / max_ops %}
+          {% set step = 7 - [[(ratio * 6)|round(0, 'ceil')|int, 1]|max, 6]|min %}
+          <div class="bar-row">
+            <span class="bar-row__label">{{ item.symbol }}</span>
+            <span class="bar-track">
+              <span
+                class="bar-fill bar-fill--{{ step }}"
+                style="width: {{ (ratio * 100)|round(1) }}%"
+              ></span>
+            </span>
+            <span class="bar-row__value">
+              {{ '{:,.0f}'.format(item.operations) }} {{ t.ops_short }} · {{ ui.money(item.volume) }}
+            </span>
+          </div>
           {% endfor %}
         </div>
-      </section>
+      </div>
 
-      <section class="panel">
-        <h2>Políticos</h2>
-        <div class="politicians-list">
-          {% for politician in politicians %}
-          <a class="politician-item politician-link" href="/politicians/{{ politician.id }}">
-            <div>
-              <h3>{{ politician.name }}</h3>
-              <small>{{ politician.chamber }} · {{ politician.state }} · {{ politician.party }}</small>
-            </div>
-            <span>{{ politician.trades|length }} operaciones</span>
-          </a>
-          {% else %}
-          <p class="empty-state">No hay políticos que coincidan con esta búsqueda.</p>
-          {% endfor %}
+      <div class="card">
+        <h3 class="card__title">{{ t.trends_split_title }}</h3>
+        <p class="card__sub">{{ t.trends_split_sub }}</p>
+        {{ ui.split_chart(side_counts, t) }}
+      </div>
+    </div>
+  </div>
+</section>
+{% endif %}
+
+<section class="band band--light" id="politicos">
+  <div class="inner">
+    <div class="band-head">
+      <div>
+        <h2>{{ t.people_title }}</h2>
+        <p>{{ t.people_sub }}</p>
+      </div>
+      <span class="tag tag--plain">
+        {{ t.people_active.format(n='{:,.0f}'.format(total_politicians)) }}
+      </span>
+    </div>
+
+    <div class="people-grid">
+      {% for politician in politicians %}
+      <a class="person-card" href="/politicians/{{ politician.id }}">
+        {{ ui.face(politician.name) }}
+        <div class="person-card__body">
+          <h3>{{ politician.name }}</h3>
+          <small>
+            <i class="dot dot--{{ politician.category }}"></i>
+            {{ politician.chamber }} · {{ politician.state }}
+          </small>
         </div>
-      </section>
-    </main>
+        <div class="person-card__count">
+          <strong>{{ '{:,.0f}'.format(politician.operations) }}</strong>
+          <span>{{ t.people_ops }}</span>
+        </div>
+      </a>
+      {% else %}
+      <p class="empty-state empty-state--wide">{{ t.people_empty }}</p>
+      {% endfor %}
+    </div>
 
-    <script>
-      document.getElementById('load-sample')?.addEventListener('click', async () => {
-        const button = document.getElementById('load-sample');
-        if (!button) return;
+    {% if hidden_politicians %}
+    <p class="more-note">
+      {{ t.people_more.format(n='{:,.0f}'.format(hidden_politicians)) }}
+      <a href="/api/politicians">{{ t.people_more_link }}</a>.
+    </p>
+    {% endif %}
+  </div>
+</section>
+{% endblock %}
 
-        button.disabled = true;
-        button.textContent = 'Cargando...';
+{% block scripts %}
+<script>
+  document.getElementById('load-sample')?.addEventListener('click', async (event) => {
+    const button = event.currentTarget;
+    const original = button.textContent;
 
-        try {
-          const response = await fetch('/api/load-sample-filing', { method: 'POST' });
-          if (!response.ok) {
-            throw new Error('No se pudo cargar el filing');
-          }
+    button.disabled = true;
+    button.textContent = {{ t.nav_loading|tojson }};
 
-          window.location.reload();
-        } catch (error) {
-          button.disabled = false;
-          button.textContent = 'Cargar filing de ejemplo';
-          alert('No se pudo cargar el filing de prueba.');
-        }
-      });
-    </script>
-  </body>
-</html>
+    try {
+      const response = await fetch('/api/load-sample-filing', { method: 'POST' });
+      if (!response.ok) {
+        throw new Error('No se pudo cargar el filing');
+      }
+      window.location.reload();
+    } catch (error) {
+      button.disabled = false;
+      button.textContent = original;
+      alert({{ t.nav_load_error|tojson }});
+    }
+  });
+</script>
+{% endblock %}

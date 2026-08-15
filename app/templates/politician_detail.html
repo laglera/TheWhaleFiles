@@ -1,77 +1,208 @@
-<!DOCTYPE html>
-<html lang="es">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>{{ politician.name }} | TheWhaleFiles</title>
-    <link rel="stylesheet" href="/static/styles.css" />
-  </head>
-  <body>
-    <header class="topbar">
-      <div class="brand-block detail-header">
-        <div>
-          <a class="back-link" href="/">← Volver</a>
-          <h1>{{ politician.name }}</h1>
+{% extends "base.html" %}
+{% import "_macros.html" as ui %}
+
+{% block title %}{{ politician.name }} | TheWhaleFiles{% endblock %}
+
+{% block nav_action %}
+<a class="btn btn--primary btn--sm" href="/">{{ t.nav_back_index }}</a>
+{% endblock %}
+
+{% block body %}
+<div class="brand-canvas">
+  <div class="canvas-decor" aria-hidden="true">
+    <span class="orb orb--1"></span>
+    <span class="orb orb--2"></span>
+  </div>
+
+  <header class="profile">
+    <div class="profile__inner">
+      <a class="back-link" href="/">← {{ t.profile_back }}</a>
+
+      <div class="profile__grid">
+        {% set portrait = politician.name|photo_url_lg %}
+        {% if portrait %}
+        <figure class="portrait portrait--photo">
+          <img src="{{ portrait }}" alt="{{ politician.name }}" width="450" height="550" />
+          <figcaption>{{ politician.chamber }}</figcaption>
+        </figure>
+        {% else %}
+        <div class="portrait">
+          <span class="avatar" data-slot="{{ politician.name|accent_slot }}">
+            {{ ui.initials(politician.name) }}
+          </span>
+          <span>{{ politician.chamber }}</span>
         </div>
-        <p>{{ politician.chamber }} · {{ politician.state }} · {{ politician.party }}</p>
+        {% endif %}
+
+        <div class="identity">
+          <div class="identity__top">
+            <h1>{{ politician.name }}</h1>
+            <button
+              class="follow-btn btn btn--cobalt btn--sm"
+              type="button"
+              aria-pressed="false"
+              data-politician="{{ politician.id }}"
+              data-follow="{{ t.profile_follow }}"
+              data-following="{{ t.profile_following }}"
+            >
+              {{ t.profile_follow }}
+            </button>
+          </div>
+
+          <p class="identity__bio">{{ bio_html }}</p>
+
+          <div class="profile__tags">
+            <span class="tag tag--plain">{{ politician.chamber }}</span>
+            <span class="tag tag--plain">{{ politician.state }}</span>
+            <span class="tag tag--plain">
+              {%- if politician.category == 'business' -%}
+              {{ t.badge_business }}
+              {%- else -%}
+              {{ politician.party or t.profile_no_party }}
+              {%- endif -%}
+            </span>
+          </div>
+        </div>
       </div>
-    </header>
 
-    <main class="container detail-container">
-      <section class="panel profile-summary">
-        <div class="profile-overview">
-          <div>
-            <span class="eyebrow">Perfil público</span>
-            <h2>{{ politician.name }}</h2>
+      <div class="hero__stats">
+        <div class="stat-band">
+          <div class="stat-tile stat-tile--white">
+            <span>{{ t.stat_trades }}</span>
+            <strong>{{ '{:,.0f}'.format(total_trades) }}</strong>
+            <small>{{ t.stat_ops_declared }}</small>
           </div>
-          <div class="profile-tags">
-            <span>{{ politician.chamber }}</span>
-            <span>{{ politician.state }}</span>
-            <span>{{ politician.party }}</span>
+          <div class="stat-tile stat-tile--teal">
+            <span>{{ t.stat_capital }}</span>
+            <strong>{{ ui.money(total_amount) }}</strong>
+            <small>{{ t.stat_capital_sub }}</small>
+          </div>
+          <div class="stat-tile stat-tile--pink">
+            <span>{{ t.stat_split }}</span>
+            <strong>{{ side_counts.buy }} · {{ side_counts.sell }}</strong>
+            <small>{{ t.stat_split_sub }}</small>
+          </div>
+          <div class="stat-tile stat-tile--glass">
+            <span>{{ t.stat_last_trade }}</span>
+            <strong>{{ trades[0].reported_date.strftime('%d/%m/%Y') if trades else '—' }}</strong>
+            <small>{{ t.stat_last_sub }}</small>
           </div>
         </div>
-      </section>
+      </div>
+    </div>
+  </header>
+</div>
 
-      <section class="stats-row detail-stats">
-        <div class="stat-card accent">
-          <span>Operaciones</span>
-          <strong>{{ trades|length }}</strong>
-        </div>
-        <div class="stat-card">
-          <span>Capital reportado</span>
-          <strong>${{ '{:,.0f}'.format(total_amount) }}</strong>
-        </div>
-        <div class="stat-card">
-          <span>Última operación</span>
-          <strong>{{ trades[0].reported_date.strftime('%Y-%m-%d') if trades else 'Sin datos' }}</strong>
-        </div>
-      </section>
-
-      <section class="panel">
-        <h2>Historial de operaciones</h2>
-        <div class="history-list">
-          {% for trade in trades %}
-          <article class="history-item">
-            <div class="trade-topline">
-              <span class="trade-type {{ 'buy' if trade.trade_type == 'Buy' else 'sell' }}">{{ trade.trade_type }}</span>
-              <span class="trade-date">{{ trade.reported_date.strftime('%Y-%m-%d') }}</span>
-            </div>
-            <div class="history-content">
-              <div>
-                <strong>{{ trade.ticker.symbol }}</strong>
-                <p>{{ trade.ticker.name }}</p>
-              </div>
-              <div class="history-amount">
-                <span>Monto</span>
-                <strong>${{ '{:,.0f}'.format(trade.amount) }}</strong>
-              </div>
-            </div>
-          </article>
-          {% else %}
-          <p class="empty-state">Este político aún no tiene operaciones registradas.</p>
+{% if top_tickers %}
+<section class="band band--soft band--tight">
+  <div class="inner">
+    <div class="viz-grid">
+      <div class="card">
+        <h3 class="card__title">{{ t.trends_top_title }}</h3>
+        <p class="card__sub">{{ t.profile_top_sub.format(n=top_tickers|length) }}</p>
+        {% set max_ops = top_tickers|map(attribute='operations')|max %}
+        <div class="bars">
+          {% for item in top_tickers %}
+          {% set ratio = item.operations / max_ops %}
+          {% set step = 7 - [[(ratio * 6)|round(0, 'ceil')|int, 1]|max, 6]|min %}
+          <div class="bar-row">
+            <span class="bar-row__label">{{ item.symbol }}</span>
+            <span class="bar-track">
+              <span
+                class="bar-fill bar-fill--{{ step }}"
+                style="width: {{ (ratio * 100)|round(1) }}%"
+              ></span>
+            </span>
+            <span class="bar-row__value">
+              {{ '{:,.0f}'.format(item.operations) }} {{ t.ops_short }} · {{ ui.money(item.volume) }}
+            </span>
+          </div>
           {% endfor %}
         </div>
-      </section>
-    </main>
-  </body>
-</html>
+      </div>
+
+      <div class="card">
+        <h3 class="card__title">{{ t.trends_split_title }}</h3>
+        <p class="card__sub">
+          {{ t.trends_split_sub_profile.format(n='{:,.0f}'.format(total_trades)) }}
+        </p>
+        {{ ui.split_chart(side_counts, t) }}
+      </div>
+    </div>
+  </div>
+</section>
+{% endif %}
+
+<section class="band band--light">
+  <div class="inner">
+    <div class="band-head">
+      <div>
+        <h2>{{ t.history_title }}</h2>
+        <p>{{ t.history_sub }}</p>
+      </div>
+    </div>
+
+    {% if trades %}
+    <div class="ledger">
+      <div class="ledger__head">
+        <span>{{ t.history_type }}</span>
+        <span>{{ t.history_security }}</span>
+        <span>{{ t.history_date }}</span>
+        <span class="ledger__amount-head">{{ t.history_amount }}</span>
+      </div>
+      {% for trade in trades %}
+      <div class="ledger__row">
+        {{ ui.side_tag(trade.trade_type, t) }}
+        <div class="ledger__symbol">
+          <span class="avatar avatar--sm" data-slot="{{ trade.ticker.symbol|accent_slot }}">
+            {{ ui.initials(trade.ticker.symbol) }}
+          </span>
+          <div>
+            <b>{{ trade.ticker.symbol }}</b>
+            {% if trade.ticker.name and trade.ticker.name != trade.ticker.symbol %}
+            <small>{{ trade.ticker.name }}</small>
+            {% endif %}
+          </div>
+        </div>
+        <span class="ledger__date">{{ trade.reported_date.strftime('%d/%m/%Y') }}</span>
+        <span class="ledger__amount">{{ ui.money(trade.amount) }}</span>
+      </div>
+      {% endfor %}
+    </div>
+
+    {% if hidden_trades %}
+    <p class="more-note">
+      {{ t.history_more.format(n='{:,.0f}'.format(hidden_trades)) }}
+      <a href="/api/politicians/{{ politician.id }}">{{ t.people_more_link }}</a>.
+    </p>
+    {% endif %}
+    {% else %}
+    <p class="empty-state">{{ t.history_empty }}</p>
+    {% endif %}
+  </div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  // "Seguir" se guarda solo en este navegador: no hay cuentas ni backend de seguimiento.
+  (() => {
+    const button = document.querySelector('.follow-btn');
+    if (!button) return;
+
+    const key = `twf:following:${button.dataset.politician}`;
+    const render = (following) => {
+      button.setAttribute('aria-pressed', String(following));
+      button.textContent = following ? button.dataset.following : button.dataset.follow;
+    };
+
+    render(localStorage.getItem(key) === '1');
+
+    button.addEventListener('click', () => {
+      const following = button.getAttribute('aria-pressed') !== 'true';
+      localStorage.setItem(key, following ? '1' : '0');
+      render(following);
+    });
+  })();
+</script>
+{% endblock %}
