@@ -17,7 +17,7 @@ from app.database import SessionLocal, get_db, init_db
 from app.i18n import DEFAULT_LANG, get_translations, normalise_lang
 from app.ingestion import load_filing_into_db
 from app.models import Politician, Ticker, Trade
-from app.prices import api_key as price_api_key
+from app.prices import provider_name as price_source
 from app.prices import value_holdings
 from app.scheduler import polling_enabled, start_polling_loop
 from app.sources import poll_official_sources
@@ -404,7 +404,9 @@ def politician_detail_page(
         entry["operations"] += 1
         entry["volume"] += float(trade.amount)
 
-    top_tickers = sorted(ticker_volume.values(), key=lambda item: item["operations"], reverse=True)[:5]
+    # Ordenado por capital, no por número de operaciones: en una ficha con
+    # una operación por valor, contar operaciones no distingue nada.
+    top_tickers = sorted(ticker_volume.values(), key=lambda item: item["volume"], reverse=True)[:5]
     visible_trades = ordered_trades[:60]
     resolved_lang = resolve_lang(request, lang)
 
@@ -441,7 +443,7 @@ def politician_detail_page(
             "bio_is_fallback": bio_is_fallback,
             "bio_headline": headline,
             "wealth": wealth,
-            "prices_configured": bool(price_api_key()),
+            "price_source": price_source(),
         },
         resolved_lang,
     )

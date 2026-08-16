@@ -8,7 +8,7 @@
 {% endblock %}
 
 {% block body %}
-<div class="brand-canvas">
+<div class="brand-canvas brand-canvas--profile">
   <div class="canvas-decor" aria-hidden="true">
     <span class="orb orb--1"></span>
     <span class="orb orb--2"></span>
@@ -20,36 +20,46 @@
 
       <div class="profile__grid">
         {% set portrait = politician.name|photo_url_lg %}
-        {% if portrait %}
-        <figure class="portrait portrait--photo">
-          <img src="{{ portrait }}" alt="{{ politician.name }}" width="450" height="550" />
-          <figcaption>
-            {{ politician.chamber }}
-            {% if politician.photo_license %}
-            <small class="credit">
-              {% if politician.photo_source_url %}
-              <a href="{{ politician.photo_source_url }}" target="_blank" rel="noopener noreferrer">
-                {{ t.profile_photo_credit.format(author=politician.photo_author or 'Wikimedia Commons', license=politician.photo_license) }}
-              </a>
-              {% else %}
-              {{ t.profile_photo_credit.format(author=politician.photo_author or 'Wikimedia Commons', license=politician.photo_license) }}
-              {% endif %}
-            </small>
-            {% endif %}
-          </figcaption>
-        </figure>
-        {% else %}
         <div class="portrait">
-          <span class="avatar" data-slot="{{ politician.name|accent_slot }}">
-            {{ ui.initials(politician.name) }}
-          </span>
-          <span>{{ politician.chamber }}</span>
+          {% if portrait %}
+          <figure class="portrait__frame">
+            <img src="{{ portrait }}" alt="{{ politician.name }}" width="450" height="562" />
+          </figure>
+          {% if politician.photo_license %}
+          <p class="portrait__credit">
+            {% if politician.photo_source_url %}
+            <a href="{{ politician.photo_source_url }}" target="_blank" rel="noopener noreferrer">
+              {{ t.profile_photo_credit.format(author=politician.photo_author or 'Wikimedia Commons', license=politician.photo_license) }}
+            </a>
+            {% else %}
+            {{ t.profile_photo_credit.format(author=politician.photo_author or 'Wikimedia Commons', license=politician.photo_license) }}
+            {% endif %}
+          </p>
+          {% endif %}
+          {% else %}
+          <div class="portrait__frame portrait__frame--empty">
+            <span class="avatar" data-slot="{{ politician.name|accent_slot }}">
+              {{ ui.initials(politician.name) }}
+            </span>
+          </div>
+          {% endif %}
         </div>
-        {% endif %}
 
         <div class="identity">
           <div class="identity__top">
-            <h1>{{ politician.name }}</h1>
+            <div>
+              <p class="identity__kicker">
+                <i class="dot dot--{{ politician.category }}"></i>
+                {{ politician.chamber }}{% if politician.state %} · {{ politician.state }}{% endif %}
+                {%- if politician.category == 'congress' and politician.party and politician.party != 'Unknown' %}
+                · {{ politician.party }}
+                {%- endif %}
+              </p>
+              <h1>{{ politician.name }}</h1>
+              {% if bio_headline %}
+              <p class="identity__headline">{{ bio_headline }}</p>
+              {% endif %}
+            </div>
             <button
               class="follow-btn btn btn--cobalt btn--sm"
               type="button"
@@ -62,13 +72,15 @@
             </button>
           </div>
 
-          {% if bio_headline %}
-          <p class="identity__headline">{{ bio_headline }}</p>
-          {% endif %}
-
           {% if bio %}
-          <p class="identity__bio">{{ bio }}</p>
+          <div class="identity__bio" data-clamp>
+            <p>{{ bio }}</p>
+          </div>
           <p class="identity__source">
+            <button class="linkish" type="button" data-expand
+                    data-more="{{ t.profile_bio_more }}" data-less="{{ t.profile_bio_less }}" hidden>
+              {{ t.profile_bio_more }}
+            </button>
             {% if bio_is_fallback %}<em>{{ t.profile_bio_other_lang }}</em> · {% endif %}
             {% if politician.bio_source_url %}
             <a href="{{ politician.bio_source_url }}" target="_blank" rel="noopener noreferrer">
@@ -81,51 +93,45 @@
           {% else %}
           <p class="identity__bio identity__bio--empty">{{ t.profile_bio_empty }}</p>
           {% endif %}
-
-          <div class="profile__tags">
-            <span class="tag tag--plain">{{ politician.chamber }}</span>
-            <span class="tag tag--plain">{{ politician.state }}</span>
-            <span class="tag tag--plain">
-              {%- if politician.category == 'business' -%}
-              {{ t.badge_business }}
-              {%- else -%}
-              {{ politician.party or t.profile_no_party }}
-              {%- endif -%}
-            </span>
-          </div>
         </div>
       </div>
 
-      <div class="hero__stats">
-        <div class="stat-band">
-          <div class="stat-tile stat-tile--white">
-            <span>{{ t.stat_trades }}</span>
-            <strong>{{ '{:,.0f}'.format(total_trades) }}</strong>
-            <small>{{ t.stat_ops_declared }}</small>
-          </div>
-          <div class="stat-tile stat-tile--teal">
-            <span>{{ t.stat_capital }}</span>
-            <strong>{{ ui.money(total_amount) }}</strong>
-            <small>{{ t.stat_capital_sub }}</small>
-          </div>
-          <div class="stat-tile stat-tile--pink">
-            <span>{{ t.stat_split }}</span>
-            <strong>{{ side_counts.buy }} · {{ side_counts.sell }}</strong>
-            <small>{{ t.stat_split_sub }}</small>
-          </div>
-          <div class="stat-tile stat-tile--glass">
-            <span>{{ t.stat_last_trade }}</span>
-            <strong>{{ trades[0].reported_date.strftime('%d/%m/%Y') if trades else '—' }}</strong>
-            <small>{{ t.stat_last_sub }}</small>
-          </div>
+      <div class="profile-stats">
+        <div class="stat-cell">
+          <span>{{ t.stat_trades }}</span>
+          <strong>{{ '{:,.0f}'.format(total_trades) }}</strong>
+          <small>{{ t.stat_ops_declared }}</small>
+        </div>
+        <div class="stat-cell">
+          <span>{{ t.stat_capital }}</span>
+          <strong>{{ ui.money(total_amount) }}</strong>
+          <small>{{ t.stat_capital_sub }}</small>
+        </div>
+        <div class="stat-cell">
+          <span>{{ t.stat_split }}</span>
+          <strong class="stat-cell__split">
+            <i class="swatch swatch--buy"></i>{{ '{:,.0f}'.format(side_counts.buy) }}
+            <em>/</em>
+            <i class="swatch swatch--sell"></i>{{ '{:,.0f}'.format(side_counts.sell) }}
+          </strong>
+          <small>{{ t.stat_split_sub }}</small>
+        </div>
+        <div class="stat-cell">
+          <span>{{ t.stat_last_trade }}</span>
+          <strong>{{ trades[0].reported_date.strftime('%d/%m/%Y') if trades else '—' }}</strong>
+          <small>{{ t.stat_last_sub }}</small>
         </div>
       </div>
+
+      {% if politician.category != 'business' %}
+      <p class="profile-note">{{ t.wealth_congress_note }}</p>
+      {% endif %}
     </div>
   </header>
 </div>
 
 {% if wealth and wealth.positions %}
-<section class="band band--soft band--tight" id="patrimonio">
+<section class="band band--soft band--profile" id="patrimonio">
   <div class="inner">
     <div class="band-head">
       <div>
@@ -134,8 +140,15 @@
       </div>
       <div class="wealth-total">
         <span>{{ t.wealth_total }}</span>
+        {% if wealth.valued %}
         <strong>{{ ui.money(wealth.total) }}</strong>
+        <small>
+          {{ t.wealth_positions }}: {{ wealth.valued }}{% if wealth.missing %} · {{ t.wealth_missing_short.format(n=wealth.missing) }}{% endif %}
+        </small>
+        {% else %}
+        <strong class="wealth-total--empty">{{ t.wealth_unavailable }}</strong>
         <small>{{ t.wealth_positions }}: {{ wealth.positions|length }}</small>
+        {% endif %}
       </div>
     </div>
 
@@ -181,36 +194,28 @@
       {% endfor %}
     </div>
 
-    <p class="more-note">
+    <p class="more-note more-note--left">
       {{ t.wealth_disclaimer }}
-      {% if wealth.missing %}<br />{{ t.wealth_missing.format(n=wealth.missing) }}{% endif %}
+      {% if wealth.missing %} {{ t.wealth_missing.format(n=wealth.missing) }}{% endif %}
       {% if wealth.fetched_at %}
-      <br />{{ t.wealth_updated.format(when=wealth.fetched_at.strftime('%d/%m/%Y %H:%M UTC')) }}
-      {% elif not prices_configured %}
-      <br />{{ t.wealth_no_key }}
+      · {{ t.wealth_updated.format(when=wealth.fetched_at.strftime('%d/%m/%Y %H:%M UTC'), source=price_source) }}
       {% endif %}
     </p>
-  </div>
-</section>
-{% elif politician.category != 'business' %}
-<section class="band band--soft band--tight">
-  <div class="inner">
-    <p class="empty-state">{{ t.wealth_congress_note }}</p>
   </div>
 </section>
 {% endif %}
 
 {% if top_tickers %}
-<section class="band band--soft band--tight">
+<section class="band band--soft band--profile">
   <div class="inner">
     <div class="viz-grid">
       <div class="card">
         <h3 class="card__title">{{ t.trends_top_title }}</h3>
         <p class="card__sub">{{ t.profile_top_sub.format(n=top_tickers|length) }}</p>
-        {% set max_ops = top_tickers|map(attribute='operations')|max %}
+        {% set max_volume = top_tickers|map(attribute='volume')|max %}
         <div class="bars">
           {% for item in top_tickers %}
-          {% set ratio = item.operations / max_ops %}
+          {% set ratio = item.volume / max_volume if max_volume else 0 %}
           {% set step = 7 - [[(ratio * 6)|round(0, 'ceil')|int, 1]|max, 6]|min %}
           <div class="bar-row">
             <span class="bar-row__label">{{ item.symbol }}</span>
@@ -240,7 +245,7 @@
 </section>
 {% endif %}
 
-<section class="band band--light">
+<section class="band band--light band--profile">
   <div class="inner">
     <div class="band-head">
       <div>
@@ -292,6 +297,25 @@
 
 {% block scripts %}
 <script>
+  // La biografía se recorta a cinco líneas; el botón solo aparece si de verdad
+  // hay texto oculto, para no ofrecer desplegar dos frases.
+  (() => {
+    const bio = document.querySelector('.identity__bio[data-clamp]');
+    const button = document.querySelector('[data-expand]');
+    if (!bio || !button) return;
+
+    // El recorte se aplica al párrafo, así que es ahí donde hay desbordamiento.
+    const text = bio.querySelector('p');
+    if (!text || text.scrollHeight - text.clientHeight <= 4) return;
+
+    button.hidden = false;
+    button.addEventListener('click', () => {
+      const open = bio.getAttribute('data-clamp') === 'open';
+      bio.setAttribute('data-clamp', open ? '' : 'open');
+      button.textContent = open ? button.dataset.more : button.dataset.less;
+    });
+  })();
+
   // "Seguir" se guarda solo en este navegador: no hay cuentas ni backend de seguimiento.
   (() => {
     const button = document.querySelector('.follow-btn');

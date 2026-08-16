@@ -295,6 +295,21 @@ a {
   letter-spacing: -0.48px;
 }
 
+/* En la ficha los encabezados de sección no pueden pesar más que el nombre
+   de la persona, que es de lo que va la página. */
+.band--profile .band-head h2 {
+  font-size: clamp(24px, 2.6vw, 30px);
+  letter-spacing: -0.02em;
+}
+
+.band--profile .band-head {
+  margin-bottom: 22px;
+}
+
+.band--profile {
+  padding: 48px 0;
+}
+
 .band-head p {
   margin: 8px 0 0;
   color: var(--mute);
@@ -1464,7 +1479,21 @@ a {
 .profile {
   position: relative;
   color: var(--on-dark);
-  padding: 128px 0 72px;
+  padding: 108px 0 56px;
+}
+
+/* En la ficha, el degradado de marca compite con el retrato y con los datos:
+   se rebaja a un fondo oscuro con sólo un rastro de color. */
+.brand-canvas--profile {
+  background: var(--canvas-dark);
+}
+
+.brand-canvas--profile .orb {
+  opacity: 0.16;
+}
+
+.brand-canvas--profile::before {
+  opacity: 0.35;
 }
 
 .profile__inner {
@@ -1498,18 +1527,36 @@ a {
   align-items: stretch;
 }
 
+/* El retrato manda una proporción fija: los originales de Commons van de
+   cuadrados a muy verticales, y sin esto cada ficha recortaba distinto. */
 .portrait {
-  min-height: 280px;
-  border-radius: var(--r-xl);
-  background: var(--glass);
-  border: 1px solid var(--glass-line);
   display: flex;
   flex-direction: column;
+  gap: 10px;
+}
+
+.portrait__frame {
+  margin: 0;
+  border-radius: var(--r-lg);
+  overflow: hidden;
+  background: var(--glass);
+  border: 1px solid var(--glass-line);
+  aspect-ratio: 4 / 5;
+}
+
+.portrait__frame img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  /* Alto: encuadra la cara, no el pecho. */
+  object-position: 50% 12%;
+  display: block;
+}
+
+.portrait__frame--empty {
+  display: flex;
   align-items: center;
   justify-content: center;
-  gap: 16px;
-  padding: 24px;
-  text-align: center;
 }
 
 .portrait .avatar {
@@ -1519,42 +1566,22 @@ a {
   border: 3px solid rgba(255, 255, 255, 0.35);
 }
 
-/* Con retrato oficial la foto ocupa toda la tarjeta */
-.portrait--photo {
-  position: relative;
+/* La atribución va bajo la foto: encima quedaba ilegible sobre la ropa */
+.portrait__credit {
   margin: 0;
-  padding: 0;
-  overflow: hidden;
-  display: block;
+  font-size: 11.5px;
+  line-height: 1.4;
+  color: rgba(255, 255, 255, 0.5);
 }
 
-.portrait--photo img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  object-position: 50% 15%;
-  display: block;
+.portrait__credit a {
+  color: inherit;
+  text-decoration: none;
 }
 
-.portrait--photo figcaption {
-  position: absolute;
-  inset: auto 0 0 0;
-  padding: 32px 16px 14px;
-  background: linear-gradient(to top, rgba(10, 12, 40, 0.78), transparent);
-  color: #ffffff;
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  text-align: center;
-}
-
-.portrait span {
-  color: rgba(255, 255, 255, 0.78);
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+.portrait__credit a:hover {
+  color: rgba(255, 255, 255, 0.8);
+  text-decoration: underline;
 }
 
 .identity {
@@ -1575,14 +1602,47 @@ a {
   font-size: clamp(30px, 3.6vw, 44px);
   line-height: 1.08;
   letter-spacing: -0.02em;
+  margin: 2px 0 0;
+}
+
+/* Cargo, procedencia y partido: el contexto que antes iban como pills sueltas
+   al final del bloque, donde no se leían como parte de la identidad. */
+.identity__kicker {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--mute);
 }
 
 .identity__bio {
-  margin: 16px 0 0;
+  margin: 18px 0 0;
   color: var(--body);
-  font-size: 17px;
-  line-height: 1.6;
-  max-width: 62ch;
+  font-size: 16.5px;
+  line-height: 1.62;
+  max-width: 64ch;
+}
+
+.identity__bio p {
+  margin: 0;
+}
+
+/* Las entradas de Wikipedia van de dos líneas a veinte: se recorta a un
+   tamaño constante y el resto se despliega. */
+.identity__bio[data-clamp] p {
+  display: -webkit-box;
+  -webkit-line-clamp: 5;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.identity__bio[data-clamp='open'] p {
+  -webkit-line-clamp: unset;
+  overflow: visible;
 }
 
 .identity__bio b {
@@ -1591,11 +1651,26 @@ a {
 
 /* Descriptor corto de Wikidata: "política estadounidense" */
 .identity__headline {
-  margin: 8px 0 0;
+  margin: 6px 0 0;
   color: var(--mute);
   font-size: 15px;
+  font-weight: 500;
+}
+
+.linkish {
+  border: 0;
+  background: none;
+  padding: 0;
+  font: inherit;
   font-weight: 600;
-  letter-spacing: 0.01em;
+  color: var(--link);
+  cursor: pointer;
+}
+
+.linkish::after {
+  content: ' ·';
+  color: var(--mute);
+  font-weight: 400;
 }
 
 .identity__bio--empty {
@@ -1634,6 +1709,108 @@ a {
 
 .portrait figcaption .credit a:hover {
   text-decoration: underline;
+}
+
+/* Métricas de la ficha. Antes eran cuatro tarjetas de cuatro colores planos
+   (gris, verde, rojo, azul) sobre el degradado de marca: competían entre sí y
+   con el fondo. Ahora es una sola superficie y el color sólo aparece donde
+   significa algo, en el reparto de compras y ventas. */
+.profile-stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin-top: 28px;
+  background: var(--glass);
+  border: 1px solid var(--glass-line);
+  border-radius: var(--r-lg);
+  overflow: hidden;
+}
+
+.stat-cell {
+  padding: 22px 24px;
+  display: grid;
+  gap: 4px;
+  align-content: start;
+  border-left: 1px solid var(--glass-line);
+}
+
+.stat-cell:first-child {
+  border-left: 0;
+}
+
+.stat-cell span {
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.stat-cell strong {
+  font-size: clamp(22px, 2.4vw, 30px);
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+  color: var(--on-dark);
+  font-variant-numeric: tabular-nums;
+}
+
+.stat-cell small {
+  font-size: 12.5px;
+  color: rgba(255, 255, 255, 0.5);
+  line-height: 1.35;
+}
+
+.stat-cell__split {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.stat-cell__split em {
+  font-style: normal;
+  color: rgba(255, 255, 255, 0.35);
+  font-weight: 400;
+}
+
+.swatch {
+  width: 9px;
+  height: 9px;
+  border-radius: var(--r-full);
+  display: inline-block;
+}
+
+.swatch--buy { background: var(--buy); }
+.swatch--sell { background: var(--sell); }
+
+@media (max-width: 900px) {
+  .profile-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .stat-cell:nth-child(odd) {
+    border-left: 0;
+  }
+  .stat-cell:nth-child(n + 3) {
+    border-top: 1px solid var(--glass-line);
+  }
+}
+
+/* Aclaración de por qué un congresista no tiene patrimonio calculado: va aquí,
+   pegada a sus métricas, en vez de ocupar una franja entera de la página. */
+.profile-note {
+  margin: 14px 0 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.45);
+  max-width: 88ch;
+}
+
+.more-note--left {
+  text-align: left;
+  max-width: 92ch;
+}
+
+.wealth-total--empty {
+  font-size: 20px !important;
+  color: var(--mute) !important;
 }
 
 /* Patrimonio en acciones */

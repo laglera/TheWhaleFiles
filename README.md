@@ -38,8 +38,9 @@ Mostrar operaciones recientes y el historial de un político a partir de declara
 
 ## Configuración
 
-Copiar `.env.example` a `.env`. Todo es opcional salvo la clave de cotizaciones,
-que hace falta para valorar las posiciones de los directivos.
+Copiar `.env.example` a `.env`. Todo es opcional: las cotizaciones salen de
+Yahoo Finance, que no pide registro. Configurar `FINNHUB_API_KEY` cambia el
+proveedor a Finnhub.
 
 ## Estado actual
 
@@ -56,6 +57,7 @@ Se ejecutan a mano, no forman parte del arranque:
 ```bash
 python -m app.profiles    # biografías y retratos
 python -m app.insiders    # Form 4 de la SEC: operaciones y posiciones
+python -m app.prices      # precarga las cotizaciones en caché
 python -m app.backfill    # normaliza nombres y corrige cámara/estado
 ```
 

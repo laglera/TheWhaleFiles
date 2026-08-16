@@ -94,10 +94,12 @@ TRANSLATIONS: dict[str, dict[str, Any]] = {
         "profile_following": "Siguiendo",
         "profile_no_party": "Sin partido declarado",
         "profile_bio_empty": "Todavía no hay una biografía disponible para esta persona.",
+        "profile_bio_more": "Leer más",
+        "profile_bio_less": "Leer menos",
         "profile_bio_source": "Biografía de {source}, bajo licencia CC BY-SA.",
         "profile_bio_other_lang": "Biografía disponible sólo en inglés.",
         "profile_photo_credit": "Foto: {author} · {license}",
-        "profile_top_sub": "Operaciones declaradas por ticker · top {n}",
+        "profile_top_sub": "Capital declarado por valor · top {n}",
         # Patrimonio (sólo perfiles empresariales)
         "wealth_title": "Patrimonio en acciones",
         "wealth_sub": (
@@ -110,9 +112,11 @@ TRANSLATIONS: dict[str, dict[str, Any]] = {
         "wealth_price": "Precio",
         "wealth_value": "Valor",
         "wealth_as_of": "Declarado",
-        "wealth_updated": "Cotizaciones actualizadas: {when}",
-        "wealth_no_price": "Sin cotización disponible",
-        "wealth_missing": "{n} posiciones sin cotización, no suman al total.",
+        "wealth_updated": "Cotizaciones de {source}, actualizadas el {when}",
+        "wealth_no_price": "Sin cotización",
+        "wealth_missing": "{n} sin cotización, fuera del total.",
+        "wealth_missing_short": "{n} sin cotizar",
+        "wealth_unavailable": "No disponible",
         "wealth_disclaimer": (
             "Sólo cuenta las acciones de empresas donde es directivo o gran accionista "
             "y está obligado a declarar ante la SEC. No es su patrimonio total."
@@ -237,10 +241,12 @@ TRANSLATIONS: dict[str, dict[str, Any]] = {
         "profile_following": "Following",
         "profile_no_party": "No party declared",
         "profile_bio_empty": "No biography is available for this person yet.",
+        "profile_bio_more": "Read more",
+        "profile_bio_less": "Read less",
         "profile_bio_source": "Biography from {source}, licensed CC BY-SA.",
         "profile_bio_other_lang": "Biography available in Spanish only.",
         "profile_photo_credit": "Photo: {author} · {license}",
-        "profile_top_sub": "Declared trades per ticker · top {n}",
+        "profile_top_sub": "Declared capital per security · top {n}",
         # Wealth (business profiles only)
         "wealth_title": "Equity holdings",
         "wealth_sub": (
@@ -252,9 +258,11 @@ TRANSLATIONS: dict[str, dict[str, Any]] = {
         "wealth_price": "Price",
         "wealth_value": "Value",
         "wealth_as_of": "Declared",
-        "wealth_updated": "Quotes updated: {when}",
-        "wealth_no_price": "No quote available",
-        "wealth_missing": "{n} positions without a quote, excluded from the total.",
+        "wealth_updated": "Quotes from {source}, updated {when}",
+        "wealth_no_price": "No quote",
+        "wealth_missing": "{n} without a quote, excluded from the total.",
+        "wealth_missing_short": "{n} unpriced",
+        "wealth_unavailable": "Unavailable",
         "wealth_disclaimer": (
             "Only covers shares in companies where they are an officer or major "
             "shareholder and must report to the SEC. This is not their total net worth."
