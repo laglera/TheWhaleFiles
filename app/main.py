@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any, Optional
 from urllib.parse import parse_qsl, urlencode
@@ -9,14 +10,15 @@ from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from markupsafe import Markup, escape
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
-from app.database import get_db, init_db
+from app.database import SessionLocal, get_db, init_db
 from app.i18n import DEFAULT_LANG, get_translations, normalise_lang
 from app.ingestion import load_filing_into_db
 from app.models import Politician, Ticker, Trade
+from app.prices import api_key as price_api_key
+from app.prices import value_holdings
 from app.scheduler import polling_enabled, start_polling_loop
 from app.sources import poll_official_sources
 
@@ -68,23 +70,69 @@ def _load_photo_index() -> dict[str, str]:
 
 PHOTO_INDEX = _load_photo_index()
 
+# Retratos traídos de Wikimedia Commons, para quien no tiene foto oficial (los
+# empresarios, sobre todo). Se cachean en memoria porque el índice se consulta
+# una vez por avatar y la lista entera cabe de sobra.
+_REMOTE_PHOTOS: dict[str, dict[str, Optional[str]]] = {}
+_REMOTE_PHOTOS_AT: Optional[datetime] = None
+REMOTE_PHOTO_TTL = timedelta(minutes=5)
+
+
+def remote_photo_index() -> dict[str, dict[str, Optional[str]]]:
+    global _REMOTE_PHOTOS, _REMOTE_PHOTOS_AT
+
+    now = datetime.utcnow()
+    if _REMOTE_PHOTOS_AT and now - _REMOTE_PHOTOS_AT < REMOTE_PHOTO_TTL:
+        return _REMOTE_PHOTOS
+
+    with SessionLocal() as db:
+        rows = db.execute(
+            select(
+                Politician.name,
+                Politician.photo_remote_url,
+                Politician.photo_author,
+                Politician.photo_license,
+            ).where(Politician.photo_remote_url.is_not(None))
+        ).all()
+
+    _REMOTE_PHOTOS = {
+        name: {"url": url, "author": author, "license": licence}
+        for name, url, author, licence in rows
+    }
+    _REMOTE_PHOTOS_AT = now
+    return _REMOTE_PHOTOS
+
 
 def photo_url(name: str) -> Optional[str]:
     """Miniatura para avatares (140px de alto)."""
     filename = PHOTO_INDEX.get(name or "")
-    return f"/static/photos/{filename}" if filename else None
+    if filename:
+        return f"/static/photos/{filename}"
+    return (remote_photo_index().get(name or "") or {}).get("url")
 
 
 def photo_url_lg(name: str) -> Optional[str]:
     """Retrato a resolución completa (450x550) para la ficha."""
     filename = PHOTO_INDEX.get(name or "")
-    return f"/static/photos/lg/{filename}" if filename else None
+    if filename:
+        return f"/static/photos/lg/{filename}"
+    return (remote_photo_index().get(name or "") or {}).get("url")
+
+
+def photo_credit(name: str) -> Optional[str]:
+    """Autor y licencia del retrato, que Commons obliga a acreditar."""
+    entry = remote_photo_index().get(name or "")
+    if not entry or not entry.get("license"):
+        return None
+    author = entry.get("author") or "Wikimedia Commons"
+    return f"{author} · {entry['license']}"
 
 
 templates.env.filters["trade_side"] = trade_side
 templates.env.filters["accent_slot"] = accent_slot
 templates.env.filters["photo_url"] = photo_url
 templates.env.filters["photo_url_lg"] = photo_url_lg
+templates.env.filters["photo_credit"] = photo_credit
 
 LANG_COOKIE = "twf_lang"
 
@@ -358,32 +406,25 @@ def politician_detail_page(
 
     top_tickers = sorted(ticker_volume.values(), key=lambda item: item["operations"], reverse=True)[:5]
     visible_trades = ordered_trades[:60]
-
-    # No hay campo de biografía: se resume el perfil a partir de lo declarado.
-    classified = side_counts["buy"] + side_counts["sell"]
     resolved_lang = resolve_lang(request, lang)
-    strings = get_translations(resolved_lang)
 
-    if ordered_trades:
-        favourite = ""
-        if top_tickers:
-            favourite = strings["profile_bio_fav"].format(
-                symbol=escape(top_tickers[0]["symbol"]),
-                ops=top_tickers[0]["operations"],
-            )
-        bio_html = Markup(
-            strings["profile_bio"].format(
-                trades=f"{len(ordered_trades):,.0f}",
-                tickers=len(ticker_volume),
-                first=ordered_trades[-1].reported_date.strftime("%m/%Y"),
-                last=ordered_trades[0].reported_date.strftime("%m/%Y"),
-                total=escape(compact_money(total_amount)),
-                ratio=round(side_counts["buy"] / classified * 100) if classified else 0,
-                favourite=favourite,
-            )
-        )
-    else:
-        bio_html = Markup(escape(strings["profile_bio_empty"]))
+    # La biografía es la de Wikipedia, no un resumen de sus inversiones. Si no
+    # existe en el idioma activo se cae al otro antes de darse por vencido.
+    bio = getattr(politician, f"bio_{resolved_lang}", None)
+    bio_is_fallback = False
+    if not bio:
+        other = "en" if resolved_lang == "es" else "es"
+        bio = getattr(politician, f"bio_{other}", None)
+        bio_is_fallback = bool(bio)
+    headline = getattr(politician, f"bio_headline_{resolved_lang}", None) or getattr(
+        politician, "bio_headline_en", None
+    )
+
+    # Sólo los insiders corporativos declaran número de acciones (Form 4), así
+    # que sólo ellos pueden tener patrimonio calculado.
+    wealth = None
+    if politician.category == "business" and politician.holdings:
+        wealth = value_holdings(politician.holdings)
 
     return render(
         request,
@@ -396,7 +437,11 @@ def politician_detail_page(
             "total_amount": total_amount,
             "side_counts": side_counts,
             "top_tickers": top_tickers,
-            "bio_html": bio_html,
+            "bio": bio,
+            "bio_is_fallback": bio_is_fallback,
+            "bio_headline": headline,
+            "wealth": wealth,
+            "prices_configured": bool(price_api_key()),
         },
         resolved_lang,
     )

@@ -17,8 +17,8 @@ import xml.etree.ElementTree as ET
 from datetime import date, datetime
 from typing import Any, Optional
 
-from app.database import SessionLocal
-from app.models import Politician, Ticker, Trade
+from app.database import SessionLocal, prepare_database
+from app.models import Holding, Politician, Ticker, Trade
 
 USER_AGENT = "TheWhaleFiles/0.1 (contacto: alejandro.web00@gmail.com)"
 REQUEST_PAUSE = 0.2  # ~5 peticiones por segundo, por debajo del límite de la SEC
@@ -100,6 +100,10 @@ def parse_form4(xml_bytes: bytes) -> dict[str, Any]:
         raw_date = node.findtext("transactionDate/value")
         shares = node.findtext("transactionAmounts/transactionShares/value") or "0"
         price = node.findtext("transactionAmounts/transactionPricePerShare/value") or "0"
+        # Este es el dato que permite calcular patrimonio: cuántos títulos le
+        # quedan al declarante después de la operación. El PTR del Congreso no
+        # tiene equivalente, por eso los políticos no tienen posiciones.
+        owned = node.findtext("postTransactionAmounts/sharesOwnedFollowingTransaction/value")
         try:
             traded_on = datetime.strptime(raw_date, "%Y-%m-%d").date() if raw_date else None
             amount = float(shares) * float(price)
@@ -107,12 +111,17 @@ def parse_form4(xml_bytes: bytes) -> dict[str, Any]:
             continue
         if not traded_on:
             continue
+        try:
+            shares_owned = float(owned) if owned is not None else None
+        except ValueError:
+            shares_owned = None
         transactions.append(
             {
                 "trade_type": TRANSACTION_CODES.get(code, code or "Unknown"),
                 "amount": round(amount, 2),
                 "reported_date": traded_on,
                 "shares": float(shares),
+                "shares_owned": shares_owned,
             }
         )
 
@@ -161,6 +170,8 @@ def import_insiders(
     people = INSIDERS[:limit_people] if limit_people else INSIDERS
     imported_people = 0
     imported_trades = 0
+    imported_holdings = 0
+    prepare_database()
 
     with SessionLocal() as db:
         for insider in people:
@@ -220,11 +231,57 @@ def import_insiders(
                 )
                 imported_trades += 1
 
+            imported_holdings += _update_holdings(db, person, trades)
+
             if verbose:
                 print(f"  {insider['name']:22s} {len(trades):4d} operaciones leídas")
             db.commit()
 
-    return {"people": imported_people, "trades": imported_trades}
+    return {
+        "people": imported_people,
+        "trades": imported_trades,
+        "holdings": imported_holdings,
+    }
+
+
+def _update_holdings(db, person: Politician, trades: list[dict[str, Any]]) -> int:
+    """Guarda la posición que declara el Form 4 más reciente de cada empresa.
+
+    Los filings se recorren del más reciente al más antiguo, así que la primera
+    aparición de cada símbolo es la posición vigente.
+    """
+    latest: dict[str, dict[str, Any]] = {}
+    for item in trades:
+        if item.get("shares_owned") is None:
+            continue
+        current = latest.get(item["symbol"])
+        if current is None or item["reported_date"] > current["reported_date"]:
+            latest[item["symbol"]] = item
+
+    updated = 0
+    for symbol, item in latest.items():
+        ticker = db.query(Ticker).filter(Ticker.symbol == symbol).one_or_none()
+        if ticker is None:
+            continue
+
+        holding = (
+            db.query(Holding)
+            .filter(Holding.politician_id == person.id, Holding.ticker_id == ticker.id)
+            .one_or_none()
+        )
+        if holding is None:
+            holding = Holding(politician_id=person.id, ticker_id=ticker.id)
+            db.add(holding)
+        elif holding.as_of >= item["reported_date"]:
+            # Lo que ya hay es igual de reciente o más: no se pisa.
+            continue
+
+        holding.shares = item["shares_owned"]
+        holding.as_of = item["reported_date"]
+        holding.source = "SEC Form 4"
+        updated += 1
+
+    return updated
 
 
 if __name__ == "__main__":

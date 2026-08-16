@@ -7,8 +7,9 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import sessionmaker
 
-from app.database import ensure_schema, get_engine
-from app.models import Base, Politician, Ticker, Trade
+from app.database import get_engine, prepare_database
+from app.models import Politician, Ticker, Trade
+from app.names import clean_person_name
 from app.scraper import parse_senate_filing
 
 DEFAULT_PROFILE = {"chamber": "Senate", "state": "California", "party": "Unknown"}
@@ -55,8 +56,7 @@ def load_trade_records_into_db(
         return []
 
     engine = get_engine(database_url or "sqlite:///./thewhalefiles.db")
-    Base.metadata.create_all(bind=engine)
-    ensure_schema(engine)
+    prepare_database(engine)
     SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
 
     defaults = {**DEFAULT_PROFILE, **(profile or {})}
@@ -83,7 +83,9 @@ def load_trade_records_into_db(
             if reported_date is None:
                 continue
 
-            politician_name = str(record.get("politician_name") or "").strip()
+            # Se normaliza en la entrada: si no, cada variante del mismo nombre
+            # que publica la fuente acaba siendo una ficha distinta.
+            politician_name = clean_person_name(str(record.get("politician_name") or ""))
             ticker_symbol = str(record.get("ticker") or "").strip().upper()
             if not politician_name or not ticker_symbol:
                 continue

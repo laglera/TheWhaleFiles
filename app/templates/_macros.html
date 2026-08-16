@@ -8,11 +8,16 @@
 {%- endif -%}
 {%- endmacro %}
 
-{# Retrato del político: foto oficial si existe, iniciales de reserva #}
+{# Retrato del político: foto oficial si existe, iniciales de reserva.
+   El crédito va en el title porque las fotos de Commons exigen atribución
+   allí donde se muestran, no sólo en la ficha. #}
 {% macro face(name, modifier='') -%}
 {%- set src = name|photo_url -%}
+{%- set credit = name|photo_credit -%}
 {%- if src -%}
-<img class="avatar avatar--photo {{ modifier }}" src="{{ src }}" alt="" loading="lazy" width="115" height="140" />
+<img class="avatar avatar--photo {{ modifier }}" src="{{ src }}" alt=""
+     {% if credit %}title="{{ credit }}"{% endif %}
+     loading="lazy" width="115" height="140" />
 {%- else -%}
 <span class="avatar {{ modifier }}" data-slot="{{ name|accent_slot }}">{{ initials(name) }}</span>
 {%- endif -%}

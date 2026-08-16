@@ -51,29 +51,42 @@ SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
 
 TRADE_IDENTITY_COLUMNS = "politician_id, ticker_id, trade_type, amount, reported_date"
 
+# Columnas añadidas después de las primeras versiones de la base. `create_all`
+# no toca tablas existentes, así que hay que añadirlas a mano.
+ADDED_COLUMNS = {
+    "politicians": [
+        ("category", "VARCHAR(20) NOT NULL DEFAULT 'congress'"),
+        ("bio_es", "TEXT"),
+        ("bio_en", "TEXT"),
+        ("bio_headline_es", "VARCHAR(255)"),
+        ("bio_headline_en", "VARCHAR(255)"),
+        ("bio_source_url", "VARCHAR(500)"),
+        ("photo_remote_url", "VARCHAR(500)"),
+        ("photo_author", "VARCHAR(255)"),
+        ("photo_license", "VARCHAR(120)"),
+        ("photo_source_url", "VARCHAR(500)"),
+        ("profile_fetched_at", "DATETIME"),
+    ],
+}
+
 
 def ensure_schema(target_engine=None) -> None:
-    """Migraciones mínimas para bases creadas por versiones anteriores.
-
-    `create_all` no toca tablas que ya existen, así que las bases anteriores
-    necesitan tanto la columna `category` como el índice de unicidad de trades.
-    """
+    """Migraciones mínimas para bases creadas por versiones anteriores."""
     from sqlalchemy import inspect, text
 
     target_engine = target_engine or engine
     inspector = inspect(target_engine)
     table_names = set(inspector.get_table_names())
 
-    if "politicians" in table_names:
-        columns = {column["name"] for column in inspector.get_columns("politicians")}
-        if "category" not in columns:
+    for table, columns in ADDED_COLUMNS.items():
+        if table not in table_names:
+            continue
+        existing = {column["name"] for column in inspector.get_columns(table)}
+        missing = [(name, ddl) for name, ddl in columns if name not in existing]
+        if missing:
             with target_engine.begin() as connection:
-                connection.execute(
-                    text(
-                        "ALTER TABLE politicians "
-                        "ADD COLUMN category VARCHAR(20) NOT NULL DEFAULT 'congress'"
-                    )
-                )
+                for name, ddl in missing:
+                    connection.execute(text(f"ALTER TABLE {table} ADD COLUMN {name} {ddl}"))
 
     if "trades" in table_names:
         existing = {index["name"] for index in inspector.get_indexes("trades")}
@@ -100,11 +113,17 @@ def ensure_schema(target_engine=None) -> None:
                 )
 
 
+def prepare_database(target_engine=None) -> None:
+    """Crea lo que falte y migra lo que exista. Todo punto de entrada la llama."""
+    target_engine = target_engine or engine
+    Base.metadata.create_all(bind=target_engine)
+    ensure_schema(target_engine)
+
+
 def init_db() -> None:
     from app.sources import ingest_real_dataset
 
-    Base.metadata.create_all(bind=engine)
-    ensure_schema()
+    prepare_database()
     with SessionLocal() as db:
         if db.query(Politician).first():
             return

@@ -1589,6 +1589,113 @@ a {
   font-weight: 600;
 }
 
+/* Descriptor corto de Wikidata: "política estadounidense" */
+.identity__headline {
+  margin: 8px 0 0;
+  color: var(--mute);
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.identity__bio--empty {
+  color: var(--mute);
+  font-style: italic;
+}
+
+/* Atribución obligatoria del texto de Wikipedia (CC BY-SA) */
+.identity__source {
+  margin: 10px 0 0;
+  color: var(--mute);
+  font-size: 13px;
+}
+
+.identity__source a {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+/* Atribución de la foto, bajo el retrato */
+.portrait figcaption .credit {
+  display: block;
+  margin-top: 4px;
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+  opacity: 0.75;
+}
+
+.portrait figcaption .credit a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.portrait figcaption .credit a:hover {
+  text-decoration: underline;
+}
+
+/* Patrimonio en acciones */
+.wealth-total {
+  text-align: right;
+  display: grid;
+  gap: 2px;
+}
+
+.wealth-total span {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--mute);
+}
+
+.wealth-total strong {
+  font-size: clamp(24px, 3vw, 34px);
+  letter-spacing: -0.02em;
+}
+
+.wealth-total small {
+  font-size: 13px;
+  color: var(--mute);
+}
+
+.ledger--wealth .ledger__head,
+.ledger--wealth .ledger__row {
+  grid-template-columns: 1fr 110px 150px 120px 140px;
+}
+
+.ledger--wealth .ledger__date em {
+  color: var(--mute);
+  font-size: 13px;
+}
+
+/* Variación diaria de la cotización */
+.delta {
+  display: inline-block;
+  margin-left: 6px;
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 600;
+}
+
+.delta--up {
+  color: var(--buy-ink);
+}
+
+.delta--down {
+  color: var(--sell-ink);
+}
+
+@media (max-width: 720px) {
+  .ledger--wealth .ledger__head,
+  .ledger--wealth .ledger__row {
+    grid-template-columns: 1fr 100px;
+    row-gap: 8px;
+  }
+}
+
 .profile__tags {
   display: flex;
   flex-wrap: wrap;

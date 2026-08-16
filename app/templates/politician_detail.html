@@ -23,7 +23,20 @@
         {% if portrait %}
         <figure class="portrait portrait--photo">
           <img src="{{ portrait }}" alt="{{ politician.name }}" width="450" height="550" />
-          <figcaption>{{ politician.chamber }}</figcaption>
+          <figcaption>
+            {{ politician.chamber }}
+            {% if politician.photo_license %}
+            <small class="credit">
+              {% if politician.photo_source_url %}
+              <a href="{{ politician.photo_source_url }}" target="_blank" rel="noopener noreferrer">
+                {{ t.profile_photo_credit.format(author=politician.photo_author or 'Wikimedia Commons', license=politician.photo_license) }}
+              </a>
+              {% else %}
+              {{ t.profile_photo_credit.format(author=politician.photo_author or 'Wikimedia Commons', license=politician.photo_license) }}
+              {% endif %}
+            </small>
+            {% endif %}
+          </figcaption>
         </figure>
         {% else %}
         <div class="portrait">
@@ -49,7 +62,25 @@
             </button>
           </div>
 
-          <p class="identity__bio">{{ bio_html }}</p>
+          {% if bio_headline %}
+          <p class="identity__headline">{{ bio_headline }}</p>
+          {% endif %}
+
+          {% if bio %}
+          <p class="identity__bio">{{ bio }}</p>
+          <p class="identity__source">
+            {% if bio_is_fallback %}<em>{{ t.profile_bio_other_lang }}</em> · {% endif %}
+            {% if politician.bio_source_url %}
+            <a href="{{ politician.bio_source_url }}" target="_blank" rel="noopener noreferrer">
+              {{ t.profile_bio_source.format(source='Wikipedia') }}
+            </a>
+            {% else %}
+            {{ t.profile_bio_source.format(source='Wikipedia') }}
+            {% endif %}
+          </p>
+          {% else %}
+          <p class="identity__bio identity__bio--empty">{{ t.profile_bio_empty }}</p>
+          {% endif %}
 
           <div class="profile__tags">
             <span class="tag tag--plain">{{ politician.chamber }}</span>
@@ -92,6 +123,82 @@
     </div>
   </header>
 </div>
+
+{% if wealth and wealth.positions %}
+<section class="band band--soft band--tight" id="patrimonio">
+  <div class="inner">
+    <div class="band-head">
+      <div>
+        <h2>{{ t.wealth_title }}</h2>
+        <p>{{ t.wealth_sub }}</p>
+      </div>
+      <div class="wealth-total">
+        <span>{{ t.wealth_total }}</span>
+        <strong>{{ ui.money(wealth.total) }}</strong>
+        <small>{{ t.wealth_positions }}: {{ wealth.positions|length }}</small>
+      </div>
+    </div>
+
+    <div class="ledger ledger--wealth">
+      <div class="ledger__head">
+        <span>{{ t.history_security }}</span>
+        <span>{{ t.wealth_shares }}</span>
+        <span>{{ t.wealth_price }}</span>
+        <span>{{ t.wealth_as_of }}</span>
+        <span class="ledger__amount-head">{{ t.wealth_value }}</span>
+      </div>
+      {% for position in wealth.positions %}
+      <div class="ledger__row">
+        <div class="ledger__symbol">
+          <span class="avatar avatar--sm" data-slot="{{ position.symbol|accent_slot }}">
+            {{ ui.initials(position.symbol) }}
+          </span>
+          <div>
+            <b>{{ position.symbol }}</b>
+            {% if position.name and position.name != position.symbol %}
+            <small>{{ position.name }}</small>
+            {% endif %}
+          </div>
+        </div>
+        <span class="ledger__date">{{ '{:,.0f}'.format(position.shares) }}</span>
+        <span class="ledger__date">
+          {%- if position.price -%}
+          ${{ '{:,.2f}'.format(position.price) }}
+          {%- if position.change_pct is not none %}
+          <i class="delta delta--{{ 'up' if position.change_pct >= 0 else 'down' }}">
+            {{ '{:+.2f}'.format(position.change_pct) }}%
+          </i>
+          {%- endif -%}
+          {%- else -%}
+          <em>{{ t.wealth_no_price }}</em>
+          {%- endif -%}
+        </span>
+        <span class="ledger__date">{{ position.as_of.strftime('%d/%m/%Y') }}</span>
+        <span class="ledger__amount">
+          {%- if position.value is not none -%}{{ ui.money(position.value) }}{%- else -%}—{%- endif -%}
+        </span>
+      </div>
+      {% endfor %}
+    </div>
+
+    <p class="more-note">
+      {{ t.wealth_disclaimer }}
+      {% if wealth.missing %}<br />{{ t.wealth_missing.format(n=wealth.missing) }}{% endif %}
+      {% if wealth.fetched_at %}
+      <br />{{ t.wealth_updated.format(when=wealth.fetched_at.strftime('%d/%m/%Y %H:%M UTC')) }}
+      {% elif not prices_configured %}
+      <br />{{ t.wealth_no_key }}
+      {% endif %}
+    </p>
+  </div>
+</section>
+{% elif politician.category != 'business' %}
+<section class="band band--soft band--tight">
+  <div class="inner">
+    <p class="empty-state">{{ t.wealth_congress_note }}</p>
+  </div>
+</section>
+{% endif %}
 
 {% if top_tickers %}
 <section class="band band--soft band--tight">

@@ -93,14 +93,37 @@ TRANSLATIONS: dict[str, dict[str, Any]] = {
         "profile_follow": "Seguir",
         "profile_following": "Siguiendo",
         "profile_no_party": "Sin partido declarado",
-        "profile_bio": (
-            "Ha declarado <b>{trades} operaciones</b> sobre <b>{tickers} valores</b> distintos "
-            "entre {first} y {last}, por un total de <b>{total}</b>. El <b>{ratio}%</b> de sus "
-            "operaciones clasificadas son compras{favourite}."
-        ),
-        "profile_bio_fav": " y su valor más repetido es <b>{symbol}</b> ({ops} operaciones)",
-        "profile_bio_empty": "Todavía no hay operaciones declaradas para este perfil.",
+        "profile_bio_empty": "Todavía no hay una biografía disponible para esta persona.",
+        "profile_bio_source": "Biografía de {source}, bajo licencia CC BY-SA.",
+        "profile_bio_other_lang": "Biografía disponible sólo en inglés.",
+        "profile_photo_credit": "Foto: {author} · {license}",
         "profile_top_sub": "Operaciones declaradas por ticker · top {n}",
+        # Patrimonio (sólo perfiles empresariales)
+        "wealth_title": "Patrimonio en acciones",
+        "wealth_sub": (
+            "Títulos que declara poseer en su Formulario 4 más reciente, valorados "
+            "a precio de mercado."
+        ),
+        "wealth_total": "Valor de mercado",
+        "wealth_positions": "Posiciones",
+        "wealth_shares": "Acciones",
+        "wealth_price": "Precio",
+        "wealth_value": "Valor",
+        "wealth_as_of": "Declarado",
+        "wealth_updated": "Cotizaciones actualizadas: {when}",
+        "wealth_no_price": "Sin cotización disponible",
+        "wealth_missing": "{n} posiciones sin cotización, no suman al total.",
+        "wealth_disclaimer": (
+            "Sólo cuenta las acciones de empresas donde es directivo o gran accionista "
+            "y está obligado a declarar ante la SEC. No es su patrimonio total."
+        ),
+        "wealth_no_key": (
+            "Cotizaciones no disponibles: falta configurar la clave de la API de precios."
+        ),
+        "wealth_congress_note": (
+            "Los congresistas declaran sus operaciones en tramos de importe, sin número "
+            "de acciones ni posiciones, así que no es posible calcular su patrimonio."
+        ),
         "history_title": "Últimas inversiones",
         "history_sub": "Ordenadas por fecha de publicación del filing, de más reciente a más antigua.",
         "history_type": "Tipo",
@@ -213,14 +236,34 @@ TRANSLATIONS: dict[str, dict[str, Any]] = {
         "profile_follow": "Follow",
         "profile_following": "Following",
         "profile_no_party": "No party declared",
-        "profile_bio": (
-            "Has declared <b>{trades} trades</b> across <b>{tickers} different securities</b> "
-            "between {first} and {last}, totalling <b>{total}</b>. <b>{ratio}%</b> of their "
-            "classified trades are buys{favourite}."
-        ),
-        "profile_bio_fav": " and their most repeated security is <b>{symbol}</b> ({ops} trades)",
-        "profile_bio_empty": "No trades have been declared for this profile yet.",
+        "profile_bio_empty": "No biography is available for this person yet.",
+        "profile_bio_source": "Biography from {source}, licensed CC BY-SA.",
+        "profile_bio_other_lang": "Biography available in Spanish only.",
+        "profile_photo_credit": "Photo: {author} · {license}",
         "profile_top_sub": "Declared trades per ticker · top {n}",
+        # Wealth (business profiles only)
+        "wealth_title": "Equity holdings",
+        "wealth_sub": (
+            "Shares declared in their most recent Form 4, valued at market price."
+        ),
+        "wealth_total": "Market value",
+        "wealth_positions": "Positions",
+        "wealth_shares": "Shares",
+        "wealth_price": "Price",
+        "wealth_value": "Value",
+        "wealth_as_of": "Declared",
+        "wealth_updated": "Quotes updated: {when}",
+        "wealth_no_price": "No quote available",
+        "wealth_missing": "{n} positions without a quote, excluded from the total.",
+        "wealth_disclaimer": (
+            "Only covers shares in companies where they are an officer or major "
+            "shareholder and must report to the SEC. This is not their total net worth."
+        ),
+        "wealth_no_key": "Quotes unavailable: the price API key is not configured.",
+        "wealth_congress_note": (
+            "Members of Congress declare trades in amount brackets, without share counts "
+            "or positions, so their holdings cannot be calculated."
+        ),
         "history_title": "Latest investments",
         "history_sub": "Sorted by filing publication date, most recent first.",
         "history_type": "Type",

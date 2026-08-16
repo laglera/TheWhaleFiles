@@ -36,15 +36,33 @@ Mostrar operaciones recientes y el historial de un político a partir de declara
    http://localhost:8000
    ```
 
+## Configuración
+
+Copiar `.env.example` a `.env`. Todo es opcional salvo la clave de cotizaciones,
+que hace falta para valorar las posiciones de los directivos.
+
 ## Estado actual
 
-La base del MVP ya está creada con:
+- Operaciones del Congreso (House Stock Watcher) y de directivos (SEC Form 4).
+- Ranking, tendencias, filtros y fichas individuales, en español e inglés.
+- Biografías y retratos de Wikipedia/Wikimedia Commons, con su atribución.
+- Patrimonio en acciones de los directivos, valorado a precio de mercado.
+- Polling periódico de las fuentes, con deduplicación por operación.
 
-- estructura de datos para políticos, operaciones y tickers,
-- API mínima con listados,
-- página de inicio con muestra de trades recientes,
-- base de datos SQLite con datos de ejemplo.
+## Tareas de datos
 
-## Nota
+Se ejecutan a mano, no forman parte del arranque:
 
-La ejecución completa requiere acceso a PyPI para instalar las dependencias. En este entorno actual hubo un bloqueo de red al instalar paquetes externos, pero la estructura del proyecto y la lógica base ya están preparadas para seguir desarrollando.
+```bash
+python -m app.profiles    # biografías y retratos
+python -m app.insiders    # Form 4 de la SEC: operaciones y posiciones
+python -m app.backfill    # normaliza nombres y corrige cámara/estado
+```
+
+## Origen de los datos
+
+- **Congreso**: declaraciones bajo la STOCK Act. Sólo tramos de importe, sin
+  número de acciones, así que no permiten calcular patrimonio.
+- **Directivos**: Formulario 4 de la SEC, que sí declara títulos poseídos.
+- **Biografías y fotos**: Wikipedia y Wikimedia Commons (CC BY-SA, con
+  atribución en cada ficha).
