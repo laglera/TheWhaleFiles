@@ -6,9 +6,7 @@ from html import unescape
 from typing import Any
 from urllib.request import Request, urlopen
 
-from app.database import ensure_schema, get_engine
-from app.ingestion import load_filing_into_db
-from app.models import Base
+from app.ingestion import load_trade_records_into_db
 
 DEFAULT_SOURCE_URLS = [
     "https://efdsearch.senate.gov/search/",
@@ -51,6 +49,10 @@ def parse_real_dataset(raw_json: str) -> list[dict[str, Any]]:
         except Exception:
             reported_date = "2026-01-01"
 
+        # El district viene como "PA16": los dos primeros caracteres son el estado.
+        district = str(item.get("district") or "").strip().upper()
+        state = district[:2] if len(district) >= 2 and district[:2].isalpha() else ""
+
         records.append(
             {
                 "politician_name": representative,
@@ -58,6 +60,8 @@ def parse_real_dataset(raw_json: str) -> list[dict[str, Any]]:
                 "trade_type": trade_type.title(),
                 "amount": float(amount),
                 "reported_date": reported_date,
+                "chamber": "House",
+                "state": state or "Unknown",
             }
         )
 
@@ -142,30 +146,7 @@ def ingest_official_filing(url: str, politician_name: str, database_url: str | N
     """Fetch and import a single official filing."""
     raw_html = fetch_official_filing(url)
     parsed = parse_official_html_filing(raw_html, politician_name)
-
-    if not parsed:
-        return []
-
-    engine = get_engine(database_url or "sqlite:///./thewhalefiles.db")
-    Base.metadata.create_all(bind=engine)
-    ensure_schema(engine)
-
-    imported: list[dict[str, Any]] = []
-    for trade in parsed:
-        imported.extend(
-            load_filing_into_db(
-                "\n".join([
-                    f"Transaction:",
-                    f"Ticker: {trade['ticker']}",
-                    f"Type: {trade['trade_type']}",
-                    f"Amount: ${trade['amount']:,.0f}",
-                    f"Date: {trade['reported_date']}",
-                ]),
-                trade["politician_name"],
-                database_url=database_url,
-            )
-        )
-    return imported
+    return load_trade_records_into_db(parsed, database_url=database_url)
 
 
 def fetch_real_dataset(url: str = REAL_DATASET_URL) -> str:
@@ -184,29 +165,11 @@ def ingest_real_dataset(
     """Import a public real dataset into the app database."""
     raw_json = raw_json if raw_json is not None else fetch_real_dataset(url)
     parsed = parse_real_dataset(raw_json)
-    if not parsed:
-        return []
-
-    engine = get_engine(database_url or "sqlite:///./thewhalefiles.db")
-    Base.metadata.create_all(bind=engine)
-    ensure_schema(engine)
-
-    imported: list[dict[str, Any]] = []
-    for trade in parsed:
-        imported.extend(
-            load_filing_into_db(
-                "\n".join([
-                    "Transaction:",
-                    f"Ticker: {trade['ticker']}",
-                    f"Type: {trade['trade_type']}",
-                    f"Amount: ${trade['amount']:,.0f}",
-                    f"Date: {trade['reported_date']}",
-                ]),
-                trade["politician_name"],
-                database_url=database_url,
-            )
-        )
-    return imported
+    return load_trade_records_into_db(
+        parsed,
+        database_url=database_url,
+        notes="Imported from House Stock Watcher dataset",
+    )
 
 
 def poll_official_sources(urls: list[str] | None = None, database_url: str | None = None) -> list[dict[str, Any]]:

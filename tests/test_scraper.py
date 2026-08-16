@@ -1,4 +1,5 @@
 import json
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -103,11 +104,19 @@ class ScraperParsingTests(unittest.TestCase):
             }
         ])
 
-        records = ingest_real_dataset(raw_json=raw_payload, database_url="sqlite:////tmp/thewhalefiles_real_test.db")
+        # Base nueva por ejecución: con una fija, la deduplicación haría que la
+        # segunda pasada no importase nada y el test fallase sin motivo real.
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            database_url = f"sqlite:///{tmp_dir}/thewhalefiles_real_test.db"
+            records = ingest_real_dataset(raw_json=raw_payload, database_url=database_url)
 
-        self.assertEqual(len(records), 1)
-        self.assertEqual(records[0]["politician"], "Mike Kelly")
-        self.assertEqual(records[0]["ticker"], "ABT")
+            self.assertEqual(len(records), 1)
+            self.assertEqual(records[0]["politician"], "Mike Kelly")
+            self.assertEqual(records[0]["ticker"], "ABT")
+
+            # La misma pasada repetida no debe volver a insertar.
+            repeated = ingest_real_dataset(raw_json=raw_payload, database_url=database_url)
+            self.assertEqual(repeated, [])
 
 
 if __name__ == "__main__":

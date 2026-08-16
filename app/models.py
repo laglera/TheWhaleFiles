@@ -1,6 +1,6 @@
 from datetime import date
 
-from sqlalchemy import Date, Float, ForeignKey, String
+from sqlalchemy import Date, Float, ForeignKey, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, DeclarativeBase, mapped_column, relationship
 
 
@@ -34,6 +34,18 @@ class Ticker(Base):
 
 class Trade(Base):
     __tablename__ = "trades"
+    # Una operación declarada queda identificada por quién, qué, cómo, cuánto y
+    # cuándo. Sin esto, cada pasada del polling reinsertaría el dataset entero.
+    __table_args__ = (
+        UniqueConstraint(
+            "politician_id",
+            "ticker_id",
+            "trade_type",
+            "amount",
+            "reported_date",
+            name="uq_trade_identity",
+        ),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
     politician_id: Mapped[int] = mapped_column(ForeignKey("politicians.id"), nullable=False)

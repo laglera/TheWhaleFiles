@@ -17,7 +17,7 @@ from app.database import get_db, init_db
 from app.i18n import DEFAULT_LANG, get_translations, normalise_lang
 from app.ingestion import load_filing_into_db
 from app.models import Politician, Ticker, Trade
-from app.scheduler import start_polling_loop
+from app.scheduler import polling_enabled, start_polling_loop
 from app.sources import poll_official_sources
 
 app = FastAPI(title="TheWhaleFiles", version="0.1.0")
@@ -128,9 +128,10 @@ def render(
 
 @app.on_event("startup")
 def startup_event() -> None:
-    # Comentado para evitar segfault al iniciar - descomentar si es necesario
-    # start_polling_loop()
-    pass
+    # Corre en un hilo aparte: no bloquea el arranque y ya no comparte conexión
+    # con las peticiones web. Se desactiva con ENABLE_POLLING=0.
+    if polling_enabled():
+        start_polling_loop()
 
 
 @app.get("/", response_class=HTMLResponse)

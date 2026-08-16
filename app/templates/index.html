@@ -81,7 +81,7 @@
             <span class="bar-track">
               <span
                 class="bar-fill"
-                style="width: {{ (person.volume / max_volume * 100)|round(1) }}%"
+                style="width: {{ (person.volume / max_volume * 100)|round(1) if max_volume else 0 }}%"
               ></span>
             </span>
           </span>
@@ -204,7 +204,7 @@
         {% set max_ops = top_tickers|map(attribute='operations')|max %}
         <div class="bars">
           {% for item in top_tickers %}
-          {% set ratio = item.operations / max_ops %}
+          {% set ratio = item.operations / max_ops if max_ops else 0 %}
           {% set step = 7 - [[(ratio * 6)|round(0, 'ceil')|int, 1]|max, 6]|min %}
           <div class="bar-row">
             <span class="bar-row__label">{{ item.symbol }}</span>

@@ -195,7 +195,15 @@ def import_insiders(
                     db.add(ticker)
                     db.flush()
 
-                key = (item["symbol"], item["trade_type"], item["reported_date"], item["amount"])
+                # Mismo redondeo que en `existing`: sin él la comparación falla
+                # con importes de más de dos decimales y el insert choca contra
+                # el índice de unicidad de trades.
+                key = (
+                    item["symbol"],
+                    item["trade_type"],
+                    item["reported_date"],
+                    round(item["amount"], 2),
+                )
                 if key in existing:
                     continue
                 existing.add(key)
