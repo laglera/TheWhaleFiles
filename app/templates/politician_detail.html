@@ -96,27 +96,27 @@
         </div>
       </div>
 
-      <div class="profile-stats">
-        <div class="stat-cell">
+      <div class="metric-band">
+        <div class="metric">
           <span>{{ t.stat_trades }}</span>
           <strong>{{ '{:,.0f}'.format(total_trades) }}</strong>
           <small>{{ t.stat_ops_declared }}</small>
         </div>
-        <div class="stat-cell">
+        <div class="metric">
           <span>{{ t.stat_capital }}</span>
           <strong>{{ ui.money(total_amount) }}</strong>
           <small>{{ t.stat_capital_sub }}</small>
         </div>
-        <div class="stat-cell">
+        <div class="metric">
           <span>{{ t.stat_split }}</span>
-          <strong class="stat-cell__split">
+          <strong class="metric__split">
             <i class="swatch swatch--buy"></i>{{ '{:,.0f}'.format(side_counts.buy) }}
             <em>/</em>
             <i class="swatch swatch--sell"></i>{{ '{:,.0f}'.format(side_counts.sell) }}
           </strong>
           <small>{{ t.stat_split_sub }}</small>
         </div>
-        <div class="stat-cell">
+        <div class="metric">
           <span>{{ t.stat_last_trade }}</span>
           <strong>{{ trades[0].reported_date.strftime('%d/%m/%Y') if trades else '—' }}</strong>
           <small>{{ t.stat_last_sub }}</small>

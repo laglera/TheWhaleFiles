@@ -174,23 +174,6 @@
   background: #ffffff;
 }
 
-:root[data-theme='dark'] .stat-tile--white {
-  background: var(--surface-elevated);
-  border-color: var(--hairline-light);
-}
-
-:root[data-theme='dark'] .stat-tile--white strong {
-  color: var(--primary-bright);
-}
-
-:root[data-theme='dark'] .stat-tile--teal {
-  background: #0d7a5c;
-}
-
-:root[data-theme='dark'] .stat-tile--pink {
-  background: #b31a3c;
-}
-
 :root[data-theme='dark'] .rank-card,
 :root[data-theme='dark'] .identity {
   background: var(--surface-card);
@@ -913,118 +896,104 @@ a {
 .avatar[data-slot='7'] { background: var(--a7); }
 
 /* --------------------------------------------------------------------------
-   Tiles de estadística
+   Métricas: una sola banda, misma pieza en portada y ficha
+   --------------------------------------------------------------------------
+   Eran cuatro tarjetas de cuatro colores planos (blanca, verde, roja, azul).
+   Sobre el azul marino competían con el fondo y entre ellas, y no se parecían
+   a nada más del sitio. Ahora comparten superficie y el color sólo aparece
+   donde significa algo: el reparto entre compras y ventas.
    -------------------------------------------------------------------------- */
 
-.stat-band {
+.metric-band {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 16px;
-}
-
-.stat-tile {
-  border-radius: var(--r-lg);
-  padding: 32px;
-  border: 1px solid transparent;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  min-height: 168px;
-}
-
-.stat-tile span {
-  font-size: 13px;
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.stat-tile strong {
-  font-family: var(--font-display);
-  font-size: 44px;
-  font-weight: 500;
-  line-height: 1.05;
-  letter-spacing: -0.02em;
-  margin-top: auto;
-}
-
-.stat-tile small {
-  font-size: 13px;
-  letter-spacing: 0;
-}
-
-.stat-tile--white {
-  background: var(--canvas-light);
-  color: var(--ink);
-}
-
-.stat-tile--white strong {
-  color: var(--primary-deep);
-}
-
-.stat-tile--white span {
-  color: var(--mute);
-}
-
-.stat-tile--white small {
-  color: var(--stone);
-}
-
-.stat-tile--glass {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   background: var(--glass);
-  border-color: var(--glass-line);
+  border: 1px solid var(--glass-line);
+  border-radius: var(--r-lg);
+  overflow: hidden;
+  backdrop-filter: blur(10px);
+}
+
+.metric {
+  padding: 22px 24px;
+  display: grid;
+  gap: 4px;
+  align-content: start;
+  border-left: 1px solid var(--glass-line);
+}
+
+.metric:first-child {
+  border-left: 0;
+}
+
+.metric span {
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.metric strong {
+  font-family: var(--font-display);
+  font-size: clamp(22px, 2.4vw, 30px);
+  font-weight: 500;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
   color: var(--on-dark);
-  backdrop-filter: blur(8px);
+  font-variant-numeric: tabular-nums;
 }
 
-.stat-tile--glass span,
-.stat-tile--glass small {
-  color: rgba(255, 255, 255, 0.82);
+.metric small {
+  font-size: 12.5px;
+  color: rgba(255, 255, 255, 0.5);
+  line-height: 1.35;
 }
 
-.stat-tile--teal {
-  background: var(--accent-teal);
-  color: #ffffff;
+/* En la portada las métricas son el primer dato de la página, no una nota
+   al pie de una ficha: mismo bloque, más aire y más cuerpo. */
+.metric-band--hero .metric {
+  padding: 30px 28px;
+  gap: 6px;
 }
 
-.stat-tile--teal span,
-.stat-tile--teal small {
-  color: rgba(255, 255, 255, 0.82);
+.metric-band--hero .metric strong {
+  font-size: clamp(30px, 3.4vw, 44px);
 }
 
-.stat-tile--pink {
-  background: var(--accent-pink);
-  color: #ffffff;
+.metric__split {
+  display: flex;
+  align-items: center;
+  gap: 7px;
 }
 
-.stat-tile--pink span,
-.stat-tile--pink small {
-  color: rgba(255, 255, 255, 0.82);
+.metric__split em {
+  font-style: normal;
+  color: rgba(255, 255, 255, 0.35);
+  font-weight: 400;
 }
 
-.stat-tile--plain {
-  background: var(--surface-elevated);
-  color: var(--on-dark);
-  border-color: var(--hairline-dark);
+.swatch {
+  width: 9px;
+  height: 9px;
+  border-radius: var(--r-full);
+  display: inline-block;
+  flex: none;
 }
 
-.stat-tile--plain span,
-.stat-tile--plain small {
-  color: var(--on-dark-mute);
-}
+.swatch--buy { background: var(--buy); }
+.swatch--sell { background: var(--sell); }
 
-.stat-tile--light {
-  background: var(--surface-card);
-  border-color: var(--hairline-light);
-  color: var(--ink);
-}
-
-.stat-tile--light span {
-  color: var(--mute);
-}
-
-.stat-tile--light small {
-  color: var(--stone);
+@media (max-width: 900px) {
+  .metric-band {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .metric:nth-child(odd) {
+    border-left: 0;
+  }
+  .metric:nth-child(n + 3) {
+    border-top: 1px solid var(--glass-line);
+  }
 }
 
 /* --------------------------------------------------------------------------
@@ -1716,88 +1685,6 @@ a {
   text-decoration: underline;
 }
 
-/* Métricas de la ficha. Antes eran cuatro tarjetas de cuatro colores planos
-   (gris, verde, rojo, azul) sobre el degradado de marca: competían entre sí y
-   con el fondo. Ahora es una sola superficie y el color sólo aparece donde
-   significa algo, en el reparto de compras y ventas. */
-.profile-stats {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  margin-top: 28px;
-  background: var(--glass);
-  border: 1px solid var(--glass-line);
-  border-radius: var(--r-lg);
-  overflow: hidden;
-}
-
-.stat-cell {
-  padding: 22px 24px;
-  display: grid;
-  gap: 4px;
-  align-content: start;
-  border-left: 1px solid var(--glass-line);
-}
-
-.stat-cell:first-child {
-  border-left: 0;
-}
-
-.stat-cell span {
-  font-size: 11.5px;
-  font-weight: 600;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.55);
-}
-
-.stat-cell strong {
-  font-size: clamp(22px, 2.4vw, 30px);
-  line-height: 1.15;
-  letter-spacing: -0.02em;
-  color: var(--on-dark);
-  font-variant-numeric: tabular-nums;
-}
-
-.stat-cell small {
-  font-size: 12.5px;
-  color: rgba(255, 255, 255, 0.5);
-  line-height: 1.35;
-}
-
-.stat-cell__split {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-}
-
-.stat-cell__split em {
-  font-style: normal;
-  color: rgba(255, 255, 255, 0.35);
-  font-weight: 400;
-}
-
-.swatch {
-  width: 9px;
-  height: 9px;
-  border-radius: var(--r-full);
-  display: inline-block;
-}
-
-.swatch--buy { background: var(--buy); }
-.swatch--sell { background: var(--sell); }
-
-@media (max-width: 900px) {
-  .profile-stats {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-  .stat-cell:nth-child(odd) {
-    border-left: 0;
-  }
-  .stat-cell:nth-child(n + 3) {
-    border-top: 1px solid var(--glass-line);
-  }
-}
-
 /* Aclaración de por qué un congresista no tiene patrimonio calculado: va aquí,
    pegada a sus métricas, en vez de ocupar una franja entera de la página. */
 .profile-note {
@@ -2031,10 +1918,6 @@ a {
     gap: 48px;
   }
 
-  .stat-band {
-    grid-template-columns: repeat(2, 1fr);
-  }
-
   .trade-grid,
   .people-grid {
     grid-template-columns: repeat(2, 1fr);
@@ -2092,20 +1975,27 @@ a {
     font-size: 36px;
   }
 
-  .stat-band,
   .trade-grid,
   .people-grid,
   .filters {
     grid-template-columns: 1fr;
   }
 
-  .stat-tile {
-    min-height: 0;
-    padding: 24px;
+  .metric-band {
+    grid-template-columns: 1fr;
   }
 
-  .stat-tile strong {
-    font-size: 36px;
+  .metric:nth-child(n) {
+    border-left: 0;
+    border-top: 1px solid var(--glass-line);
+  }
+
+  .metric:first-child {
+    border-top: 0;
+  }
+
+  .metric-band--hero .metric {
+    padding: 22px 24px;
   }
 
   .card {
