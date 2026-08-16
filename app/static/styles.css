@@ -80,14 +80,18 @@
   --font-display: 'Inter Tight', 'Inter', system-ui, sans-serif;
   --font-body: 'Inter', system-ui, -apple-system, sans-serif;
 
-  /* Canvas de marca: violeta → cobalto → azul.
-     El azul cielo del mockup (#2f9bf5) solo da 2.95:1 con blanco, así que
-     la base llega hasta #2472c9 (4.86:1) y el brillo se recupera con halos. */
-  --grad-violet: #5b4de0;
-  --grad-cobalt: #494fdf;
-  --grad-blue: #2472c9;
-  --grad-sky: #2f9bf5;
-  --brand-gradient: linear-gradient(155deg, var(--grad-violet) 0%, var(--grad-cobalt) 38%, var(--grad-blue) 100%);
+  /* Canvas de marca: azul marino. Es el fondo común de la portada y de las
+     fichas; antes cada una iba por su lado (degradado violeta la portada,
+     negro la ficha) y las dos páginas no parecían el mismo sitio.
+     Los tres tonos dan profundidad sin salirse de la misma familia. */
+  --navy: #12244f;
+  --navy-deep: #0b1631;
+  --navy-lift: #1b3468;
+  --grad-violet: #1d3465;
+  --grad-cobalt: #16294f;
+  --grad-blue: #0e1c3d;
+  --grad-sky: #2f6bb5;
+  --brand-gradient: linear-gradient(160deg, var(--grad-violet) 0%, var(--grad-cobalt) 45%, var(--grad-blue) 100%);
   --glass: rgba(255, 255, 255, 0.14);
   --glass-strong: rgba(255, 255, 255, 0.22);
   --glass-line: rgba(255, 255, 255, 0.28);
@@ -106,24 +110,31 @@
   --stone: #8b93a1;
   --faint: #4d535e;
 
-  --canvas-light: #14161c;
-  --surface-soft: #1b1e26;
-  --surface-card: #1a1d24;
-  --surface-elevated: #22262f;
+  /* Superficies teñidas hacia el navy del canvas: con grises neutros, el
+     cuerpo de la página y su cabecera parecían de dos sitios distintos. */
+  --canvas-light: #0f1729;
+  --canvas-dark: #070d1a;
+  --surface-soft: #141d33;
+  --surface-card: #16203a;
+  --surface-elevated: #1d2947;
 
-  --hairline-light: #2b2f39;
-  --hairline-strong: #3a3f4b;
+  --hairline-light: #26314b;
+  --hairline-strong: #38455f;
 
   --primary: #6f74ff;
   --primary-bright: #8b8fff;
   --primary-deep: #5257e8;
   --link: #7fa6f5;
 
-  /* El canvas de marca se hunde para no deslumbrar de noche */
-  --grad-violet: #2f2a6b;
-  --grad-cobalt: #2b2f8f;
-  --grad-blue: #16406f;
-  --grad-sky: #1d6ba8;
+  /* El canvas de marca se hunde para no deslumbrar de noche, sin salirse
+     del azul marino que comparten todas las páginas */
+  --navy: #0d1a38;
+  --navy-deep: #060c1c;
+  --navy-lift: #14264d;
+  --grad-violet: #142549;
+  --grad-cobalt: #101d3a;
+  --grad-blue: #0a1530;
+  --grad-sky: #1a4f83;
 
   --buy: #22c295;
   --buy-ink: #4fd6ae;
@@ -706,8 +717,9 @@ a {
   height: 620px;
   top: -220px;
   left: -160px;
-  background: radial-gradient(circle, #8b5cff, transparent 70%);
-  opacity: 0.6;
+  /* Antes violeta: sobre el navy desentonaba, ahora es el mismo azul aclarado */
+  background: radial-gradient(circle, #3f6ad8, transparent 70%);
+  opacity: 0.5;
 }
 
 .orb--2 {
@@ -724,8 +736,9 @@ a {
   height: 460px;
   bottom: -180px;
   left: 28%;
-  background: radial-gradient(circle, #21d0a4, transparent 70%);
-  opacity: 0.32;
+  /* Un punto de verde azulado para que el navy no quede plano */
+  background: radial-gradient(circle, #1d9c9c, transparent 70%);
+  opacity: 0.26;
 }
 
 
@@ -1482,18 +1495,10 @@ a {
   padding: 108px 0 56px;
 }
 
-/* En la ficha, el degradado de marca compite con el retrato y con los datos:
-   se rebaja a un fondo oscuro con sólo un rastro de color. */
-.brand-canvas--profile {
-  background: var(--canvas-dark);
-}
-
+/* La ficha comparte el canvas de la portada. Los halos sí se contienen: aquí
+   compiten con el retrato, que es el elemento que manda en esta página. */
 .brand-canvas--profile .orb {
-  opacity: 0.16;
-}
-
-.brand-canvas--profile::before {
-  opacity: 0.35;
+  opacity: 0.3;
 }
 
 .profile__inner {

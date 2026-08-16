@@ -38,8 +38,10 @@ FINNHUB_URL = "https://finnhub.io/api/v1/quote"
 BROWSER_UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/124 Safari/537.36"
 # Espaciado mínimo entre llamadas al proveedor, para no provocar el 429.
 REQUEST_PAUSE = float(os.getenv("PRICE_REQUEST_PAUSE", "1.0"))
-# Esperas crecientes cuando aun así rechaza.
-RETRY_BACKOFF = (2.0, 5.0)
+# Esperas crecientes cuando aun así rechaza. El límite de Yahoo no es una
+# ráfaga puntual sino una ventana sostenida: con esperas cortas se encadenan
+# los rechazos y una precarga entera se queda sin precios.
+RETRY_BACKOFF = (3.0, 8.0, 20.0)
 
 # Las cotizaciones se refrescan pasado este margen. Ningún proveedor gratuito da
 # tiempo real estricto, y un cuarto de hora es irrelevante para valorar una
@@ -278,16 +280,25 @@ def warm_cache(verbose: bool = True) -> dict[str, int]:
         ]
 
     stats = {"symbols": len(symbols), "priced": 0, "failed": 0}
+    failures = 0
     for symbol in symbols:
+        # Tras varios rechazos seguidos se afloja el ritmo: seguir insistiendo
+        # al mismo paso sólo alarga la ventana de bloqueo.
+        if failures >= 3:
+            time.sleep(15.0)
+            failures = 0
+
         quotes = get_prices([symbol])
         if quotes:
             stats["priced"] += 1
+            failures = 0
             if verbose:
-                print(f"  ok {symbol:10s} {quotes[symbol].price:,.2f}")
+                print(f"  ok {symbol:10s} {quotes[symbol].price:,.2f}", flush=True)
         else:
             stats["failed"] += 1
+            failures += 1
             if verbose:
-                print(f"  -- {symbol:10s} sin cotización")
+                print(f"  -- {symbol:10s} sin cotización", flush=True)
     return stats
 
 

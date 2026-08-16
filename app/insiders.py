@@ -51,6 +51,9 @@ INSIDERS: list[dict[str, str]] = [
     {"cik": "0001184237", "name": "Dara Khosrowshahi", "role": "CEO", "org": "Uber"},
 ]
 
+# Valores de relleno que aparecen donde debería ir el símbolo cotizado.
+NON_SYMBOLS = {"NONE", "N/A", "NA", "-", "--", "NULL"}
+
 # Códigos de transacción del Form 4 (tabla II del formulario).
 TRANSACTION_CODES = {
     "P": "Purchase",
@@ -125,8 +128,14 @@ def parse_form4(xml_bytes: bytes) -> dict[str, Any]:
             }
         )
 
+    symbol = (root.findtext("issuer/issuerTradingSymbol") or "").strip().upper()
+    # Los Form 4 de empresas sin valor cotizado rellenan el campo con un texto
+    # de relleno; guardarlo crearía un valor "NONE" imposible de cotizar.
+    if symbol in NON_SYMBOLS:
+        symbol = ""
+
     return {
-        "symbol": (root.findtext("issuer/issuerTradingSymbol") or "").strip().upper(),
+        "symbol": symbol,
         "issuer": (root.findtext("issuer/issuerName") or "").strip(),
         "transactions": transactions,
     }
