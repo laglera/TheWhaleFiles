@@ -128,6 +128,19 @@ def photo_credit(name: str) -> Optional[str]:
     return f"{author} · {entry['license']}"
 
 
+def static_url(filename: str) -> str:
+    """Añade la fecha del fichero a la URL.
+
+    Sin esto el navegador reutiliza la hoja de estilos que ya tenía guardada, y
+    una plantilla nueva se dibuja con el CSS viejo: los bloques que aún no
+    existen en esa hoja aparecen sin estilo.
+    """
+    path = Path("app/static") / filename
+    stamp = int(path.stat().st_mtime) if path.exists() else 0
+    return f"/static/{filename}?v={stamp}"
+
+
+templates.env.globals["static_url"] = static_url
 templates.env.filters["trade_side"] = trade_side
 templates.env.filters["accent_slot"] = accent_slot
 templates.env.filters["photo_url"] = photo_url
