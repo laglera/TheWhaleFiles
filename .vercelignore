@@ -1,0 +1,20 @@
+# La base local no viaja: en Vercel los datos están en Postgres (DATABASE_URL).
+*.db
+*.db-wal
+*.db-shm
+
+.venv/
+venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+tests/
+.env
+.DS_Store
+
+# Notas de trabajo, no hacen falta en la función.
+DESIGN-revolut.md
+PROJECT_BRIEF.md
+Dockerfile
+railway.json
+scripts/

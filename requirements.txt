@@ -2,3 +2,6 @@ fastapi==0.115.0
 uvicorn[standard]==0.30.6
 sqlalchemy==2.0.35
 jinja2==3.1.4
+# Driver de Postgres: la base de producción, ya que en serverless no hay disco
+# donde sostener el SQLite local.
+psycopg2-binary==2.9.9

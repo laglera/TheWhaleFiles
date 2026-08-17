@@ -1,13 +1,46 @@
+from __future__ import annotations
+
+import os
 from collections.abc import Generator
 from datetime import date
 
 from sqlalchemy import create_engine, event
 from sqlalchemy.orm import Session, sessionmaker
-from sqlalchemy.pool import StaticPool
+from sqlalchemy.pool import NullPool, StaticPool
 
 from app.models import Base, Politician, Ticker, Trade
 
-DATABASE_URL = "sqlite:///./thewhalefiles.db"
+DEFAULT_DATABASE_URL = "sqlite:///./thewhalefiles.db"
+
+# Cuando la base se crea desde el panel de Vercel, la integración inyecta ella
+# misma las credenciales, y no siempre con el nombre DATABASE_URL. Se aceptan
+# los alias habituales para no tener que duplicar la variable a mano.
+DATABASE_URL_VARS = ("DATABASE_URL", "POSTGRES_URL", "POSTGRES_URL_NON_POOLING")
+
+
+def resolve_database_url(raw: str | None = None) -> str:
+    """URL de la base, con SQLite local como valor por defecto.
+
+    Fuera del ordenador de casa no hay disco donde escribir —en una función
+    serverless el sistema de archivos es de sólo lectura—, así que el destino
+    se indica por entorno y apunta a un Postgres gestionado.
+    """
+    if raw is not None:
+        url = raw
+    else:
+        url = next(
+            (value for var in DATABASE_URL_VARS if (value := os.getenv(var))),
+            DEFAULT_DATABASE_URL,
+        )
+
+    # Varios proveedores siguen entregando el esquema "postgres://", que
+    # SQLAlchemy 2 ya no reconoce.
+    if url.startswith("postgres://"):
+        url = url.replace("postgres://", "postgresql://", 1)
+    return url
+
+
+DATABASE_URL = resolve_database_url()
 _ENGINE_CACHE: dict[str, object] = {}
 
 
@@ -27,6 +60,12 @@ def get_engine(database_url: str = DATABASE_URL):
         # una petición web lee corrompe el estado del módulo sqlite3.
         if is_memory:
             engine_kwargs["poolclass"] = StaticPool
+    else:
+        # Sin pool: la función serverless muere al responder y dejaría las
+        # conexiones abiertas del lado del servidor hasta agotar su límite.
+        # pool_pre_ping descarta las que el proveedor haya cerrado por su cuenta.
+        engine_kwargs["poolclass"] = NullPool
+        engine_kwargs["pool_pre_ping"] = True
 
     engine = create_engine(database_url, **engine_kwargs)
 

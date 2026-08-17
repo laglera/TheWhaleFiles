@@ -4,6 +4,7 @@ import logging
 import os
 import threading
 
+from app.runtime import is_serverless
 from app.sources import poll_official_sources
 
 logger = logging.getLogger(__name__)
@@ -18,6 +19,10 @@ DEFAULT_INTERVAL_SECONDS = int(os.getenv("POLL_INTERVAL_SECONDS", "900"))
 
 
 def polling_enabled() -> bool:
+    # En serverless no hay proceso que sobreviva a la respuesta: el hilo se
+    # cortaría a media pasada y sólo serviría para alargar cada petición.
+    if is_serverless():
+        return False
     return os.getenv("ENABLE_POLLING", "1").lower() not in {"0", "false", "no"}
 
 

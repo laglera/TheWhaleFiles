@@ -10,7 +10,7 @@ Mostrar operaciones recientes y el historial de un político a partir de declara
 
 - FastAPI
 - SQLAlchemy
-- SQLite para el MVP
+- SQLite en local, Postgres en el despliegue
 - Jinja2 + HTML/CSS para la interfaz básica
 
 ## Arranque rápido
@@ -38,9 +38,41 @@ Mostrar operaciones recientes y el historial de un político a partir de declara
 
 ## Configuración
 
-Copiar `.env.example` a `.env`. Todo es opcional: las cotizaciones salen de
-Yahoo Finance, que no pide registro. Configurar `FINNHUB_API_KEY` cambia el
-proveedor a Finnhub.
+Copiar `.env.example` a `.env`. En local todo es opcional: la base es un
+SQLite en el propio directorio y las cotizaciones salen de Yahoo Finance, que
+no pide registro. Configurar `FINNHUB_API_KEY` cambia el proveedor a Finnhub.
+
+## Despliegue en Vercel
+
+Vercel ejecuta funciones que nacen y mueren con cada petición: no hay disco
+donde escribir ni proceso que sostenga el polling. Por eso allí la base es un
+Postgres externo y los datos se preparan desde local.
+
+1. **Crear la base.** Cualquier Postgres gestionado sirve (Neon, Vercel
+   Postgres, Supabase). Copiar su cadena de conexión; si el proveedor ofrece
+   una variante *pooled*, usar esa: cada invocación abre su propia conexión.
+
+2. **Subir los datos** desde la máquina donde está la base local poblada:
+   ```bash
+   python -m scripts.migrate_to_postgres --target "postgresql://usuario:clave@host/basedatos"
+   ```
+   Copia personas, valores, operaciones, posiciones y cotizaciones conservando
+   los identificadores, para que los enlaces `/politicians/278` sigan valiendo.
+   Con `--replace` sobrescribe un destino que ya tuviera datos.
+
+3. **Importar el repositorio en Vercel** y definir una sola variable de
+   entorno: `DATABASE_URL`, con esa misma cadena. Las demás del `.env.example`
+   son opcionales y tienen valor por defecto en el código.
+
+4. **Desplegar.** `vercel.json` manda todas las rutas a `api/index.py`, que
+   sirve la aplicación FastAPI entera, estáticos incluidos.
+
+Las tareas de datos siguen ejecutándose a mano y fuera de Vercel, apuntando a
+la base de producción:
+
+```bash
+DATABASE_URL="postgresql://..." python -m app.insiders
+```
 
 ## Estado actual
 

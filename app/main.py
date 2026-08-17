@@ -13,19 +13,35 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
-from app.database import SessionLocal, get_db, init_db
+from app.database import SessionLocal, get_db, init_db, prepare_database
 from app.i18n import DEFAULT_LANG, get_translations, normalise_lang
 from app.ingestion import load_filing_into_db
 from app.models import Politician, Ticker, Trade
 from app.prices import provider_name as price_source
 from app.prices import value_holdings
+from app.runtime import is_serverless
 from app.scheduler import polling_enabled, start_polling_loop
 from app.sources import poll_official_sources
 
+# Rutas ancladas al paquete, no al directorio desde el que se lanzó el proceso.
+# En una función serverless el proceso arranca desde otro sitio y "app/static"
+# no existe: la web se quedaría sin hoja de estilos ni plantillas.
+APP_DIR = Path(__file__).resolve().parent
+STATIC_DIR = APP_DIR / "static"
+TEMPLATES_DIR = APP_DIR / "templates"
+DATA_DIR = APP_DIR / "data"
+
 app = FastAPI(title="TheWhaleFiles", version="0.1.0")
-app.mount("/static", StaticFiles(directory="app/static"), name="static")
-templates = Jinja2Templates(directory="app/templates")
-init_db()
+app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+templates = Jinja2Templates(directory=TEMPLATES_DIR)
+
+# init_db() siembra la base la primera vez, y esa ingesta tarda minutos. En
+# serverless eso caería dentro de la primera petición y la tumbaría por
+# timeout: allí sólo se comprueba el esquema, y los datos se cargan aparte.
+if is_serverless():
+    prepare_database()
+else:
+    init_db()
 
 BUY_TYPES = {"purchase", "buy", "p"}
 SELL_TYPES = {"sale", "sell", "s", "sale (full)", "sale (partial)"}
@@ -61,7 +77,7 @@ def accent_slot(value: Any) -> int:
 
 def _load_photo_index() -> dict[str, str]:
     """Retratos oficiales (dominio público, unitedstates/images) por nombre."""
-    photo_file = Path("app/data/politician_photos.json")
+    photo_file = DATA_DIR / "politician_photos.json"
     if not photo_file.exists():
         return {}
     with photo_file.open(encoding="utf-8") as handle:
@@ -135,7 +151,7 @@ def static_url(filename: str) -> str:
     una plantilla nueva se dibuja con el CSS viejo: los bloques que aún no
     existen en esa hoja aparecen sin estilo.
     """
-    path = Path("app/static") / filename
+    path = STATIC_DIR / filename
     stamp = int(path.stat().st_mtime) if path.exists() else 0
     return f"/static/{filename}?v={stamp}"
 
@@ -464,7 +480,7 @@ def politician_detail_page(
 
 @app.post("/api/load-sample-filing")
 def load_sample_filing() -> dict[str, Any]:
-    sample_file = Path("app/data/sample_senate_filing.txt")
+    sample_file = DATA_DIR / "sample_senate_filing.txt"
     if not sample_file.exists():
         raise HTTPException(status_code=404, detail="Sample filing not found")
 
