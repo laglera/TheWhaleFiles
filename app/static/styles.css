@@ -235,6 +235,11 @@ a {
   color: var(--link);
 }
 
+/* Ninguna imagen puede empujar el ancho de la página */
+img {
+  max-width: 100%;
+}
+
 /* --------------------------------------------------------------------------
    Bandas y contenedores
    -------------------------------------------------------------------------- */
@@ -350,16 +355,26 @@ a {
   box-shadow: 0 12px 32px rgba(20, 24, 80, 0.18);
 }
 
+/* La marca es lo único que cede espacio cuando la barra se estrecha: el resto
+   son controles y no pueden encogerse por debajo de su tamaño táctil. */
 .nav__brand {
   display: flex;
   align-items: center;
   gap: 10px;
+  min-width: 0;
+  flex: 0 1 auto;
   color: var(--ink);
   text-decoration: none;
   font-family: var(--font-display);
   font-size: 19px;
   font-weight: 500;
   letter-spacing: -0.2px;
+}
+
+.nav__brand-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .nav__mark {
@@ -399,6 +414,7 @@ a {
   display: flex;
   align-items: center;
   gap: 12px;
+  flex: none;
 }
 
 .nav__meta {
@@ -416,6 +432,7 @@ a {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  flex: none;
   height: 36px;
   min-width: 36px;
   padding: 0 10px;
@@ -495,6 +512,7 @@ a {
   font-weight: 600;
   letter-spacing: 0.24px;
   text-decoration: none;
+  white-space: nowrap;
   cursor: pointer;
   transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
 }
@@ -604,9 +622,12 @@ a {
   font-weight: 700;
 }
 
+/* El mínimo baja hasta 38px: "TheWhaleFiles" es una sola palabra de trece
+   letras y a 52px no entraba en un móvil de 360px. */
 .hero__title {
   margin: 0;
-  font-size: clamp(52px, 8.4vw, 124px);
+  max-width: 100%;
+  font-size: clamp(38px, 8.4vw, 124px);
   line-height: 0.98;
   letter-spacing: -0.035em;
 }
@@ -1120,6 +1141,7 @@ a {
   display: flex;
   flex-direction: column;
   gap: 16px;
+  min-width: 0;
   background: var(--surface-card);
   border: 1px solid var(--hairline-light);
   border-radius: var(--r-lg);
@@ -1351,10 +1373,13 @@ a {
   gap: 16px;
 }
 
+/* min-width: 0 deja que la celda de la rejilla baje de su ancho mínimo; sin
+   esto un nombre largo estira la tarjeta y con ella la página entera. */
 .person-card {
   display: flex;
   align-items: center;
   gap: 16px;
+  min-width: 0;
   background: var(--surface-card);
   border: 1px solid var(--hairline-light);
   border-radius: var(--r-lg);
@@ -1757,14 +1782,6 @@ a {
   color: var(--sell-ink);
 }
 
-@media (max-width: 720px) {
-  .ledger--wealth .ledger__head,
-  .ledger--wealth .ledger__row {
-    grid-template-columns: 1fr 100px;
-    row-gap: 8px;
-  }
-}
-
 .profile__tags {
   display: flex;
   flex-wrap: wrap;
@@ -1903,21 +1920,13 @@ a {
 
 /* --------------------------------------------------------------------------
    Responsive
+   --------------------------------------------------------------------------
+   Cuatro escalones: portátil estrecho (1080), tablet (900), móvil (767) y
+   móvil estrecho (479). Cada uno reduce columnas antes que tamaños de letra,
+   y sólo cuando el contenido ya no cabe.
    -------------------------------------------------------------------------- */
 
-@media (max-width: 1024px) {
-  .footer__grid {
-    grid-template-columns: 1fr 1fr;
-    gap: 32px;
-  }
-}
-
 @media (max-width: 1080px) {
-  .hero__inner {
-    grid-template-columns: 1fr;
-    gap: 48px;
-  }
-
   .trade-grid,
   .people-grid {
     grid-template-columns: repeat(2, 1fr);
@@ -1947,6 +1956,41 @@ a {
   .rank-legend {
     display: none;
   }
+
+  .footer__grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 32px;
+  }
+}
+
+/* Tablet: la ficha de patrimonio es la primera que se queda sin sitio, con
+   cinco columnas de datos numéricos. */
+@media (max-width: 900px) {
+  .band {
+    padding: 72px 0;
+  }
+
+  .band-head h2 {
+    font-size: 40px;
+  }
+
+  .ledger__head,
+  .ledger__row {
+    grid-template-columns: 110px 1fr 120px 130px;
+    padding: 16px 20px;
+    gap: 12px;
+  }
+
+  .ledger--wealth .ledger__head,
+  .ledger--wealth .ledger__row {
+    grid-template-columns: minmax(0, 1fr) 90px 110px 120px;
+  }
+
+  /* La fecha de valoración ya está en el pie de la sección */
+  .ledger--wealth .ledger__head span:nth-child(4),
+  .ledger--wealth .ledger__row > :nth-child(4) {
+    display: none;
+  }
 }
 
 @media (max-width: 767px) {
@@ -1954,16 +1998,94 @@ a {
     padding: 64px 0;
   }
 
+  .band--profile {
+    padding: 40px 0;
+  }
+
   .inner,
-  .nav__inner,
   .hero__inner,
   .profile__inner {
     padding-left: 20px;
     padding-right: 20px;
   }
 
+  /* Barra: se compacta y suelta el alto que descuenta el hero */
+  .nav {
+    padding: 12px 16px;
+    margin-bottom: -80px;
+  }
+
+  .nav__inner {
+    height: 56px;
+    padding: 0 8px 0 14px;
+    gap: 12px;
+  }
+
+  .nav__actions {
+    gap: 8px;
+  }
+
+  .nav__lang,
+  .nav__theme {
+    height: 34px;
+    min-width: 34px;
+    padding: 0 8px;
+  }
+
+  .nav__inner .btn--sm {
+    height: 34px;
+    padding: 0 14px;
+    font-size: 13px;
+  }
+
+  .nav__meta {
+    display: none;
+  }
+
   .hero {
-    padding: 72px 0 64px;
+    padding: 104px 0 56px;
+  }
+
+  .hero__claim {
+    margin-top: 20px;
+  }
+
+  .hero__actions {
+    margin-top: 28px;
+    width: 100%;
+  }
+
+  .hero__actions .btn {
+    flex: 1 1 auto;
+  }
+
+  .hero__stats {
+    margin-top: 40px;
+    padding: 0 20px;
+  }
+
+  /* Los halos cuestan caros de pintar en un móvil y aquí sólo se ven a trozos */
+  .orb {
+    filter: blur(80px);
+  }
+
+  .orb--1 {
+    width: 360px;
+    height: 360px;
+    top: -140px;
+    left: -120px;
+  }
+
+  .orb--2 {
+    width: 400px;
+    height: 400px;
+    right: -160px;
+  }
+
+  .orb--3 {
+    width: 300px;
+    height: 300px;
+    bottom: -140px;
   }
 
   .band-head {
@@ -1972,13 +2094,21 @@ a {
   }
 
   .band-head h2 {
-    font-size: 36px;
+    font-size: 34px;
+  }
+
+  .band-head p {
+    font-size: 16px;
   }
 
   .trade-grid,
   .people-grid,
   .filters {
     grid-template-columns: 1fr;
+  }
+
+  .filters {
+    padding: 20px;
   }
 
   .metric-band {
@@ -2002,42 +2132,6 @@ a {
     padding: 24px;
   }
 
-  .nav__meta {
-    display: none;
-  }
-
-  .ledger__head {
-    display: none;
-  }
-
-  .ledger__row {
-    grid-template-columns: 1fr auto;
-    row-gap: 8px;
-    padding: 16px 20px;
-  }
-
-  .ledger__date {
-    order: 3;
-  }
-
-  .ledger__amount {
-    order: 4;
-  }
-
-  .profile__id {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-
-  .footer {
-    padding: 56px 0 40px;
-  }
-
-  .footer__grid {
-    grid-template-columns: 1fr;
-    gap: 32px;
-  }
-
   .bar-row {
     grid-template-columns: 56px 1fr;
     row-gap: 6px;
@@ -2049,33 +2143,50 @@ a {
     min-width: 0;
   }
 
-  .hero__actions .btn {
-    flex: 1 1 auto;
+  /* Clasificación: sin avatar ni barra, sólo puesto, nombre e importe */
+  .rank-card {
+    padding: 8px;
   }
 
-  .hero {
-    padding-top: 120px;
+  .rank-row {
+    grid-template-columns: 32px minmax(0, 1fr) auto;
+    gap: 12px;
+    padding: 14px 12px;
   }
 
-  .hero__stats {
-    margin-top: 48px;
-    padding: 0 20px;
+  .rank-row .avatar {
+    display: none;
   }
 
+  .rank-row__amount b {
+    font-size: 18px;
+  }
+
+  .band--brand {
+    padding-bottom: 64px;
+  }
+
+  /* Ficha: retrato y datos en una sola columna */
   .profile {
-    padding-top: 104px;
+    padding: 96px 0 48px;
   }
 
   .profile__grid {
     grid-template-columns: 1fr;
+    gap: 20px;
   }
 
+  /* El marco 4/5 a ancho completo ocupaba una pantalla entera de foto: se fija
+     a un tamaño de reseña y el crédito se coloca a su lado. */
   .portrait {
-    aspect-ratio: auto;
     flex-direction: row;
-    justify-content: flex-start;
-    text-align: left;
-    padding: 20px;
+    align-items: flex-end;
+    gap: 14px;
+  }
+
+  .portrait__frame {
+    width: 132px;
+    flex: none;
   }
 
   .portrait .avatar {
@@ -2093,21 +2204,140 @@ a {
     gap: 16px;
   }
 
-  .rank-card {
-    padding: 8px;
+  .wealth-total {
+    text-align: left;
   }
 
-  .rank-row {
-    grid-template-columns: 32px minmax(0, 1fr) auto;
-    gap: 12px;
-    padding: 14px 12px;
-  }
-
-  .rank-row .avatar {
+  /* Historial: tipo y fecha bajo el valor, en dos columnas */
+  .ledger__head {
     display: none;
   }
 
-  .band--brand {
-    padding-bottom: 64px;
+  .ledger__row {
+    grid-template-columns: minmax(0, 1fr) auto;
+    row-gap: 10px;
+    padding: 16px 20px;
+  }
+
+  .ledger__row .tag {
+    order: 3;
+    justify-self: start;
+  }
+
+  .ledger__symbol {
+    order: 1;
+  }
+
+  .ledger__amount {
+    order: 2;
+  }
+
+  .ledger__date {
+    order: 4;
+    justify-self: end;
+  }
+
+  /* Patrimonio: cada cifra recupera su nombre con data-label, porque sin
+     cabecera "727,704,534" no dice si son acciones, dólares o días. */
+  .ledger--wealth .ledger__row {
+    grid-template-columns: minmax(0, 1fr);
+    row-gap: 8px;
+  }
+
+  .ledger--wealth .ledger__head span:nth-child(4),
+  .ledger--wealth .ledger__row > :nth-child(4) {
+    display: block;
+  }
+
+  .ledger--wealth .ledger__row > [data-label] {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    order: 2;
+    text-align: right;
+  }
+
+  .ledger--wealth .ledger__row > [data-label]::before {
+    content: attr(data-label);
+    flex: none;
+    color: var(--stone);
+    font-family: var(--font-body);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .ledger--wealth .ledger__symbol {
+    order: 1;
+    padding-bottom: 4px;
+  }
+
+  .ledger--wealth .ledger__amount {
+    order: 3;
+    padding-top: 8px;
+    border-top: 1px solid var(--hairline-light);
+  }
+
+  .footer {
+    padding: 56px 0 40px;
+  }
+
+  .footer__grid {
+    grid-template-columns: 1fr;
+    gap: 32px;
+  }
+}
+
+/* Móvil estrecho: la barra ya no da para el nombre de la marca */
+@media (max-width: 479px) {
+  .inner,
+  .hero__inner,
+  .profile__inner {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+
+  .nav {
+    padding: 12px;
+  }
+
+  .nav__brand-name {
+    display: none;
+  }
+
+  .hero__stats {
+    padding: 0 16px;
+  }
+
+  .band-head h2 {
+    font-size: 30px;
+  }
+
+  .card,
+  .trade-card,
+  .identity,
+  .filters {
+    padding: 20px;
+  }
+
+  .metric,
+  .metric-band--hero .metric {
+    padding: 18px 20px;
+  }
+
+  .ledger__row,
+  .ledger--wealth .ledger__row {
+    padding: 14px 16px;
+  }
+
+  .person-card {
+    padding: 16px;
+    gap: 12px;
+  }
+
+  .portrait__frame {
+    width: 112px;
   }
 }

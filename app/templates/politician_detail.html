@@ -173,8 +173,10 @@
             {% endif %}
           </div>
         </div>
-        <span class="ledger__date">{{ '{:,.0f}'.format(position.shares) }}</span>
-        <span class="ledger__date">
+        {# data-label alimenta el encabezado de cada dato en móvil, donde la
+           cabecera de la tabla no cabe y las cifras quedarían sin nombre. #}
+        <span class="ledger__date" data-label="{{ t.wealth_shares }}">{{ '{:,.0f}'.format(position.shares) }}</span>
+        <span class="ledger__date" data-label="{{ t.wealth_price }}">
           {%- if position.price -%}
           ${{ '{:,.2f}'.format(position.price) }}
           {%- if position.change_pct is not none %}
@@ -186,8 +188,8 @@
           <em>{{ t.wealth_no_price }}</em>
           {%- endif -%}
         </span>
-        <span class="ledger__date">{{ position.as_of.strftime('%d/%m/%Y') }}</span>
-        <span class="ledger__amount">
+        <span class="ledger__date" data-label="{{ t.wealth_as_of }}">{{ position.as_of.strftime('%d/%m/%Y') }}</span>
+        <span class="ledger__amount" data-label="{{ t.wealth_value }}">
           {%- if position.value is not none -%}{{ ui.money(position.value) }}{%- else -%}—{%- endif -%}
         </span>
       </div>

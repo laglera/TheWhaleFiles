@@ -26,9 +26,11 @@
   <body>
     <nav class="nav">
       <div class="nav__inner">
+        {# El nombre va en su propio span para poder retirarlo en móvil, donde
+           la barra no da para marca, idioma, tema y acción a la vez. #}
         <a class="nav__brand" href="/">
           <span class="nav__mark">🐋</span>
-          TheWhaleFiles
+          <span class="nav__brand-name">TheWhaleFiles</span>
         </a>
         <div class="nav__links">
           <a href="/#operaciones">{{ t.nav_trades }}</a>
