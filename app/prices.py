@@ -24,6 +24,7 @@ from sqlalchemy import select
 
 from app.database import SessionLocal
 from app.models import PriceQuote
+from app.runtime import is_serverless
 
 logger = logging.getLogger(__name__)
 
@@ -165,6 +166,15 @@ def get_prices(symbols: Iterable[str], refresh: bool = True) -> dict[str, PriceQ
     wanted = sorted({(symbol or "").strip().upper() for symbol in symbols if symbol})
     if not wanted:
         return {}
+
+    # En serverless la petición web no puede pararse a hablar con el proveedor.
+    # Yahoo responde 429 con facilidad y los reintentos esperan hasta medio
+    # minuto por símbolo: una ficha con posiciones agotaría el tiempo de la
+    # función y devolvería un error en vez de la página. Allí se sirve lo que
+    # haya cacheado —la ficha muestra de cuándo es— y el refresco se hace
+    # aparte, con `python -m app.prices` contra la base de producción.
+    if refresh and is_serverless():
+        refresh = False
 
     now = datetime.utcnow()
     quotes: dict[str, PriceQuote] = {}

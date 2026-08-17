@@ -71,8 +71,15 @@ Las tareas de datos siguen ejecutándose a mano y fuera de Vercel, apuntando a
 la base de producción:
 
 ```bash
-DATABASE_URL="postgresql://..." python -m app.insiders
+DATABASE_URL="postgresql://..." python -m app.insiders   # nuevas operaciones
+DATABASE_URL="postgresql://..." python -m app.prices     # refresca cotizaciones
 ```
+
+La segunda importa más de lo que parece: en serverless las fichas sirven las
+cotizaciones ya guardadas y no llaman al proveedor: Yahoo devuelve 429 con
+frecuencia y sus reintentos esperan hasta medio minuto por valor, mucho más de
+lo que dura una función. Sin este refresco periódico, el patrimonio se muestra
+con precios cada vez más viejos —la ficha indica siempre de cuándo son.
 
 ## Estado actual
 
