@@ -60,16 +60,26 @@
               <p class="identity__headline">{{ bio_headline }}</p>
               {% endif %}
             </div>
-            <button
-              class="follow-btn btn btn--cobalt btn--sm"
-              type="button"
-              aria-pressed="false"
-              data-politician="{{ politician.id }}"
-              data-follow="{{ t.profile_follow }}"
-              data-following="{{ t.profile_following }}"
-            >
-              {{ t.profile_follow }}
-            </button>
+            {# Sin sesión no hay dónde guardar el seguimiento, así que el botón
+               lleva al formulario de entrada en lugar de fingir que funciona. #}
+            {% if user %}
+            <form method="post"
+                  action="/politicians/{{ politician.id }}/{{ 'unfollow' if following else 'follow' }}?lang={{ lang }}">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
+              <button
+                class="follow-btn btn btn--sm {{ 'btn--soft' if following else 'btn--cobalt' }}"
+                type="submit"
+                aria-pressed="{{ 'true' if following else 'false' }}"
+                {% if following %}title="{{ t.follow_undo }}"{% endif %}
+              >
+                {{ t.profile_following if following else t.profile_follow }}
+              </button>
+            </form>
+            {% else %}
+            <a class="follow-btn btn btn--cobalt btn--sm" href="/login?lang={{ lang }}">
+              {{ t.follow_login }}
+            </a>
+            {% endif %}
           </div>
 
           {% if bio %}
@@ -318,24 +328,7 @@
     });
   })();
 
-  // "Seguir" se guarda solo en este navegador: no hay cuentas ni backend de seguimiento.
-  (() => {
-    const button = document.querySelector('.follow-btn');
-    if (!button) return;
-
-    const key = `twf:following:${button.dataset.politician}`;
-    const render = (following) => {
-      button.setAttribute('aria-pressed', String(following));
-      button.textContent = following ? button.dataset.following : button.dataset.follow;
-    };
-
-    render(localStorage.getItem(key) === '1');
-
-    button.addEventListener('click', () => {
-      const following = button.getAttribute('aria-pressed') !== 'true';
-      localStorage.setItem(key, following ? '1' : '0');
-      render(following);
-    });
-  })();
+  // El seguimiento ya no vive en localStorage: lo guarda la cuenta, y el
+  // formulario de arriba lo resuelve sin JavaScript.
 </script>
 {% endblock %}

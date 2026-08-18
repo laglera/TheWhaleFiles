@@ -81,8 +81,27 @@ frecuencia y sus reintentos esperan hasta medio minuto por valor, mucho más de
 lo que dura una función. Sin este refresco periódico, el patrimonio se muestra
 con precios cada vez más viejos —la ficha indica siempre de cuándo son.
 
+## Cuentas
+
+Registro en `/signup` y entrada en `/login`, con correo y contraseña. Una cuenta
+sirve para seguir perfiles: el botón de la ficha guarda el seguimiento y
+`/account` reúne a quién sigues y sus últimas operaciones.
+
+No hace falta contratar nada para esto. Los usuarios viven en la misma base que
+el resto —`users`, `sessions` y `follows`, creadas solas en el primer arranque—
+y no hay ninguna variable de entorno nueva que configurar.
+
+La sesión es un token aleatorio: el navegador lo guarda en una cookie y la tabla
+`sessions` sólo conserva su hash. En serverless no hay proceso vivo donde
+sostener sesiones en memoria, y guardarlas en la base tiene además la ventaja de
+que salir las revoca de verdad, cosa que un token autofirmado no permite.
+
+Queda fuera por ahora la verificación del correo, recuperar la contraseña y
+limitar los intentos de entrada.
+
 ## Estado actual
 
+- Cuentas de usuario y seguimiento de perfiles.
 - Operaciones del Congreso (House Stock Watcher) y de directivos (SEC Form 4).
 - Ranking, tendencias, filtros y fichas individuales, en español e inglés.
 - Biografías y retratos de Wikipedia/Wikimedia Commons, con su atribución.

@@ -20,7 +20,10 @@ class RouteTests(unittest.TestCase):
                 "path": f"/politicians/{politician.id}",
                 "headers": [],
             })
-            response = politician_detail_page(request, politician.id, db)
+            # `user` va explícito: llamada directa, sin FastAPI que resuelva la
+            # dependencia, el valor por defecto sería el propio objeto Depends y
+            # la plantilla lo tomaría por una sesión iniciada.
+            response = politician_detail_page(request, politician.id, db, None, None)
             html = response.body.decode("utf-8")
             self.assertIn(politician.name, html)
         finally:

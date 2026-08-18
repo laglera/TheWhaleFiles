@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{# Entrada y alta comparten molde: los dos formularios piden lo mismo salvo el
+   nombre, y separarlos en dos plantillas obligaría a mantener el mismo bloque
+   por duplicado. #}
+{% set is_signup = mode == 'signup' %}
+
+{% block title %}
+  {{ t.auth_signup_title if is_signup else t.auth_login_title }} · TheWhaleFiles
+{% endblock %}
+
+{# La barra ya ofrece el camino contrario en el propio formulario. #}
+{% block nav_action %}{% endblock %}
+
+{% block body %}
+<section class="band band--soft band--tight">
+  <div class="inner">
+    <div class="auth-card">
+      <div class="band-head band-head--center">
+        <h2>{{ t.auth_signup_title if is_signup else t.auth_login_title }}</h2>
+        <p>{{ t.auth_signup_sub if is_signup else t.auth_login_sub }}</p>
+      </div>
+
+      {% if errors %}
+      <ul class="auth-errors" role="alert">
+        {% for error in errors %}
+        <li>{{ error }}</li>
+        {% endfor %}
+      </ul>
+      {% endif %}
+
+      <form class="auth-form" method="post" action="{{ '/signup' if is_signup else '/login' }}?lang={{ lang }}">
+        {% if is_signup %}
+        <label class="field">
+          <span>{{ t.auth_name }} <small>{{ t.auth_name_optional }}</small></span>
+          <input type="text" name="display_name" maxlength="80" placeholder="{{ t.auth_name_ph }}" />
+        </label>
+        {% endif %}
+
+        <label class="field">
+          <span>{{ t.auth_email }}</span>
+          <input
+            type="email"
+            name="email"
+            value="{{ email }}"
+            autocomplete="email"
+            required
+            autofocus
+          />
+        </label>
+
+        <label class="field">
+          <span>{{ t.auth_password }}</span>
+          <input
+            type="password"
+            name="password"
+            autocomplete="{{ 'new-password' if is_signup else 'current-password' }}"
+            required
+          />
+          {% if is_signup %}<small class="field__hint">{{ t.auth_password_hint }}</small>{% endif %}
+        </label>
+
+        <button type="submit" class="btn btn--primary">
+          {{ t.auth_submit_signup if is_signup else t.auth_submit_login }}
+        </button>
+      </form>
+
+      <p class="auth-switch">
+        <a href="{{ '/login' if is_signup else '/signup' }}?lang={{ lang }}">
+          {{ t.auth_to_login if is_signup else t.auth_to_signup }}
+        </a>
+      </p>
+    </div>
+  </div>
+</section>
+{% endblock %}

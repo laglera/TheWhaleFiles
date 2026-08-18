@@ -6,17 +6,19 @@ from pathlib import Path
 from typing import Any, Optional
 from urllib.parse import parse_qsl, urlencode
 
-from fastapi import Depends, FastAPI, HTTPException, Request
-from fastapi.responses import HTMLResponse
+from fastapi import Depends, FastAPI, Form, HTTPException, Request
+from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
+from app import auth
+from app.auth import current_user, require_user
 from app.database import SessionLocal, get_db, init_db, prepare_database
 from app.i18n import DEFAULT_LANG, get_translations, normalise_lang
 from app.ingestion import load_filing_into_db
-from app.models import Politician, Ticker, Trade
+from app.models import Follow, Politician, Ticker, Trade, User
 from app.prices import provider_name as price_source
 from app.prices import value_holdings
 from app.runtime import is_serverless
@@ -188,6 +190,7 @@ def render(
     template: str,
     context: dict[str, Any],
     lang: str,
+    user: Optional[User] = None,
 ) -> Any:
     other_lang = "en" if lang == "es" else "es"
     context = {
@@ -197,6 +200,10 @@ def render(
         "other_lang": other_lang,
         "lang_switch_url": lang_switch_url(request, other_lang),
         "t": get_translations(lang),
+        "user": user,
+        # Lo deja `current_user` al resolver la sesión: los formularios ya
+        # autenticados lo mandan de vuelta para que el POST se acepte.
+        "csrf_token": getattr(request.state, "csrf_token", ""),
     }
     response = templates.TemplateResponse(template, context)
     response.set_cookie(LANG_COOKIE, lang, max_age=60 * 60 * 24 * 365, samesite="lax")
@@ -220,6 +227,7 @@ def home(
     q: Optional[str] = None,
     category: Optional[str] = None,
     lang: Optional[str] = None,
+    user: Optional[User] = Depends(current_user),
 ) -> Any:
     search_value = q.strip().lower() if q else ""
 
@@ -346,6 +354,7 @@ def home(
             "parties": [value for value in unique_parties if value],
         },
         resolve_lang(request, lang),
+        user,
     )
 
 
@@ -415,6 +424,7 @@ def politician_detail_page(
     politician_id: int,
     db: Session = Depends(get_db),
     lang: Optional[str] = None,
+    user: Optional[User] = Depends(current_user),
 ) -> Any:
     politician = db.get(Politician, politician_id)
     if not politician:
@@ -473,9 +483,196 @@ def politician_detail_page(
             "bio_headline": headline,
             "wealth": wealth,
             "price_source": price_source(),
+            "following": auth.is_following(db, user, politician_id),
         },
         resolved_lang,
+        user,
     )
+
+
+def auth_page(
+    request: Request,
+    lang: str,
+    mode: str,
+    errors: Optional[list[str]] = None,
+    email: str = "",
+) -> Any:
+    """Formulario de entrada o de alta: mismo molde, distinto rótulo."""
+    return render(
+        request,
+        "auth.html",
+        {"mode": mode, "errors": errors or [], "email": email},
+        lang,
+    )
+
+
+@app.get("/login", response_class=HTMLResponse)
+def login_page(request: Request, lang: Optional[str] = None) -> Any:
+    return auth_page(request, resolve_lang(request, lang), "login")
+
+
+@app.post("/login")
+def login_submit(
+    request: Request,
+    email: str = Form(""),
+    password: str = Form(""),
+    db: Session = Depends(get_db),
+    lang: Optional[str] = None,
+) -> Any:
+    resolved_lang = resolve_lang(request, lang)
+    t = get_translations(resolved_lang)
+    address = auth.normalise_email(email)
+
+    user = db.scalar(select(User).where(User.email == address))
+    if user is None or not auth.verify_password(password, user.password_hash):
+        # El mismo mensaje para "no existe" y "contraseña mala": distinguirlos
+        # convierte el formulario en un detector de qué correos están dados de alta.
+        return auth_page(request, resolved_lang, "login", [t["auth_error_credentials"]], address)
+
+    response = RedirectResponse("/account", status_code=303)
+    auth.set_session_cookie(response, auth.create_session(db, user))
+    return response
+
+
+@app.get("/signup", response_class=HTMLResponse)
+def signup_page(request: Request, lang: Optional[str] = None) -> Any:
+    return auth_page(request, resolve_lang(request, lang), "signup")
+
+
+@app.post("/signup")
+def signup_submit(
+    request: Request,
+    email: str = Form(""),
+    password: str = Form(""),
+    display_name: str = Form(""),
+    db: Session = Depends(get_db),
+    lang: Optional[str] = None,
+) -> Any:
+    resolved_lang = resolve_lang(request, lang)
+    t = get_translations(resolved_lang)
+    address = auth.normalise_email(email)
+
+    errors = auth.credential_errors(email, password, t)
+    if not errors and db.scalar(select(User.id).where(User.email == address)) is not None:
+        errors.append(t["auth_error_taken"])
+    if errors:
+        return auth_page(request, resolved_lang, "signup", errors, address)
+
+    user = User(
+        email=address,
+        password_hash=auth.hash_password(password),
+        # Sin nombre, la parte del correo anterior a la arroba: la barra de
+        # navegación necesita algo que mostrar.
+        display_name=display_name.strip() or address.split("@")[0],
+        created_at=auth.utcnow(),
+    )
+    db.add(user)
+    db.commit()
+
+    response = RedirectResponse("/account", status_code=303)
+    auth.set_session_cookie(response, auth.create_session(db, user))
+    return response
+
+
+@app.post("/logout")
+def logout(
+    request: Request,
+    csrf_token: str = Form(""),
+    db: Session = Depends(get_db),
+    user: User = Depends(require_user),
+) -> Any:
+    auth.check_csrf(request, csrf_token)
+    auth.destroy_session(db, request.cookies.get(auth.SESSION_COOKIE))
+
+    response = RedirectResponse("/", status_code=303)
+    auth.clear_session_cookie(response)
+    return response
+
+
+@app.get("/account", response_class=HTMLResponse)
+def account_page(
+    request: Request,
+    db: Session = Depends(get_db),
+    lang: Optional[str] = None,
+    user: User = Depends(require_user),
+) -> Any:
+    followed = db.execute(
+        select(
+            Politician,
+            func.count(Trade.id).label("operations"),
+            func.coalesce(func.sum(Trade.amount), 0.0).label("volume"),
+        )
+        .select_from(Follow)
+        .join(Politician, Politician.id == Follow.politician_id)
+        # Outer join: alguien recién seguido puede no tener operaciones y aun
+        # así tiene que aparecer en la lista.
+        .outerjoin(Trade, Trade.politician_id == Politician.id)
+        .where(Follow.user_id == user.id)
+        .group_by(Politician.id)
+        .order_by(func.coalesce(func.sum(Trade.amount), 0.0).desc())
+    ).all()
+
+    followed_ids = [politician.id for politician, _, _ in followed]
+    recent_trades = []
+    if followed_ids:
+        recent_trades = db.scalars(
+            select(Trade)
+            .where(Trade.politician_id.in_(followed_ids))
+            .order_by(Trade.reported_date.desc(), Trade.id.desc())
+            .limit(12)
+        ).all()
+
+    return render(
+        request,
+        "account.html",
+        {
+            "followed": [
+                {
+                    "id": politician.id,
+                    "name": politician.name,
+                    "chamber": politician.chamber,
+                    "state": politician.state,
+                    "party": politician.party,
+                    "category": politician.category,
+                    "operations": operations,
+                    "volume": float(volume),
+                }
+                for politician, operations, volume in followed
+            ],
+            "recent_trades": recent_trades,
+        },
+        resolve_lang(request, lang),
+        user,
+    )
+
+
+@app.post("/politicians/{politician_id}/follow")
+def follow_politician(
+    request: Request,
+    politician_id: int,
+    csrf_token: str = Form(""),
+    db: Session = Depends(get_db),
+    user: User = Depends(require_user),
+) -> Any:
+    auth.check_csrf(request, csrf_token)
+    if db.get(Politician, politician_id) is None:
+        raise HTTPException(status_code=404, detail="Politician not found")
+
+    auth.follow(db, user, politician_id)
+    return RedirectResponse(f"/politicians/{politician_id}", status_code=303)
+
+
+@app.post("/politicians/{politician_id}/unfollow")
+def unfollow_politician(
+    request: Request,
+    politician_id: int,
+    csrf_token: str = Form(""),
+    db: Session = Depends(get_db),
+    user: User = Depends(require_user),
+) -> Any:
+    auth.check_csrf(request, csrf_token)
+    auth.unfollow(db, user, politician_id)
+    return RedirectResponse(f"/politicians/{politician_id}", status_code=303)
 
 
 @app.post("/api/load-sample-filing")

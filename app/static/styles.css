@@ -1919,6 +1919,115 @@ img {
 }
 
 /* --------------------------------------------------------------------------
+   Cuentas
+   -------------------------------------------------------------------------- */
+
+.nav__user {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink);
+  text-decoration: none;
+  max-width: 160px;
+}
+
+.nav__user-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--primary);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.nav__user-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.nav__user:hover {
+  color: var(--primary);
+}
+
+.nav__logout {
+  display: inline-flex;
+}
+
+/* Columna estrecha y centrada: el formulario no tiene por qué ocupar el ancho
+   de la rejilla de datos, y leerlo en línea corta cuesta menos. */
+.auth-card {
+  max-width: 440px;
+  margin: 0 auto;
+  background: var(--surface-card);
+  border: 1px solid var(--hairline-light);
+  border-radius: var(--r-lg);
+  padding: 40px;
+}
+
+.auth-card .band-head {
+  margin-bottom: 28px;
+}
+
+.auth-form {
+  display: grid;
+  gap: 20px;
+}
+
+.auth-form .btn {
+  height: 56px;
+  justify-content: center;
+  margin-top: 4px;
+}
+
+.field > span small {
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--faint);
+}
+
+.field__hint {
+  font-size: 13px;
+  color: var(--mute);
+}
+
+.auth-errors {
+  margin: 0 0 24px;
+  padding: 16px 20px;
+  list-style: none;
+  display: grid;
+  gap: 6px;
+  font-size: 14px;
+  color: var(--sell);
+  background: color-mix(in srgb, var(--sell) 8%, transparent);
+  border: 1px solid color-mix(in srgb, var(--sell) 24%, transparent);
+  border-radius: var(--r-md);
+}
+
+.auth-switch {
+  margin: 24px 0 0;
+  text-align: center;
+  font-size: 14px;
+}
+
+.auth-switch a {
+  color: var(--mute);
+  text-decoration: none;
+}
+
+.auth-switch a:hover {
+  color: var(--primary);
+}
+
+/* --------------------------------------------------------------------------
    Responsive
    --------------------------------------------------------------------------
    Cuatro escalones: portátil estrecho (1080), tablet (900), móvil (767) y
@@ -2305,6 +2414,16 @@ img {
 
   .nav__brand-name {
     display: none;
+  }
+
+  /* A esta anchura la barra ya sólo da para el icono, el idioma, el tema y el
+     botón de salir: el nombre se retira igual que la marca. */
+  .nav__user-name {
+    display: none;
+  }
+
+  .auth-card {
+    padding: 28px 20px;
   }
 
   .hero__stats {
