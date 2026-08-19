@@ -22,6 +22,7 @@
       rel="stylesheet"
     />
     <link rel="stylesheet" href="{{ static_url('styles.css') }}" />
+    <link rel="icon" type="image/png" href="{{ static_url('logo.png') }}" />
   </head>
   <body>
     <nav class="nav">
@@ -29,7 +30,7 @@
         {# El nombre va en su propio span para poder retirarlo en móvil, donde
            la barra no da para marca, idioma, tema y acción a la vez. #}
         <a class="nav__brand" href="/">
-          <span class="nav__mark">🐋</span>
+          <img class="nav__mark" src="{{ static_url('logo.png') }}" alt="" width="32" height="32" />
           <span class="nav__brand-name">TheWhaleFiles</span>
         </a>
         <div class="nav__links">

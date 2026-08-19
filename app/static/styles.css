@@ -383,11 +383,7 @@ img {
 .nav__mark {
   width: 32px;
   height: 32px;
-  border-radius: var(--r-full);
-  background: var(--primary);
-  display: grid;
-  place-items: center;
-  font-size: 15px;
+  object-fit: contain;
   flex: none;
 }
 
