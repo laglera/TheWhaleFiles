@@ -262,7 +262,10 @@ img {
 }
 
 .band--tight {
-  padding: 56px 0;
+  /* Primera sección de la página, justo bajo el nav flotante: necesita
+     compensar los 96px que este le resta con margin-bottom negativo, o su
+     contenido queda tapado por la barra. */
+  padding: 152px 0 56px;
 }
 
 .inner {
@@ -2079,6 +2082,10 @@ img {
     padding: 72px 0;
   }
 
+  .band--tight {
+    padding: 168px 0 72px;
+  }
+
   .band-head h2 {
     font-size: 40px;
   }
@@ -2105,6 +2112,10 @@ img {
 @media (max-width: 767px) {
   .band {
     padding: 64px 0;
+  }
+
+  .band--tight {
+    padding: 144px 0 64px;
   }
 
   .band--profile {
