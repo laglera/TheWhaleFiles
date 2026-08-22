@@ -2109,16 +2109,26 @@ img {
 }
 
 @media (max-width: 767px) {
+  /* --------------------------------------------------------------------
+     Móvil: la portada es una lista, no una rejilla encogida
+     --------------------------------------------------------------------
+     A esta anchura cada tarjeta pasaba a ocupar una pantalla entera y la
+     portada medía más de diez mil píxeles de alto: había que arrastrar
+     medio minuto para llegar a los gráficos. El criterio aquí es el de una
+     app: filas compactas, una sola cifra grande por fila y el aire vertical
+     reducido a la mitad, sin quitar ningún dato de la vista.
+     -------------------------------------------------------------------- */
+
   .band {
-    padding: 64px 0;
+    padding: 48px 0;
   }
 
   .band--tight {
-    padding: 144px 0 64px;
+    padding: 120px 0 48px;
   }
 
   .band--profile {
-    padding: 40px 0;
+    padding: 32px 0;
   }
 
   .inner,
@@ -2130,31 +2140,49 @@ img {
 
   /* Barra: se compacta y suelta el alto que descuenta el hero */
   .nav {
-    padding: 12px 16px;
-    margin-bottom: -80px;
+    padding: 10px 12px;
+    margin-bottom: -72px;
   }
 
   .nav__inner {
-    height: 56px;
-    padding: 0 8px 0 14px;
-    gap: 12px;
+    height: 52px;
+    padding: 0 8px 0 12px;
+    gap: 8px;
+  }
+
+  /* El nombre de la marca sale ya aquí: con idioma, tema y sesión al lado,
+     a 767px la barra se queda sin holgura mucho antes que el logo. */
+  .nav__brand-name {
+    display: none;
+  }
+
+  .nav__mark {
+    width: 28px;
+    height: 28px;
   }
 
   .nav__actions {
-    gap: 8px;
+    gap: 6px;
   }
 
   .nav__lang,
   .nav__theme {
-    height: 34px;
-    min-width: 34px;
+    height: 32px;
+    min-width: 32px;
     padding: 0 8px;
+    font-size: 12px;
   }
 
   .nav__inner .btn--sm {
-    height: 34px;
-    padding: 0 14px;
+    height: 32px;
+    padding: 0 12px;
     font-size: 13px;
+  }
+
+  /* Cargar el filing de ejemplo es una herramienta de demostración y el
+     texto no cabe junto al resto: en móvil se retira de la barra. */
+  .nav__inner #load-sample {
+    display: none;
   }
 
   .nav__meta {
@@ -2162,15 +2190,16 @@ img {
   }
 
   .hero {
-    padding: 104px 0 56px;
+    padding: 88px 0 40px;
   }
 
   .hero__claim {
-    margin-top: 20px;
+    margin-top: 14px;
+    font-size: 20px;
   }
 
   .hero__actions {
-    margin-top: 28px;
+    margin-top: 24px;
     width: 100%;
   }
 
@@ -2179,7 +2208,7 @@ img {
   }
 
   .hero__stats {
-    margin-top: 40px;
+    margin-top: 32px;
     padding: 0 20px;
   }
 
@@ -2210,51 +2239,239 @@ img {
   .band-head {
     flex-direction: column;
     align-items: flex-start;
+    gap: 12px;
+    margin-bottom: 20px;
   }
 
   .band-head h2 {
-    font-size: 34px;
+    font-size: 30px;
   }
 
   .band-head p {
-    font-size: 16px;
+    font-size: 15px;
   }
 
-  .trade-grid,
-  .people-grid,
-  .filters {
-    grid-template-columns: 1fr;
-  }
-
-  .filters {
-    padding: 20px;
-    margin-bottom: 24px;
-  }
-
+  /* Métricas de portada: dos por fila y sin la línea de descripción, que a
+     este ancho ocupaba más que la propia cifra. */
   .metric-band {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .metric:nth-child(n) {
-    border-left: 0;
+    border-left: 1px solid var(--glass-line);
     border-top: 1px solid var(--glass-line);
   }
 
-  .metric:first-child {
+  .metric:nth-child(odd) {
+    border-left: 0;
+  }
+
+  .metric:nth-child(-n + 2) {
     border-top: 0;
   }
 
+  .metric,
   .metric-band--hero .metric {
-    padding: 22px 24px;
+    padding: 16px 16px 18px;
+    gap: 2px;
+  }
+
+  .metric span {
+    font-size: 10px;
+    letter-spacing: 0.06em;
+  }
+
+  .metric-band--hero .metric strong {
+    font-size: 26px;
+  }
+
+  .metric small {
+    display: none;
+  }
+
+  /* Filtros: el buscador y el botón mandan; los tres desplegables se reparten
+     en dos columnas para no comerse la pantalla antes del primer resultado. */
+  .filters {
+    grid-template-columns: 1fr 1fr;
+    gap: 10px 10px;
+    padding: 16px;
+    margin-bottom: 16px;
+  }
+
+  .filters .field:first-of-type {
+    grid-column: 1 / -1;
+  }
+
+  /* El botón cae en el hueco que deja el tercer desplegable en lugar de
+     abrir una fila propia. */
+  .filters .btn {
+    grid-column: auto;
+  }
+
+  .field > span {
+    font-size: 11px;
+    letter-spacing: 0.08em;
+  }
+
+  .field input,
+  .field select {
+    height: 46px;
+    padding: 10px 12px;
+    /* 16px evita el zoom automático de iOS al enfocar el campo */
+    font-size: 16px;
+  }
+
+  .filters .btn {
+    height: 46px;
+  }
+
+  /* Operaciones: la tarjeta de tres bloques se convierte en una fila de
+     lista — ticker y persona a la izquierda, importe a la derecha, y tipo y
+     fecha debajo. */
+  .trade-grid,
+  .people-grid {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .trade-card {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 6px 12px;
+    padding: 12px 14px;
+    border-radius: var(--r-md);
+  }
+
+  .trade-card__ident {
+    grid-column: 1;
+    grid-row: 1;
+    gap: 10px;
+  }
+
+  .trade-card__ident .avatar {
+    width: 34px;
+    height: 34px;
+    font-size: 11px;
+  }
+
+  .trade-card__ident h3 {
+    font-size: 16px;
+    line-height: 1.25;
+  }
+
+  .trade-card__ident small {
+    font-size: 12px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .trade-card__foot {
+    grid-column: 2;
+    grid-row: 1;
+    padding-top: 0;
+    margin-top: 0;
+    border-top: 0;
+    text-align: right;
+  }
+
+  /* "IMPORTE" y el estado se caen: la cifra ya se lee como importe y el
+     estado vuelve a aparecer en la ficha de la persona. */
+  .trade-card__foot span,
+  .trade-card__foot .tag {
+    display: none;
+  }
+
+  .trade-card__foot strong {
+    font-size: 20px;
+  }
+
+  .trade-card__top {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    justify-content: flex-start;
+    gap: 8px;
+    padding-top: 8px;
+    border-top: 1px solid var(--hairline-light);
+  }
+
+  .trade-card__top .tag {
+    padding: 3px 8px;
+    font-size: 11px;
+  }
+
+  .trade-card__date {
+    font-size: 12px;
+    margin-left: auto;
+  }
+
+  /* Personas: misma fila de lista, con la foto como ancla visual */
+  .person-card {
+    padding: 10px 14px;
+    gap: 12px;
+    border-radius: var(--r-md);
+  }
+
+  .person-card .avatar {
+    width: 38px;
+    height: 38px;
+  }
+
+  .person-card__body h3 {
+    font-size: 15px;
+    line-height: 1.3;
+  }
+
+  .person-card__body small {
+    font-size: 12px;
+  }
+
+  /* Cifra y unidad en la misma línea: apiladas sumaban una segunda línea a
+     cada una de las veinticuatro filas. */
+  .person-card__count {
+    display: flex;
+    align-items: baseline;
+    gap: 5px;
+  }
+
+  .person-card__count strong {
+    display: inline;
+    font-size: 17px;
+  }
+
+  .person-card__count span {
+    font-size: 10.5px;
+  }
+
+  .person-card {
+    padding: 8px 14px;
+  }
+
+  .more-note {
+    margin-top: 16px;
+    font-size: 13px;
+  }
+
+  .viz-grid {
+    gap: 10px;
   }
 
   .card {
-    padding: 24px;
+    padding: 20px 18px;
+  }
+
+  .card__title {
+    font-size: 22px;
+  }
+
+  .card__sub {
+    font-size: 14px;
   }
 
   .bar-row {
     grid-template-columns: 56px 1fr;
-    row-gap: 6px;
+    row-gap: 4px;
   }
 
   .bar-row__value {
@@ -2265,13 +2482,13 @@ img {
 
   /* Clasificación: sin avatar ni barra, sólo puesto, nombre e importe */
   .rank-card {
-    padding: 8px;
+    padding: 6px;
   }
 
   .rank-row {
-    grid-template-columns: 32px minmax(0, 1fr) auto;
-    gap: 12px;
-    padding: 14px 12px;
+    grid-template-columns: 28px minmax(0, 1fr) auto;
+    gap: 10px;
+    padding: 11px 10px;
   }
 
   .rank-row .avatar {
@@ -2279,14 +2496,12 @@ img {
   }
 
   .rank-row__amount b {
-    font-size: 18px;
+    font-size: 17px;
   }
 
   .band--brand {
-    padding-bottom: 64px;
+    padding-bottom: 48px;
   }
-
-  /* Ficha: retrato y datos en una sola columna */
   .profile {
     padding: 96px 0 48px;
   }
@@ -2401,16 +2616,31 @@ img {
   }
 
   .footer {
-    padding: 56px 0 40px;
+    padding: 40px 0 32px;
   }
 
   .footer__grid {
     grid-template-columns: 1fr;
-    gap: 32px;
+    gap: 24px;
+    padding-bottom: 28px;
+  }
+
+  .footer h4 {
+    font-size: 17px;
+    margin-bottom: 10px;
+  }
+
+  .footer ul {
+    gap: 8px;
+  }
+
+  .footer__note {
+    margin-top: 20px;
   }
 }
 
-/* Móvil estrecho: la barra ya no da para el nombre de la marca */
+/* Móvil estrecho: sólo se ajustan los márgenes y los cuerpos mayores; la
+   estructura de lista ya viene resuelta desde 767px. */
 @media (max-width: 479px) {
   .inner,
   .hero__inner,
@@ -2420,11 +2650,7 @@ img {
   }
 
   .nav {
-    padding: 12px;
-  }
-
-  .nav__brand-name {
-    display: none;
+    padding: 10px;
   }
 
   /* A esta anchura la barra ya sólo da para el icono, el idioma, el tema y el
@@ -2442,30 +2668,35 @@ img {
   }
 
   .band-head h2 {
-    font-size: 30px;
+    font-size: 26px;
   }
 
   .card,
-  .trade-card,
-  .identity,
+  .identity {
+    padding: 18px 16px;
+  }
+
   .filters {
-    padding: 20px;
-    margin-bottom: 24px;
+    padding: 14px;
+  }
+
+  .trade-card,
+  .person-card {
+    padding: 10px 12px;
   }
 
   .metric,
   .metric-band--hero .metric {
-    padding: 18px 20px;
+    padding: 14px 14px 16px;
+  }
+
+  .metric-band--hero .metric strong {
+    font-size: 23px;
   }
 
   .ledger__row,
   .ledger--wealth .ledger__row {
     padding: 14px 16px;
-  }
-
-  .person-card {
-    padding: 16px;
-    gap: 12px;
   }
 
   .portrait__frame {
