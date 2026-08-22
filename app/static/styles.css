@@ -1029,6 +1029,9 @@ img {
   border: 1px solid var(--hairline-light);
   border-radius: var(--r-lg);
   padding: 24px;
+  /* El panel de filtros y la rejilla de resultados son dos bloques distintos:
+     sin este aire se leen como una sola tabla pegada. */
+  margin-bottom: 32px;
 }
 
 .field {
@@ -1133,7 +1136,7 @@ img {
 .trade-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 16px;
+  gap: 20px;
 }
 
 .trade-card {
@@ -2225,6 +2228,7 @@ img {
 
   .filters {
     padding: 20px;
+    margin-bottom: 24px;
   }
 
   .metric-band {
@@ -2446,6 +2450,7 @@ img {
   .identity,
   .filters {
     padding: 20px;
+    margin-bottom: 24px;
   }
 
   .metric,
