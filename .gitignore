@@ -1,11 +1,19 @@
 .venv/
+venv/
 __pycache__/
 *.pyc
 *.pyo
+.pytest_cache/
 *.db
 *.db-wal
 *.db-shm
 .env
+.env.*
+!.env.example
 .DS_Store
 .vercel
-.env*
+
+# Notas de trabajo: se quedan en local, no son parte del proyecto publicado.
+DESIGN-revolut.md
+PROJECT_BRIEF.md
+Captura de pantalla*.png

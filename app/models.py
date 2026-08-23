@@ -184,3 +184,22 @@ class PriceQuote(Base):
     currency: Mapped[str] = mapped_column(String(10), default="USD")
     previous_close: Mapped[float] = mapped_column(Float, default=0.0)
     fetched_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+
+
+class LoginAttempt(Base):
+    """Intento fallido de entrar o de darse de alta.
+
+    El límite tiene que sobrevivir a la petición que lo cuenta, y en serverless
+    no hay memoria compartida entre invocaciones donde llevar la cuenta: la
+    lleva la base, como las sesiones.
+    """
+
+    __tablename__ = "login_attempts"
+
+    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    # "login" o "signup": cada formulario tiene su propio cupo.
+    scope: Mapped[str] = mapped_column(String(20), nullable=False)
+    # Contra quién se cuenta. Hoy la dirección IP; el nombre no lo presupone
+    # para poder añadir el correo como segunda cesta sin migrar la tabla.
+    bucket: Mapped[str] = mapped_column(String(120), index=True, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, index=True, nullable=False)

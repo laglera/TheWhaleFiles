@@ -15,7 +15,7 @@ from __future__ import annotations
 import hashlib
 import re
 import secrets
-from datetime import datetime, timedelta
+from datetime import timedelta
 from typing import Optional
 
 import bcrypt
@@ -25,7 +25,10 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models import Follow, User, UserSession
-from app.runtime import is_serverless
+from app.runtime import utcnow
+from app.security import is_https
+
+__all__ = ["utcnow"]  # se sigue llamando auth.utcnow desde el resto del proyecto
 
 SESSION_COOKIE = "twf_session"
 SESSION_DAYS = 30
@@ -38,10 +41,6 @@ MIN_PASSWORD_LENGTH = 8
 # No valida direcciones de correo —eso sólo lo hace enviando un mensaje—, sólo
 # descarta lo que es evidente que no es una: sin arroba, sin punto, con espacios.
 EMAIL_PATTERN = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
-
-
-def utcnow() -> datetime:
-    return datetime.utcnow()
 
 
 # --- Contraseñas -----------------------------------------------------------
@@ -173,21 +172,27 @@ def check_csrf(request: Request, submitted: str) -> None:
 # --- Cookie ----------------------------------------------------------------
 
 
-def set_session_cookie(response, raw_token: str) -> None:
+def set_session_cookie(response, raw_token: str, request: Request) -> None:
     response.set_cookie(
         SESSION_COOKIE,
         raw_token,
         max_age=SESSION_DAYS * 24 * 60 * 60,
         httponly=True,
-        # En local la web se sirve por http, donde una cookie Secure se
-        # descarta sin más y nadie conseguiría entrar.
-        secure=is_serverless(),
+        # Se decide por cómo llegó la petición y no por dónde está desplegada
+        # la app: en local la web se sirve por http, donde una cookie Secure se
+        # descarta sin más y nadie conseguiría entrar; en cualquier despliegue
+        # con TLS —serverless o contenedor detrás de un proxy— tiene que viajar.
+        secure=is_https(request),
         samesite="lax",
     )
 
 
-def clear_session_cookie(response) -> None:
-    response.delete_cookie(SESSION_COOKIE, httponly=True, samesite="lax")
+def clear_session_cookie(response, request: Request) -> None:
+    # Los atributos tienen que coincidir con los que se pusieron, o hay
+    # navegadores que se quedan la cookie.
+    response.delete_cookie(
+        SESSION_COOKIE, httponly=True, samesite="lax", secure=is_https(request)
+    )
 
 
 # --- Seguimiento -----------------------------------------------------------

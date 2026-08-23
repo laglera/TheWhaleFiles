@@ -275,26 +275,3 @@
 </section>
 {% endblock %}
 
-{% block scripts %}
-<script>
-  document.getElementById('load-sample')?.addEventListener('click', async (event) => {
-    const button = event.currentTarget;
-    const original = button.textContent;
-
-    button.disabled = true;
-    button.textContent = {{ t.nav_loading|tojson }};
-
-    try {
-      const response = await fetch('/api/load-sample-filing', { method: 'POST' });
-      if (!response.ok) {
-        throw new Error('No se pudo cargar el filing');
-      }
-      window.location.reload();
-    } catch (error) {
-      button.disabled = false;
-      button.textContent = original;
-      alert({{ t.nav_load_error|tojson }});
-    }
-  });
-</script>
-{% endblock %}

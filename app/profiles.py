@@ -26,12 +26,12 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
-from datetime import datetime
 from typing import Any, Optional
 
 from sqlalchemy import select
 
 from app.database import SessionLocal, prepare_database
+from app.runtime import utcnow
 from app.models import Politician
 from app.names import clean_person_name, short_name
 
@@ -358,7 +358,7 @@ def import_profiles(
 
             for field, value in profile.items():
                 setattr(person, field, value)
-            person.profile_fetched_at = datetime.utcnow()
+            person.profile_fetched_at = utcnow()
 
             if profile.get("bio_es") or profile.get("bio_en"):
                 stats["with_bio"] += 1

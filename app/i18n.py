@@ -20,13 +20,11 @@ TRANSLATIONS: dict[str, dict[str, Any]] = {
         "nav_trends": "Tendencias",
         "nav_people": "Perfiles",
         "nav_sources": "Fuentes oficiales",
-        "nav_load_sample": "Cargar ejemplo",
-        "nav_loading": "Cargando...",
-        "nav_load_error": "No se pudo cargar el filing de prueba.",
         "nav_back_index": "Volver al índice",
+        "nav_ranking": "Clasificación",
         # Hero
-        "hero_claim_1": "Ellos operan con información privilegiada.",
-        "hero_claim_2": "¿Por qué tú no?",
+        "hero_claim_1": "Legislan sobre unos mercados en los que también invierten.",
+        "hero_claim_2": "Mira lo que declaran.",
         "hero_cta": "Ver la clasificación",
         # Métricas
         "stat_trades": "Operaciones",
@@ -188,6 +186,163 @@ TRANSLATIONS: dict[str, dict[str, Any]] = {
         "account_recent": "Actividad reciente",
         "account_recent_sub": "Últimas operaciones declaradas por los perfiles que sigues.",
         "account_recent_empty": "Quienes sigues no tienen operaciones registradas.",
+        "auth_error_throttled": (
+            "Demasiados intentos desde esta conexión. Inténtalo de nuevo dentro de un rato."
+        ),
+        # Baja de la cuenta
+        "account_danger": "Cerrar la cuenta",
+        "account_danger_sub": (
+            "Se borran tu correo, tu contraseña y los perfiles que sigues. "
+            "No se puede deshacer."
+        ),
+        "account_delete": "Borrar mi cuenta",
+        "account_delete_confirm": (
+            "Se borrará tu cuenta y todo lo que sigues, sin vuelta atrás. ¿Continuar?"
+        ),
+        # Errores
+        "error_404": "Esta página no existe.",
+        "error_generic": "Algo ha fallado por nuestro lado.",
+        "error_home": "Volver a la portada",
+        # Pie legal
+        "footer_legal": "Legal",
+        "legal_notice": "Aviso legal",
+        "legal_privacy": "Privacidad",
+        "legal_terms": "Condiciones de uso",
+        "legal_cookies": "Cookies",
+        "legal_updated": "Última actualización: agosto de 2026",
+        "legal_contact_intro": "Contacto:",
+        "legal_contact_missing": (
+            "Este despliegue no tiene configurada una dirección de contacto "
+            "(variable LEGAL_CONTACT_EMAIL)."
+        ),
+        "legal_entity_missing": "titular del sitio",
+        "disclaimer_title": "Esto no es asesoramiento financiero",
+        "disclaimer_body": (
+            "TheWhaleFiles recopila y ordena declaraciones públicas. No es un asesor de "
+            "inversiones, no recomienda comprar ni vender nada, y no garantiza que los "
+            "datos estén completos ni actualizados. Cualquier decisión de inversión que "
+            "tomes es tuya y de nadie más."
+        ),
+        "legal_notice_body": [
+            (
+                "Titularidad",
+                "TheWhaleFiles es un proyecto personal operado por {entity}. Se ofrece tal cual, "
+                "sin ánimo de lucro y sin relación con ninguna institución pública ni con las "
+                "personas cuyos datos se muestran.",
+            ),
+            (
+                "Objeto del sitio",
+                "El sitio recopila, normaliza y presenta declaraciones de transparencia "
+                "financiera que ya son públicas: los Periodic Transaction Reports que la STOCK "
+                "Act obliga a presentar a los miembros del Congreso de Estados Unidos y los "
+                "formularios 4 que los directivos presentan ante la SEC.",
+            ),
+            (
+                "Sobre las personas mencionadas",
+                "Los nombres que aparecen corresponden a cargos públicos y directivos, y los "
+                "datos proceden de sus propias declaraciones oficiales. El sitio muestra lo "
+                "declarado sin atribuir intenciones, sin afirmar que ninguna operación sea "
+                "ilegal y sin acusar a nadie de nada. Si detectas un dato erróneo sobre ti, "
+                "escríbenos y lo corregimos o lo retiramos.",
+            ),
+            (
+                "Propiedad intelectual",
+                "Las declaraciones oficiales son documentos públicos del gobierno de Estados "
+                "Unidos. Las biografías y los retratos proceden de Wikipedia y Wikimedia "
+                "Commons, bajo licencia CC BY-SA, y se acreditan en cada ficha. El código de "
+                "la plataforma se publica bajo licencia MIT.",
+            ),
+            (
+                "Responsabilidad",
+                "Los datos pueden contener errores de origen o de procesamiento, y llegan con "
+                "el retraso legal de hasta 45 días que marca la propia STOCK Act. No se asume "
+                "responsabilidad por decisiones tomadas a partir de ellos.",
+            ),
+        ],
+        "legal_privacy_body": [
+            (
+                "Qué datos se recogen",
+                "Si no creas una cuenta, ninguno que te identifique: no hay analítica, ni "
+                "rastreadores, ni publicidad. Si creas una cuenta, se guardan tu correo "
+                "electrónico, el hash de tu contraseña (bcrypt, nunca la contraseña en claro), "
+                "el nombre que elijas mostrar, la fecha de alta y los perfiles que sigues.",
+            ),
+            (
+                "Para qué se usan",
+                "Únicamente para sostener tu sesión y mostrarte a quién sigues. No se venden, "
+                "no se ceden a terceros y no se usan para enviarte correo comercial.",
+            ),
+            (
+                "Base legal y conservación",
+                "El tratamiento se basa en la ejecución de la relación que solicitas al "
+                "registrarte. Los datos se conservan mientras la cuenta exista. Los registros "
+                "temporales de intentos de acceso, que sólo guardan una dirección IP y una "
+                "fecha para frenar ataques de fuerza bruta, se borran automáticamente a las "
+                "24 horas.",
+            ),
+            (
+                "Tus derechos",
+                "Puedes acceder a tus datos desde tu cuenta y borrarlos por completo en "
+                "cualquier momento con el botón «Borrar mi cuenta», que elimina tu correo, tu "
+                "contraseña y tus seguimientos sin dejar copia. Para acceder, rectificar, "
+                "oponerte o portar tus datos, escríbenos.",
+            ),
+            (
+                "Encargados del tratamiento",
+                "El sitio se aloja en Vercel y la base de datos en un proveedor de PostgreSQL "
+                "gestionado; ambos actúan como encargados del tratamiento. Los precios de "
+                "mercado se consultan a un proveedor externo de cotizaciones, al que no se le "
+                "envía ningún dato tuyo.",
+            ),
+        ],
+        "legal_terms_body": [
+            (
+                "Uso del servicio",
+                "El acceso es libre y gratuito. Al usar el sitio aceptas estas condiciones. "
+                "Puedes consultar los datos, enlazarlos y citarlos indicando la fuente.",
+            ),
+            (
+                "Uso prohibido",
+                "No está permitido usar el sitio para acosar a las personas mencionadas, ni "
+                "raspar la web de forma que degrade el servicio, ni presentar los datos como "
+                "prueba de un delito. Para uso automatizado, la API pública está paginada y "
+                "documentada: úsala en lugar de raspar las páginas.",
+            ),
+            (
+                "Cuentas",
+                "Eres responsable de la contraseña que elijas. Podemos cerrar cuentas que "
+                "usen el servicio en contra de estas condiciones.",
+            ),
+            (
+                "Sin garantías",
+                "El servicio se ofrece tal cual, sin garantía de disponibilidad, exactitud ni "
+                "continuidad. Puede cambiar o dejar de funcionar en cualquier momento.",
+            ),
+        ],
+        "legal_cookies_body": [
+            (
+                "Qué se guarda en tu navegador",
+                "Sólo lo imprescindible para que el sitio funcione. No hay cookies de "
+                "analítica, de publicidad ni de terceros, así que no hace falta pedirte "
+                "consentimiento para ellas: no existen.",
+            ),
+            (
+                "twf_session",
+                "Cookie técnica. Guarda el testigo aleatorio de tu sesión mientras estás "
+                "dentro. Sólo se crea si inicias sesión, dura 30 días y desaparece al salir. "
+                "Es HttpOnly, así que ningún script puede leerla.",
+            ),
+            (
+                "twf_lang",
+                "Cookie técnica. Recuerda si prefieres la web en español o en inglés. Dura un "
+                "año y no identifica a nadie.",
+            ),
+            (
+                "twf:theme",
+                "No es una cookie sino un valor en el almacenamiento local de tu navegador: "
+                "recuerda si prefieres el modo claro o el modo noche. No sale de tu equipo.",
+            ),
+        ],
         "follow_undo": "Dejar de seguir",
         "follow_login": "Entra para seguirle",
     },
@@ -201,13 +356,11 @@ TRANSLATIONS: dict[str, dict[str, Any]] = {
         "nav_trends": "Trends",
         "nav_people": "Profiles",
         "nav_sources": "Official sources",
-        "nav_load_sample": "Load sample",
-        "nav_loading": "Loading...",
-        "nav_load_error": "The sample filing could not be loaded.",
         "nav_back_index": "Back to index",
+        "nav_ranking": "Ranking",
         # Hero
-        "hero_claim_1": "They trade on privileged information.",
-        "hero_claim_2": "Why shouldn't you?",
+        "hero_claim_1": "They legislate on markets they also invest in.",
+        "hero_claim_2": "See what they declare.",
         "hero_cta": "See the leaderboard",
         # Stats
         "stat_trades": "Trades",
@@ -365,6 +518,160 @@ TRANSLATIONS: dict[str, dict[str, Any]] = {
         "account_recent": "Recent activity",
         "account_recent_sub": "Latest trades declared by the profiles you follow.",
         "account_recent_empty": "The profiles you follow have no recorded trades.",
+        "auth_error_throttled": (
+            "Too many attempts from this connection. Try again in a little while."
+        ),
+        # Closing the account
+        "account_danger": "Close your account",
+        "account_danger_sub": (
+            "This deletes your email, your password and the profiles you follow. "
+            "It cannot be undone."
+        ),
+        "account_delete": "Delete my account",
+        "account_delete_confirm": (
+            "This deletes your account and everything you follow, permanently. Continue?"
+        ),
+        # Errors
+        "error_404": "This page does not exist.",
+        "error_generic": "Something broke on our side.",
+        "error_home": "Back to the home page",
+        # Legal footer
+        "footer_legal": "Legal",
+        "legal_notice": "Legal notice",
+        "legal_privacy": "Privacy",
+        "legal_terms": "Terms of use",
+        "legal_cookies": "Cookies",
+        "legal_updated": "Last updated: August 2026",
+        "legal_contact_intro": "Contact:",
+        "legal_contact_missing": (
+            "This deployment has no contact address configured "
+            "(LEGAL_CONTACT_EMAIL variable)."
+        ),
+        "legal_entity_missing": "the site operator",
+        "disclaimer_title": "This is not financial advice",
+        "disclaimer_body": (
+            "TheWhaleFiles collects and organises public disclosures. It is not an investment "
+            "adviser, it does not recommend buying or selling anything, and it does not "
+            "guarantee that the data is complete or current. Any investment decision you make "
+            "is yours alone."
+        ),
+        "legal_notice_body": [
+            (
+                "Ownership",
+                "TheWhaleFiles is a personal project operated by {entity}. It is offered as is, "
+                "not for profit, and is unaffiliated with any public institution or with the "
+                "people whose data it shows.",
+            ),
+            (
+                "What the site does",
+                "The site collects, normalises and presents financial transparency disclosures "
+                "that are already public: the Periodic Transaction Reports the STOCK Act "
+                "requires from members of the US Congress, and the Form 4 filings corporate "
+                "insiders submit to the SEC.",
+            ),
+            (
+                "About the people listed",
+                "The names shown belong to public officials and corporate insiders, and the "
+                "data comes from their own official filings. The site shows what was declared "
+                "without ascribing intent, without claiming any trade is illegal and without "
+                "accusing anyone of anything. If you spot wrong data about yourself, write to "
+                "us and we will correct or remove it.",
+            ),
+            (
+                "Intellectual property",
+                "The official filings are public documents of the United States government. "
+                "Biographies and portraits come from Wikipedia and Wikimedia Commons under a "
+                "CC BY-SA licence and are credited on each profile. The platform's source code "
+                "is published under the MIT licence.",
+            ),
+            (
+                "Liability",
+                "The data may contain errors at the source or in processing, and arrives with "
+                "the legal lag of up to 45 days that the STOCK Act itself allows. No liability "
+                "is accepted for decisions made on the basis of it.",
+            ),
+        ],
+        "legal_privacy_body": [
+            (
+                "What data is collected",
+                "If you do not create an account, nothing that identifies you: there is no "
+                "analytics, no trackers and no advertising. If you create an account, we store "
+                "your email address, your password hash (bcrypt, never the plain password), the "
+                "display name you choose, your sign-up date and the profiles you follow.",
+            ),
+            (
+                "What it is used for",
+                "Only to keep your session and show you who you follow. It is never sold, never "
+                "shared with third parties and never used to send you marketing email.",
+            ),
+            (
+                "Legal basis and retention",
+                "Processing is based on performing the relationship you request when you sign "
+                "up. Data is kept for as long as the account exists. The temporary log of "
+                "sign-in attempts, which stores only an IP address and a timestamp to stop "
+                "brute-force attacks, is deleted automatically after 24 hours.",
+            ),
+            (
+                "Your rights",
+                "You can see your data from your account page and delete all of it at any time "
+                "with the \u201cDelete my account\u201d button, which removes your email, your "
+                "password and your follows without keeping a copy. To access, rectify, object "
+                "to or port your data, write to us.",
+            ),
+            (
+                "Processors",
+                "The site is hosted on Vercel and the database on a managed PostgreSQL "
+                "provider; both act as data processors. Market prices are requested from an "
+                "external quote provider, which receives no data about you.",
+            ),
+        ],
+        "legal_terms_body": [
+            (
+                "Using the service",
+                "Access is free and open. By using the site you accept these terms. You may "
+                "consult, link to and quote the data as long as you credit the source.",
+            ),
+            (
+                "Prohibited use",
+                "You may not use the site to harass the people listed, scrape it in ways that "
+                "degrade the service, or present the data as proof of a crime. For automated "
+                "use, the public API is paginated and documented: use it instead of scraping "
+                "the pages.",
+            ),
+            (
+                "Accounts",
+                "You are responsible for the password you choose. We may close accounts that "
+                "use the service against these terms.",
+            ),
+            (
+                "No warranty",
+                "The service is provided as is, with no guarantee of availability, accuracy or "
+                "continuity. It may change or stop working at any time.",
+            ),
+        ],
+        "legal_cookies_body": [
+            (
+                "What is stored in your browser",
+                "Only what the site needs to work. There are no analytics, advertising or "
+                "third-party cookies, so there is no consent to ask for: they do not exist.",
+            ),
+            (
+                "twf_session",
+                "Technical cookie. Holds the random token for your session while you are "
+                "signed in. It is only created if you log in, lasts 30 days and disappears when "
+                "you log out. It is HttpOnly, so no script can read it.",
+            ),
+            (
+                "twf_lang",
+                "Technical cookie. Remembers whether you prefer the site in Spanish or English. "
+                "It lasts a year and identifies nobody.",
+            ),
+            (
+                "twf:theme",
+                "Not a cookie but a value in your browser's local storage: it remembers whether "
+                "you prefer light or dark mode. It never leaves your device.",
+            ),
+        ],
         "follow_undo": "Unfollow",
         "follow_login": "Log in to follow",
     },

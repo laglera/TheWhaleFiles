@@ -92,4 +92,38 @@
   </div>
 </section>
 {% endif %}
+
+<section class="band band--soft band--tight">
+  <div class="inner">
+    <div class="danger-zone">
+      <div>
+        <h3>{{ t.account_danger }}</h3>
+        <p>{{ t.account_danger_sub }}</p>
+      </div>
+      <form
+        method="post"
+        action="/account/delete?lang={{ lang }}"
+        data-confirm="{{ t.account_delete_confirm }}"
+      >
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
+        <button type="submit" class="btn btn--soft btn--sm danger-zone__btn">
+          {{ t.account_delete }}
+        </button>
+      </form>
+    </div>
+  </div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script nonce="{{ csp_nonce }}">
+  // Borrar la cuenta no tiene deshacer, y el botón está a un clic de la lista
+  // de seguidos. Sin JavaScript el formulario sigue funcionando: la confirmación
+  // es una red de seguridad, no la puerta.
+  document.querySelector('form[data-confirm]')?.addEventListener('submit', (event) => {
+    if (!window.confirm(event.currentTarget.dataset.confirm)) {
+      event.preventDefault();
+    }
+  });
+</script>
 {% endblock %}

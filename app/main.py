@@ -1,17 +1,21 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime, timedelta
+import logging
+import os
+from contextlib import asynccontextmanager
+from datetime import timedelta
 from pathlib import Path
 from typing import Any, Optional
 from urllib.parse import parse_qsl, urlencode
 
-from fastapi import Depends, FastAPI, Form, HTTPException, Request
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi import Depends, FastAPI, Form, HTTPException, Query, Request, Response
+from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import func, or_, select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app import auth
 from app.auth import current_user, require_user
@@ -22,8 +26,22 @@ from app.models import Follow, Politician, Ticker, Trade, User
 from app.prices import provider_name as price_source
 from app.prices import value_holdings
 from app.runtime import is_serverless
-from app.scheduler import polling_enabled, start_polling_loop
+from app.scheduler import polling_enabled, start_polling_loop, stop_polling_loop
+from app.security import (
+    attempts_exhausted,
+    clear_attempts,
+    client_ip,
+    record_attempt,
+    require_admin,
+    security_headers_middleware,
+)
 from app.sources import poll_official_sources
+
+logging.basicConfig(
+    level=os.getenv("LOG_LEVEL", "INFO").upper(),
+    format="%(asctime)s %(levelname)s %(name)s %(message)s",
+)
+logger = logging.getLogger(__name__)
 
 # Rutas ancladas al paquete, no al directorio desde el que se lanzó el proceso.
 # En una función serverless el proceso arranca desde otro sitio y "app/static"
@@ -33,7 +51,24 @@ STATIC_DIR = APP_DIR / "static"
 TEMPLATES_DIR = APP_DIR / "templates"
 DATA_DIR = APP_DIR / "data"
 
-app = FastAPI(title="TheWhaleFiles", version="0.1.0")
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    """Ciclo de vida de la aplicación.
+
+    `@app.on_event` quedó deprecado y ya no existe en las versiones nuevas de
+    Starlette. El hilo de polling corre aparte: no bloquea el arranque y no
+    comparte conexión con las peticiones web. Se desactiva con ENABLE_POLLING=0.
+    """
+    if polling_enabled():
+        start_polling_loop()
+    yield
+    stop_polling_loop()
+
+
+app = FastAPI(title="TheWhaleFiles", version="0.1.0", lifespan=lifespan)
+# Cabeceras de seguridad y nonce de CSP para los scripts en línea.
+app.middleware("http")(security_headers_middleware)
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 templates = Jinja2Templates(directory=TEMPLATES_DIR)
 
@@ -99,7 +134,7 @@ REMOTE_PHOTO_TTL = timedelta(minutes=5)
 def remote_photo_index() -> dict[str, dict[str, Optional[str]]]:
     global _REMOTE_PHOTOS, _REMOTE_PHOTOS_AT
 
-    now = datetime.utcnow()
+    now = auth.utcnow()
     if _REMOTE_PHOTOS_AT and now - _REMOTE_PHOTOS_AT < REMOTE_PHOTO_TTL:
         return _REMOTE_PHOTOS
 
@@ -204,18 +239,14 @@ def render(
         # Lo deja `current_user` al resolver la sesión: los formularios ya
         # autenticados lo mandan de vuelta para que el POST se acepte.
         "csrf_token": getattr(request.state, "csrf_token", ""),
+        # Lo pone el middleware. Sin él, la política de seguridad de contenido
+        # descarta los scripts en línea de las plantillas.
+        "csp_nonce": getattr(request.state, "csp_nonce", ""),
     }
-    response = templates.TemplateResponse(template, context)
+    # La petición va primero: la firma antigua está deprecada en Starlette.
+    response = templates.TemplateResponse(request, template, context)
     response.set_cookie(LANG_COOKIE, lang, max_age=60 * 60 * 24 * 365, samesite="lax")
     return response
-
-
-@app.on_event("startup")
-def startup_event() -> None:
-    # Corre en un hilo aparte: no bloquea el arranque y ya no comparte conexión
-    # con las peticiones web. Se desactiva con ENABLE_POLLING=0.
-    if polling_enabled():
-        start_polling_loop()
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -358,12 +389,34 @@ def home(
     )
 
 
+# El enlace a la API está en el pie de todas las páginas: sin tope, cada visita
+# curiosa se lleva la tabla entera de operaciones en un solo JSON.
+API_PAGE_SIZE = 100
+API_MAX_PAGE_SIZE = 500
+
+
 @app.get("/api/trades")
-def get_trades(db: Session = Depends(get_db)) -> list[dict[str, Any]]:
-    trades = db.scalars(select(Trade).order_by(Trade.reported_date.desc())).all()
-    result = []
-    for trade in trades:
-        result.append(
+def get_trades(
+    db: Session = Depends(get_db),
+    limit: int = Query(API_PAGE_SIZE, ge=1, le=API_MAX_PAGE_SIZE),
+    offset: int = Query(0, ge=0),
+) -> dict[str, Any]:
+    total = db.scalar(select(func.count(Trade.id))) or 0
+    trades = db.scalars(
+        select(Trade)
+        # Sin esto, pintar cien operaciones son doscientas consultas más: una
+        # por el político y otra por el valor de cada una.
+        .options(joinedload(Trade.politician), joinedload(Trade.ticker))
+        .order_by(Trade.reported_date.desc(), Trade.id.desc())
+        .limit(limit)
+        .offset(offset)
+    ).all()
+
+    return {
+        "total": total,
+        "limit": limit,
+        "offset": offset,
+        "results": [
             {
                 "id": trade.id,
                 "politician": trade.politician.name,
@@ -373,31 +426,69 @@ def get_trades(db: Session = Depends(get_db)) -> list[dict[str, Any]]:
                 "amount": float(trade.amount),
                 "reported_date": trade.reported_date.isoformat(),
             }
-        )
-    return result
+            for trade in trades
+        ],
+    }
 
 
 @app.get("/api/politicians")
-def get_politicians(db: Session = Depends(get_db)) -> list[dict[str, Any]]:
-    politicians = db.scalars(select(Politician)).all()
-    return [
-        {
-            "id": politician.id,
-            "name": politician.name,
-            "chamber": politician.chamber,
-            "state": politician.state,
-            "party": politician.party,
-            "trade_count": len(politician.trades),
-        }
-        for politician in politicians
-    ]
+def get_politicians(
+    db: Session = Depends(get_db),
+    limit: int = Query(API_PAGE_SIZE, ge=1, le=API_MAX_PAGE_SIZE),
+    offset: int = Query(0, ge=0),
+) -> dict[str, Any]:
+    total = db.scalar(select(func.count(Politician.id))) or 0
+    # El recuento va agregado en la propia consulta. Con `len(politician.trades)`
+    # cada fila del listado disparaba su consulta para acabar contando filas.
+    rows = db.execute(
+        select(Politician, func.count(Trade.id).label("trade_count"))
+        .outerjoin(Trade, Trade.politician_id == Politician.id)
+        .group_by(Politician.id)
+        .order_by(Politician.id)
+        .limit(limit)
+        .offset(offset)
+    ).all()
+
+    return {
+        "total": total,
+        "limit": limit,
+        "offset": offset,
+        "results": [
+            {
+                "id": politician.id,
+                "name": politician.name,
+                "chamber": politician.chamber,
+                "state": politician.state,
+                "party": politician.party,
+                "trade_count": trade_count,
+            }
+            for politician, trade_count in rows
+        ],
+    }
 
 
 @app.get("/api/politicians/{politician_id}")
-def get_politician_detail(politician_id: int, db: Session = Depends(get_db)) -> dict[str, Any]:
+def get_politician_detail(
+    politician_id: int,
+    db: Session = Depends(get_db),
+    limit: int = Query(API_PAGE_SIZE, ge=1, le=API_MAX_PAGE_SIZE),
+    offset: int = Query(0, ge=0),
+) -> dict[str, Any]:
     politician = db.get(Politician, politician_id)
     if not politician:
         raise HTTPException(status_code=404, detail="Politician not found")
+
+    trades = db.scalars(
+        select(Trade)
+        .options(joinedload(Trade.ticker))
+        .where(Trade.politician_id == politician_id)
+        .order_by(Trade.reported_date.desc(), Trade.id.desc())
+        .limit(limit)
+        .offset(offset)
+    ).all()
+    total = db.scalar(
+        select(func.count(Trade.id)).where(Trade.politician_id == politician_id)
+    ) or 0
 
     return {
         "id": politician.id,
@@ -405,6 +496,9 @@ def get_politician_detail(politician_id: int, db: Session = Depends(get_db)) -> 
         "chamber": politician.chamber,
         "state": politician.state,
         "party": politician.party,
+        "total_trades": total,
+        "limit": limit,
+        "offset": offset,
         "trades": [
             {
                 "id": trade.id,
@@ -413,7 +507,7 @@ def get_politician_detail(politician_id: int, db: Session = Depends(get_db)) -> 
                 "amount": float(trade.amount),
                 "reported_date": trade.reported_date.isoformat(),
             }
-            for trade in politician.trades
+            for trade in trades
         ],
     }
 
@@ -522,15 +616,27 @@ def login_submit(
     resolved_lang = resolve_lang(request, lang)
     t = get_translations(resolved_lang)
     address = auth.normalise_email(email)
+    ip = client_ip(request)
+
+    # Antes de comprobar nada: verificar la contraseña cuesta unos cien
+    # milisegundos de CPU, y sin un tope eso es lo que dura cada intento de un
+    # ataque por fuerza bruta que no le cuesta nada a quien lo lanza.
+    if attempts_exhausted(db, "login", ip):
+        logger.warning("Login: cupo de intentos agotado para %s", ip)
+        return auth_page(request, resolved_lang, "login", [t["auth_error_throttled"]], address)
 
     user = db.scalar(select(User).where(User.email == address))
     if user is None or not auth.verify_password(password, user.password_hash):
+        record_attempt(db, "login", ip)
         # El mismo mensaje para "no existe" y "contraseña mala": distinguirlos
         # convierte el formulario en un detector de qué correos están dados de alta.
         return auth_page(request, resolved_lang, "login", [t["auth_error_credentials"]], address)
 
+    # Quien acierta no arrastra los fallos de antes: un error tipográfico no
+    # puede dejar a nadie fuera durante el resto de la ventana.
+    clear_attempts(db, "login", ip)
     response = RedirectResponse("/account", status_code=303)
-    auth.set_session_cookie(response, auth.create_session(db, user))
+    auth.set_session_cookie(response, auth.create_session(db, user), request)
     return response
 
 
@@ -551,6 +657,13 @@ def signup_submit(
     resolved_lang = resolve_lang(request, lang)
     t = get_translations(resolved_lang)
     address = auth.normalise_email(email)
+    ip = client_ip(request)
+
+    # Sin verificación de correo, el alta es gratis: el tope es lo único que
+    # separa el formulario de una tabla llena de cuentas inventadas.
+    if attempts_exhausted(db, "signup", ip):
+        logger.warning("Alta: cupo de registros agotado para %s", ip)
+        return auth_page(request, resolved_lang, "signup", [t["auth_error_throttled"]], address)
 
     errors = auth.credential_errors(email, password, t)
     if not errors and db.scalar(select(User.id).where(User.email == address)) is not None:
@@ -568,9 +681,12 @@ def signup_submit(
     )
     db.add(user)
     db.commit()
+    # El alta consumada cuenta contra el cupo: si no, se registran mil cuentas
+    # buenas seguidas sin tocar nunca el límite, que sólo vería las fallidas.
+    record_attempt(db, "signup", ip)
 
     response = RedirectResponse("/account", status_code=303)
-    auth.set_session_cookie(response, auth.create_session(db, user))
+    auth.set_session_cookie(response, auth.create_session(db, user), request)
     return response
 
 
@@ -585,7 +701,7 @@ def logout(
     auth.destroy_session(db, request.cookies.get(auth.SESSION_COOKIE))
 
     response = RedirectResponse("/", status_code=303)
-    auth.clear_session_cookie(response)
+    auth.clear_session_cookie(response, request)
     return response
 
 
@@ -646,6 +762,29 @@ def account_page(
     )
 
 
+@app.post("/account/delete")
+def delete_account(
+    request: Request,
+    csrf_token: str = Form(""),
+    db: Session = Depends(get_db),
+    user: User = Depends(require_user),
+) -> Any:
+    """Cierra la cuenta y borra todo lo que sabemos de ella.
+
+    El derecho de supresión no admite un formulario de contacto como respuesta:
+    tiene que poder ejercerse desde la propia web. Sesiones y seguimientos caen
+    en cascada con el usuario, así que no queda ninguna fila huérfana.
+    """
+    auth.check_csrf(request, csrf_token)
+    logger.info("Baja de cuenta solicitada por el usuario %s", user.id)
+    db.delete(user)
+    db.commit()
+
+    response = RedirectResponse("/", status_code=303)
+    auth.clear_session_cookie(response, request)
+    return response
+
+
 @app.post("/politicians/{politician_id}/follow")
 def follow_politician(
     request: Request,
@@ -676,7 +815,15 @@ def unfollow_politician(
 
 
 @app.post("/api/load-sample-filing")
-def load_sample_filing() -> dict[str, Any]:
+def load_sample_filing(request: Request) -> dict[str, Any]:
+    """Carga el filing de ejemplo. Sólo para administración.
+
+    Escribe en la base operaciones de un político inventado. Abierto al público
+    convertía en editable la única cosa que esta web promete: que lo que se ve
+    salió de una declaración oficial.
+    """
+    require_admin(request)
+
     sample_file = DATA_DIR / "sample_senate_filing.txt"
     if not sample_file.exists():
         raise HTTPException(status_code=404, detail="Sample filing not found")
@@ -695,8 +842,162 @@ def health_check() -> dict[str, str]:
     return {"status": "ok", "service": "TheWhaleFiles"}
 
 
+# --- Páginas legales -------------------------------------------------------
+
+# El titular y la dirección de contacto no pueden estar escritos en el código:
+# quien despliegue esto no tiene por qué ser quien lo escribió.
+LEGAL_ENTITY = os.getenv("LEGAL_ENTITY", "")
+LEGAL_CONTACT_EMAIL = os.getenv("LEGAL_CONTACT_EMAIL", "")
+
+LEGAL_DOCS = ("notice", "privacy", "terms", "cookies")
+
+
+@app.get("/legal/{doc}", response_class=HTMLResponse)
+def legal_page(
+    request: Request,
+    doc: str,
+    lang: Optional[str] = None,
+    user: Optional[User] = Depends(current_user),
+) -> Any:
+    if doc not in LEGAL_DOCS:
+        raise HTTPException(status_code=404, detail="Not found")
+
+    return render(
+        request,
+        "legal.html",
+        {
+            "doc": doc,
+            "legal_entity": LEGAL_ENTITY,
+            "legal_contact": LEGAL_CONTACT_EMAIL,
+        },
+        resolve_lang(request, lang),
+        user,
+    )
+
+
+# --- Indexación ------------------------------------------------------------
+
+# Las páginas de cuenta no pintan nada en un buscador, y la API tampoco: lo que
+# se indexa son las fichas y la portada.
+ROBOTS_TXT = """User-agent: *
+Disallow: /account
+Disallow: /login
+Disallow: /signup
+Disallow: /api/
+
+Sitemap: {base}/sitemap.xml
+"""
+
+
+def site_base_url(request: Request) -> str:
+    return str(request.base_url).rstrip("/")
+
+
+@app.get("/robots.txt", response_class=PlainTextResponse)
+def robots(request: Request) -> str:
+    return ROBOTS_TXT.format(base=site_base_url(request))
+
+
+@app.get("/sitemap.xml")
+def sitemap(request: Request, db: Session = Depends(get_db)) -> Any:
+    base = site_base_url(request)
+    # Sólo las fichas con operaciones: una ficha vacía no aporta nada a quien
+    # llega desde un buscador.
+    ids = db.scalars(
+        select(Politician.id)
+        .join(Trade, Trade.politician_id == Politician.id)
+        .group_by(Politician.id)
+        .order_by(Politician.id)
+    ).all()
+
+    urls = [f"{base}/"] + [f"{base}/politicians/{person_id}" for person_id in ids]
+    urls += [f"{base}/legal/{doc}" for doc in LEGAL_DOCS]
+    body = "".join(f"<url><loc>{url}</loc></url>" for url in urls)
+    xml = f'<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">{body}</urlset>'
+    return Response(content=xml, media_type="application/xml")
+
+
+# --- Errores ---------------------------------------------------------------
+
+
+def wants_json(request: Request) -> bool:
+    path = request.url.path
+    return path.startswith("/api/") or path in {"/health", "/sitemap.xml"}
+
+
+@app.exception_handler(StarletteHTTPException)
+async def http_exception_handler(request: Request, exc: StarletteHTTPException) -> Any:
+    # `require_user` levanta un 303 con Location para mandar al formulario de
+    # entrada: eso es una redirección, no un error que pintar.
+    location = (exc.headers or {}).get("Location")
+    if location:
+        return RedirectResponse(location, status_code=exc.status_code)
+
+    if wants_json(request):
+        return JSONResponse({"detail": exc.detail}, status_code=exc.status_code)
+
+    lang = resolve_lang(request, None)
+    t = get_translations(lang)
+    key = "error_404" if exc.status_code == 404 else "error_generic"
+    return templates.TemplateResponse(
+        request,
+        "error.html",
+        {
+            "request": request,
+            "lang": lang,
+            "other_lang": "en" if lang == "es" else "es",
+            "lang_switch_url": lang_switch_url(request, "en" if lang == "es" else "es"),
+            "t": t,
+            "user": None,
+            "csrf_token": "",
+            "csp_nonce": getattr(request.state, "csp_nonce", ""),
+            "status_code": exc.status_code,
+            "message": t[key],
+        },
+        status_code=exc.status_code,
+    )
+
+
+@app.exception_handler(Exception)
+async def unhandled_exception_handler(request: Request, exc: Exception) -> Any:
+    # El detalle va al registro, no a la página: un traceback en pantalla dice
+    # más de la casa que del problema.
+    logger.exception("Error no controlado en %s", request.url.path)
+
+    if wants_json(request):
+        return JSONResponse({"detail": "Internal server error"}, status_code=500)
+
+    lang = resolve_lang(request, None)
+    t = get_translations(lang)
+    return templates.TemplateResponse(
+        request,
+        "error.html",
+        {
+            "request": request,
+            "lang": lang,
+            "other_lang": "en" if lang == "es" else "es",
+            "lang_switch_url": lang_switch_url(request, "en" if lang == "es" else "es"),
+            "t": t,
+            "user": None,
+            "csrf_token": "",
+            "csp_nonce": getattr(request.state, "csp_nonce", ""),
+            "status_code": 500,
+            "message": t["error_generic"],
+        },
+        status_code=500,
+    )
+
+
 @app.post("/api/poll-sources")
-def poll_sources_endpoint() -> dict[str, Any]:
+def poll_sources_endpoint(request: Request) -> dict[str, Any]:
+    """Fuerza una pasada de ingesta. Sólo para administración.
+
+    Cada llamada sale a la red contra las fuentes oficiales y escribe en la
+    base. Sin puerta, cualquiera podía usar el servidor como amplificador de
+    peticiones contra la SEC y el House Clerk, y pagábamos nosotros la factura.
+    """
+    require_admin(request)
+
     imported = poll_official_sources()
     return {
         "imported_count": len(imported),

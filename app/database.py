@@ -159,6 +159,17 @@ def prepare_database(target_engine=None) -> None:
     ensure_schema(target_engine)
 
 
+def seed_from_network() -> bool:
+    """Si la primera siembra puede descargar el dataset público.
+
+    En integración continua no: la base nace vacía en cada ejecución y bajar
+    veinticinco mil operaciones para correr las pruebas es lento y depende de
+    que GitHub conteste. Con esto apagado se siembran los pocos registros de
+    ejemplo que hay más abajo, que es todo lo que las pruebas necesitan.
+    """
+    return os.getenv("SEED_REAL_DATASET", "1").lower() not in {"0", "false", "no"}
+
+
 def init_db() -> None:
     from app.sources import ingest_real_dataset
 
@@ -167,9 +178,10 @@ def init_db() -> None:
         if db.query(Politician).first():
             return
 
-        imported = ingest_real_dataset()
-        if imported:
-            return
+        if seed_from_network():
+            imported = ingest_real_dataset()
+            if imported:
+                return
 
         senator = Politician(
             name="Alex Morgan",

@@ -5,7 +5,18 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>{% block title %}TheWhaleFiles{% endblock %}</title>
     <meta name="description" content="{{ t.meta_description }}" />
-    <script>
+
+    {# Sin esto, el enlace compartido sale desnudo: sólo la URL. #}
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="TheWhaleFiles" />
+    <meta property="og:title" content="{% block og_title %}TheWhaleFiles{% endblock %}" />
+    <meta property="og:description" content="{{ t.meta_description }}" />
+    <meta property="og:image" content="{{ request.base_url }}static/logo.png" />
+    <meta property="og:url" content="{{ request.url }}" />
+    <meta name="twitter:card" content="summary" />
+    {% block head_extra %}{% endblock %}
+
+    <script nonce="{{ csp_nonce }}">
       // Se aplica antes de pintar para que no haya destello blanco en modo noche.
       (() => {
         const stored = localStorage.getItem('twf:theme');
@@ -70,7 +81,7 @@
           <a class="btn btn--soft btn--sm" href="/login?lang={{ lang }}">{{ t.nav_login }}</a>
           {% endif %}
           {% block nav_action %}
-          <button id="load-sample" class="btn btn--primary btn--sm">{{ t.nav_load_sample }}</button>
+          <a class="btn btn--primary btn--sm" href="/#ranking">{{ t.nav_ranking }}</a>
           {% endblock %}
         </div>
       </div>
@@ -102,12 +113,23 @@
               <li><a href="/health">{{ t.footer_health }}</a></li>
             </ul>
           </div>
+          <div>
+            <h4>{{ t.footer_legal }}</h4>
+            <ul>
+              <li><a href="/legal/notice?lang={{ lang }}">{{ t.legal_notice }}</a></li>
+              <li><a href="/legal/privacy?lang={{ lang }}">{{ t.legal_privacy }}</a></li>
+              <li><a href="/legal/terms?lang={{ lang }}">{{ t.legal_terms }}</a></li>
+              <li><a href="/legal/cookies?lang={{ lang }}">{{ t.legal_cookies }}</a></li>
+            </ul>
+          </div>
         </div>
+        {# El descargo va en todas las páginas, no escondido en una legal. #}
+        <p class="footer__note footer__note--strong">{{ t.disclaimer_body }}</p>
         <p class="footer__note">{{ t.footer_note }}</p>
       </div>
     </footer>
 
-    <script>
+    <script nonce="{{ csp_nonce }}">
       // Modo noche: la elección manual gana sobre la preferencia del sistema.
       (() => {
         const button = document.querySelector('.nav__theme');

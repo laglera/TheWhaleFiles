@@ -12,9 +12,9 @@ tests/
 .env
 .DS_Store
 
-# Notas de trabajo, no hacen falta en la función.
-DESIGN-revolut.md
-PROJECT_BRIEF.md
+# No hacen falta en la función.
 Dockerfile
 railway.json
 scripts/
+.github/
+LICENSE

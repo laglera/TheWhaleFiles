@@ -17,14 +17,14 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
-from datetime import datetime, timedelta
+from datetime import timedelta
 from typing import Iterable, Optional
 
 from sqlalchemy import select
 
 from app.database import SessionLocal
 from app.models import PriceQuote
-from app.runtime import is_serverless
+from app.runtime import is_serverless, utcnow
 
 logger = logging.getLogger(__name__)
 
@@ -176,7 +176,7 @@ def get_prices(symbols: Iterable[str], refresh: bool = True) -> dict[str, PriceQ
     if refresh and is_serverless():
         refresh = False
 
-    now = datetime.utcnow()
+    now = utcnow()
     quotes: dict[str, PriceQuote] = {}
 
     with SessionLocal() as db:

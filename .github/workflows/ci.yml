@@ -1,0 +1,33 @@
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  pytest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Instalar dependencias
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+          python -m pip install pytest
+
+      - name: Ejecutar las pruebas
+        # Sin DATABASE_URL la suite usa el SQLite del directorio de trabajo, que
+        # en el runner nace vacío y se siembra con los registros de ejemplo, sin
+        # bajarse el dataset entero. El polling se apaga: aquí no hay nada que
+        # vigilar y sólo alargaría el arranque.
+        env:
+          ENABLE_POLLING: "0"
+          SEED_REAL_DATASET: "0"
+        run: python -m pytest -q

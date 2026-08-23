@@ -308,7 +308,7 @@
 {% endblock %}
 
 {% block scripts %}
-<script>
+<script nonce="{{ csp_nonce }}">
   // La biografía se recorta a cinco líneas; el botón solo aparece si de verdad
   // hay texto oculto, para no ofrecer desplegar dos frases.
   (() => {
