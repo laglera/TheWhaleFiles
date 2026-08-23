@@ -52,6 +52,29 @@ TEMPLATES_DIR = APP_DIR / "templates"
 DATA_DIR = APP_DIR / "data"
 
 
+def warn_about_missing_legal_settings() -> None:
+    """Avisa por el registro de lo que falta para publicar el sitio.
+
+    Antes lo decía la propia página legal, que es el único sitio donde no debe
+    decirse: quien la lee no puede arreglarlo y sí se entera del nombre de las
+    variables. Aquí lo ve quien despliega, que es quien las configura.
+    """
+    missing = [
+        name
+        for name, value in (
+            ("LEGAL_ENTITY", LEGAL_ENTITY),
+            ("LEGAL_CONTACT_EMAIL", LEGAL_CONTACT_EMAIL),
+        )
+        if not value
+    ]
+    if missing:
+        logger.warning(
+            "Páginas legales incompletas: falta configurar %s. El aviso legal y la "
+            "política de privacidad se publican sin titular ni vía de contacto.",
+            ", ".join(missing),
+        )
+
+
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
     """Ciclo de vida de la aplicación.
@@ -60,6 +83,7 @@ async def lifespan(_app: FastAPI):
     Starlette. El hilo de polling corre aparte: no bloquea el arranque y no
     comparte conexión con las peticiones web. Se desactiva con ENABLE_POLLING=0.
     """
+    warn_about_missing_legal_settings()
     if polling_enabled():
         start_polling_loop()
     yield

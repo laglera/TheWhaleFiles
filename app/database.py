@@ -33,6 +33,12 @@ def resolve_database_url(raw: str | None = None) -> str:
             DEFAULT_DATABASE_URL,
         )
 
+    # Un salto de línea al final es lo más fácil del mundo cuando la cadena se
+    # copia de un fichero a un gestor de secretos con una tubería: viaja pegado
+    # al valor, acaba dentro del nombre del host y la conexión falla con un
+    # error que no señala a ninguna parte.
+    url = url.strip()
+
     # Varios proveedores siguen entregando el esquema "postgres://", que
     # SQLAlchemy 2 ya no reconoce.
     if url.startswith("postgres://"):

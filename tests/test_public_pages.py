@@ -100,6 +100,26 @@ class PaginationTests(unittest.TestCase):
         self.assertIn("total_trades", payload)
 
 
+class DatabaseUrlTests(unittest.TestCase):
+    def test_a_trailing_newline_does_not_travel_into_the_host(self):
+        # Pasar la cadena de un fichero a un gestor de secretos con una tubería
+        # se lleva el salto de línea pegado al valor.
+        from app.database import resolve_database_url
+
+        self.assertEqual(
+            resolve_database_url("postgresql://u:c@host/base\n"),
+            "postgresql://u:c@host/base",
+        )
+
+    def test_the_old_postgres_scheme_is_still_translated(self):
+        from app.database import resolve_database_url
+
+        self.assertEqual(
+            resolve_database_url("  postgres://u:c@host/base  "),
+            "postgresql://u:c@host/base",
+        )
+
+
 class AdminEndpointTests(unittest.TestCase):
     def test_the_sample_loader_is_closed_without_a_token(self):
         # Escribía en la base operaciones de un político inventado, y estaba

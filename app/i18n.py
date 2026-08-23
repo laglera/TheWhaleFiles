@@ -211,10 +211,6 @@ TRANSLATIONS: dict[str, dict[str, Any]] = {
         "legal_cookies": "Cookies",
         "legal_updated": "Última actualización: agosto de 2026",
         "legal_contact_intro": "Contacto:",
-        "legal_contact_missing": (
-            "Este despliegue no tiene configurada una dirección de contacto "
-            "(variable LEGAL_CONTACT_EMAIL)."
-        ),
         "legal_entity_missing": "titular del sitio",
         "disclaimer_title": "Esto no es asesoramiento financiero",
         "disclaimer_body": (
@@ -543,10 +539,6 @@ TRANSLATIONS: dict[str, dict[str, Any]] = {
         "legal_cookies": "Cookies",
         "legal_updated": "Last updated: August 2026",
         "legal_contact_intro": "Contact:",
-        "legal_contact_missing": (
-            "This deployment has no contact address configured "
-            "(LEGAL_CONTACT_EMAIL variable)."
-        ),
         "legal_entity_missing": "the site operator",
         "disclaimer_title": "This is not financial advice",
         "disclaimer_body": (

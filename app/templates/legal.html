@@ -48,14 +48,15 @@
     </article>
     {% endfor %}
 
+    {# Sin dirección configurada no se pinta nada: el aviso de que falta va al
+       registro del servidor, que es donde lo lee quien puede arreglarlo, y no
+       a la página, donde sólo delataría el nombre de una variable de entorno. #}
+    {% if legal_contact %}
     <p class="legal__contact">
-      {% if legal_contact %}
       {{ t.legal_contact_intro }}
       <a href="mailto:{{ legal_contact }}">{{ legal_contact }}</a>
-      {% else %}
-      {{ t.legal_contact_missing }}
-      {% endif %}
     </p>
+    {% endif %}
 
     <nav class="legal__nav">
       {% for key, label in [('notice', t.legal_notice), ('privacy', t.legal_privacy),
