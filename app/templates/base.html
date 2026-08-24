@@ -45,9 +45,9 @@
           <span class="nav__brand-name">TheWhaleFiles</span>
         </a>
         <div class="nav__links">
-          <a href="/#operaciones">{{ t.nav_trades }}</a>
+          <a href="/#perfiles">{{ t.nav_people }}</a>
           <a href="/#tendencias">{{ t.nav_trends }}</a>
-          <a href="/#politicos">{{ t.nav_people }}</a>
+          <a href="/#operaciones">{{ t.nav_trades }}</a>
         </div>
         <div class="nav__actions">
           {# lang_switch_url conserva los filtros activos #}
@@ -62,26 +62,8 @@
           >
             <span class="nav__theme-icon" aria-hidden="true"></span>
           </button>
-          {# El nombre se retira en móvil por la misma razón que la marca: en esa
-             anchura la barra no da para todo. #}
-          {% if user %}
-          <a class="nav__user" href="/account?lang={{ lang }}" title="{{ t.nav_account }}">
-            {# La inicial queda cuando el nombre se retira en móvil, para que el
-               acceso a la cuenta no se convierta en un enlace vacío. #}
-            <span class="nav__user-mark" aria-hidden="true">
-              {{ (user.display_name or user.email)[0]|upper }}
-            </span>
-            <span class="nav__user-name">{{ user.display_name }}</span>
-          </a>
-          <form class="nav__logout" method="post" action="/logout?lang={{ lang }}">
-            <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
-            <button type="submit" class="btn btn--soft btn--sm">{{ t.nav_logout }}</button>
-          </form>
-          {% else %}
-          <a class="btn btn--soft btn--sm" href="/login?lang={{ lang }}">{{ t.nav_login }}</a>
-          {% endif %}
           {% block nav_action %}
-          <a class="btn btn--primary btn--sm" href="/#ranking">{{ t.nav_ranking }}</a>
+          <a class="btn btn--primary btn--sm" href="/#perfiles">{{ t.nav_ranking }}</a>
           {% endblock %}
         </div>
       </div>
@@ -113,18 +95,7 @@
               <li><a href="/health">{{ t.footer_health }}</a></li>
             </ul>
           </div>
-          <div>
-            <h4>{{ t.footer_legal }}</h4>
-            <ul>
-              <li><a href="/legal/notice?lang={{ lang }}">{{ t.legal_notice }}</a></li>
-              <li><a href="/legal/privacy?lang={{ lang }}">{{ t.legal_privacy }}</a></li>
-              <li><a href="/legal/terms?lang={{ lang }}">{{ t.legal_terms }}</a></li>
-              <li><a href="/legal/cookies?lang={{ lang }}">{{ t.legal_cookies }}</a></li>
-            </ul>
-          </div>
         </div>
-        {# El descargo va en todas las páginas, no escondido en una legal. #}
-        <p class="footer__note footer__note--strong">{{ t.disclaimer_body }}</p>
         <p class="footer__note">{{ t.footer_note }}</p>
       </div>
     </footer>

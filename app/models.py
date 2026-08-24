@@ -106,73 +106,6 @@ class Holding(Base):
     ticker: Mapped[Ticker] = relationship(back_populates="holdings")
 
 
-class User(Base):
-    """Cuenta de una persona que usa la web.
-
-    No confundir con `Politician`: aquí viven los visitantes registrados, no los
-    declarantes. El correo es el identificador, siempre guardado en minúsculas
-    para que "Ana@ejemplo.com" y "ana@ejemplo.com" no sean dos cuentas.
-    """
-
-    __tablename__ = "users"
-
-    id: Mapped[int] = mapped_column(primary_key=True, index=True)
-    email: Mapped[str] = mapped_column(String(255), unique=True, index=True, nullable=False)
-    password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
-    display_name: Mapped[str] = mapped_column(String(80), nullable=False, default="")
-    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
-
-    sessions: Mapped[list["UserSession"]] = relationship(
-        back_populates="user", cascade="all, delete-orphan"
-    )
-    follows: Mapped[list["Follow"]] = relationship(
-        back_populates="user", cascade="all, delete-orphan"
-    )
-
-
-class UserSession(Base):
-    """Sesión abierta, con el token guardado como hash.
-
-    En serverless no hay proceso vivo donde sostener las sesiones en memoria, así
-    que viven en la base. Lo que se guarda es el SHA-256 del token, no el token:
-    si alguien lee la tabla, no puede suplantar a nadie con lo que encuentre.
-
-    La clase no puede llamarse `Session` porque ese nombre ya es el de la sesión
-    de SQLAlchemy, que se importa en los mismos módulos que este.
-    """
-
-    __tablename__ = "sessions"
-
-    id: Mapped[int] = mapped_column(primary_key=True, index=True)
-    token_hash: Mapped[str] = mapped_column(String(64), unique=True, index=True, nullable=False)
-    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
-    # Acompaña a la cookie en los formularios ya autenticados. La cookie es
-    # SameSite=Lax, que ya frena el POST desde otro sitio; esto cubre lo que esa
-    # política deja fuera, como un subdominio comprometido.
-    csrf_token: Mapped[str] = mapped_column(String(64), nullable=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
-    expires_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
-
-    user: Mapped[User] = relationship(back_populates="sessions")
-
-
-class Follow(Base):
-    """Político al que un usuario sigue."""
-
-    __tablename__ = "follows"
-    __table_args__ = (
-        UniqueConstraint("user_id", "politician_id", name="uq_follow_identity"),
-    )
-
-    id: Mapped[int] = mapped_column(primary_key=True, index=True)
-    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
-    politician_id: Mapped[int] = mapped_column(ForeignKey("politicians.id"), nullable=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
-
-    user: Mapped[User] = relationship(back_populates="follows")
-    politician: Mapped[Politician] = relationship()
-
-
 class PriceQuote(Base):
     """Última cotización conocida de un valor, cacheada para no agotar la API."""
 
@@ -184,22 +117,3 @@ class PriceQuote(Base):
     currency: Mapped[str] = mapped_column(String(10), default="USD")
     previous_close: Mapped[float] = mapped_column(Float, default=0.0)
     fetched_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
-
-
-class LoginAttempt(Base):
-    """Intento fallido de entrar o de darse de alta.
-
-    El límite tiene que sobrevivir a la petición que lo cuenta, y en serverless
-    no hay memoria compartida entre invocaciones donde llevar la cuenta: la
-    lleva la base, como las sesiones.
-    """
-
-    __tablename__ = "login_attempts"
-
-    id: Mapped[int] = mapped_column(primary_key=True, index=True)
-    # "login" o "signup": cada formulario tiene su propio cupo.
-    scope: Mapped[str] = mapped_column(String(20), nullable=False)
-    # Contra quién se cuenta. Hoy la dirección IP; el nombre no lo presupone
-    # para poder añadir el correo como segunda cesta sin migrar la tabla.
-    bucket: Mapped[str] = mapped_column(String(120), index=True, nullable=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime, index=True, nullable=False)

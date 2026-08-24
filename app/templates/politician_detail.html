@@ -60,26 +60,6 @@
               <p class="identity__headline">{{ bio_headline }}</p>
               {% endif %}
             </div>
-            {# Sin sesión no hay dónde guardar el seguimiento, así que el botón
-               lleva al formulario de entrada en lugar de fingir que funciona. #}
-            {% if user %}
-            <form method="post"
-                  action="/politicians/{{ politician.id }}/{{ 'unfollow' if following else 'follow' }}?lang={{ lang }}">
-              <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
-              <button
-                class="follow-btn btn btn--sm {{ 'btn--soft' if following else 'btn--cobalt' }}"
-                type="submit"
-                aria-pressed="{{ 'true' if following else 'false' }}"
-                {% if following %}title="{{ t.follow_undo }}"{% endif %}
-              >
-                {{ t.profile_following if following else t.profile_follow }}
-              </button>
-            </form>
-            {% else %}
-            <a class="follow-btn btn btn--cobalt btn--sm" href="/login?lang={{ lang }}">
-              {{ t.follow_login }}
-            </a>
-            {% endif %}
           </div>
 
           {% if bio %}

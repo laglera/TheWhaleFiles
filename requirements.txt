@@ -5,9 +5,3 @@ jinja2==3.1.4
 # Driver de Postgres: la base de producción, ya que en serverless no hay disco
 # donde sostener el SQLite local.
 psycopg2-binary==2.9.9
-# Hash de contraseñas. Sin passlib por medio: su capa de compatibilidad lleva
-# tiempo sin mantenimiento y rompe con las versiones nuevas de bcrypt.
-bcrypt==4.2.1
-# FastAPI lo necesita para leer los formularios; sin él, todo POST con Form()
-# responde 400. Hasta ahora la aplicación no tenía ningún formulario.
-python-multipart==0.0.20

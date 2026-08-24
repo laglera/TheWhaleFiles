@@ -173,16 +173,21 @@
 :root[data-theme='dark'] .btn--primary:hover {
   background: #ffffff;
 }
-
-:root[data-theme='dark'] .rank-card,
 :root[data-theme='dark'] .identity {
   background: var(--surface-card);
   border: 1px solid var(--hairline-light);
 }
+:root[data-theme='dark'] .digest:hover {
+  border-color: var(--primary);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+}
 
-:root[data-theme='dark'] .rank-row:hover,
+:root[data-theme='dark'] .scope-tab--on {
+  background: var(--surface-elevated);
+  box-shadow: none;
+}
+
 :root[data-theme='dark'] .trade-card:hover,
-:root[data-theme='dark'] .person-card:hover,
 :root[data-theme='dark'] .ledger__row:hover {
   background: var(--surface-elevated);
 }
@@ -744,7 +749,6 @@ img {
   opacity: 0.26;
 }
 
-
 .brand-canvas .hero,
 .brand-canvas .profile {
   background: transparent;
@@ -775,98 +779,6 @@ img {
 .profile .hero__stats {
   margin-top: 24px;
   padding: 0;
-}
-
-/* --------------------------------------------------------------------------
-   Clasificación de mayores inversores
-   -------------------------------------------------------------------------- */
-
-.rank-card {
-  background: var(--surface-card);
-  border-radius: var(--r-xl);
-  padding: 16px;
-}
-
-.rank-row {
-  display: grid;
-  grid-template-columns: 44px 44px minmax(0, 1fr) minmax(120px, 220px) 132px;
-  align-items: center;
-  gap: 16px;
-  padding: 14px 20px;
-  border-radius: var(--r-md);
-  text-decoration: none;
-  color: var(--ink);
-  transition: background 0.15s ease;
-}
-
-.rank-row + .rank-row {
-  border-top: 1px solid var(--hairline-light);
-}
-
-.rank-row:hover {
-  background: var(--surface-soft);
-}
-
-.rank-row__pos {
-  font-family: var(--font-display);
-  font-size: 22px;
-  font-weight: 500;
-  color: var(--faint);
-  text-align: center;
-}
-
-.rank-row--top .rank-row__pos {
-  color: var(--primary);
-}
-
-.rank-row__name {
-  min-width: 0;
-}
-
-.rank-row__name b {
-  display: block;
-  font-family: var(--font-display);
-  font-size: 18px;
-  font-weight: 500;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.rank-row__name small {
-  color: var(--mute);
-  font-size: 13px;
-}
-
-.rank-row__amount {
-  text-align: right;
-}
-
-.rank-row__amount b {
-  display: block;
-  font-family: var(--font-display);
-  font-size: 20px;
-  font-weight: 500;
-  font-variant-numeric: tabular-nums;
-}
-
-.rank-row__amount small {
-  color: var(--stone);
-  font-size: 12px;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-}
-
-.rank-legend {
-  display: flex;
-  justify-content: space-between;
-  gap: 16px;
-  padding: 8px 20px 16px;
-  color: var(--stone);
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
 }
 
 /* --------------------------------------------------------------------------
@@ -1020,11 +932,14 @@ img {
    Filtros
    -------------------------------------------------------------------------- */
 
+/* Flexible, no una rejilla de columnas fijas: el desplegable de partido sólo
+   aparece cuando hay partidos que ofrecer, y con columnas contadas la fila se
+   descolocaba en cuanto faltaba un campo. */
 .filters {
-  display: grid;
-  grid-template-columns: 1.4fr 0.8fr 0.8fr auto auto;
+  display: flex;
+  flex-wrap: wrap;
   gap: 12px;
-  align-items: end;
+  align-items: flex-end;
   background: var(--surface-card);
   border: 1px solid var(--hairline-light);
   border-radius: var(--r-lg);
@@ -1038,6 +953,16 @@ img {
   display: flex;
   flex-direction: column;
   gap: 8px;
+}
+
+/* El buscador manda: se lleva el doble de sitio que cada desplegable. */
+.filters .field {
+  flex: 1 1 150px;
+  min-width: 0;
+}
+
+.filters .field:first-of-type {
+  flex: 2 1 240px;
 }
 
 .field > span {
@@ -1279,18 +1204,6 @@ img {
   overflow: hidden;
 }
 
-.rank-row__bar .bar-track {
-  height: 8px;
-}
-
-.rank-row__bar .bar-fill {
-  background: var(--primary);
-}
-
-.rank-row--top .bar-fill {
-  background: var(--primary-deep);
-}
-
 .bar-fill {
   display: block;
   height: 100%;
@@ -1366,72 +1279,258 @@ img {
 }
 
 /* --------------------------------------------------------------------------
-   Personas
+   Fichas-resumen: una persona por tarjeta
+   --------------------------------------------------------------------------
+   Es el cuerpo de la portada. Cada ficha tiene que responder "¿en qué invierte
+   esta persona?" sin abrirla, así que se lee en cuatro bloques de arriba
+   abajo: quién es, cuánto y con qué sesgo, dónde está concentrado ese dinero
+   y cuándo fue la última vez que declaró algo.
    -------------------------------------------------------------------------- */
 
-.people-grid {
+.scope-tabs {
+  display: inline-flex;
+  gap: 4px;
+  margin-bottom: 20px;
+  padding: 4px;
+  background: var(--surface-soft);
+  border: 1px solid var(--hairline-light);
+  border-radius: var(--r-full);
+}
+
+.scope-tab {
+  padding: 8px 20px;
+  border-radius: var(--r-full);
+  color: var(--mute);
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.scope-tab:hover {
+  color: var(--ink);
+}
+
+.scope-tab--on {
+  background: var(--surface-card);
+  color: var(--ink);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.digest-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 16px;
 }
 
 /* min-width: 0 deja que la celda de la rejilla baje de su ancho mínimo; sin
    esto un nombre largo estira la tarjeta y con ella la página entera. */
-.person-card {
+.digest {
   display: flex;
-  align-items: center;
+  flex-direction: column;
   gap: 16px;
   min-width: 0;
   background: var(--surface-card);
   border: 1px solid var(--hairline-light);
   border-radius: var(--r-lg);
-  padding: 20px 24px;
+  padding: 20px;
   text-decoration: none;
   color: var(--ink);
-  transition: border-color 0.15s ease, background 0.15s ease;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
-.person-card:hover {
+.digest:hover {
   border-color: var(--primary);
-  background: #fbfbff;
+  box-shadow: 0 8px 24px rgba(73, 79, 223, 0.12);
 }
 
-.person-card__body {
+.digest__head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
   min-width: 0;
 }
 
-.person-card__body h3 {
-  font-size: 18px;
-  line-height: 1.4;
+.digest__ident {
+  min-width: 0;
+}
+
+.digest__ident h3 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 17px;
+  font-weight: 600;
+  line-height: 1.3;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.person-card__body small {
-  color: var(--mute);
-  font-size: 13px;
-}
-
-.person-card__count {
-  margin-left: auto;
-  text-align: right;
-  flex: none;
-}
-
-.person-card__count strong {
+.digest__ident small {
   display: block;
-  font-family: var(--font-display);
-  font-size: 22px;
-  font-weight: 500;
-  color: var(--primary);
+  color: var(--mute);
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.person-card__count span {
+/* El puesto en la clasificación por capital. Va en gris claro y grande: sitúa
+   la ficha dentro del conjunto sin competir con el nombre. */
+.digest__rank {
+  margin-left: auto;
+  flex: none;
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: 500;
+  color: var(--faint);
+}
+
+/* align-items: end alinea las tres cifras entre sí aunque uno de los rótulos
+   ocupe dos líneas: sin esto, "Capital" y "Operaciones" quedaban a alturas
+   distintas dentro de la misma tarjeta. */
+.digest__figures {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: end;
+  gap: 8px;
+  padding: 14px 0;
+  border-top: 1px solid var(--hairline-light);
+  border-bottom: 1px solid var(--hairline-light);
+}
+
+.digest__figures span {
+  display: block;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--stone);
+  margin-bottom: 2px;
+}
+
+.digest__figures strong {
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 500;
+  line-height: 1.2;
+}
+
+/* El sesgo se dice con color y con número: "68% comprando" en verde no
+   necesita leyenda, y sin el color el porcentaje solo no se distingue del
+   resto de cifras de la ficha. */
+.digest__bias {
+  font-size: 13px !important;
+  font-family: var(--font-body) !important;
+  font-weight: 600 !important;
+}
+
+.digest__bias--buy {
+  color: var(--buy-ink);
+}
+
+.digest__bias--sell {
+  color: var(--sell-ink);
+}
+
+.digest__bias--none {
+  color: var(--stone);
+}
+
+.digest__label {
+  display: block;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--stone);
+  margin-bottom: 10px;
+}
+
+.digest__positions ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.digest__positions li {
+  display: grid;
+  grid-template-columns: 62px minmax(0, 1fr) 44px;
+  align-items: center;
+  gap: 10px;
+}
+
+.digest__symbol {
+  font-family: var(--font-display);
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Las barras de la ficha son más finas que las de los gráficos: aquí hay
+   cuatro por tarjeta y veinticuatro tarjetas. */
+.digest__positions .bar-track {
+  height: 8px;
+}
+
+/* Una posición que no llega al 1% del capital declarado dibujaría una barra
+   invisible y parecería un dato que falta. */
+.digest__positions .bar-fill {
+  min-width: 3px;
+}
+
+.digest__share {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--mute);
+  text-align: right;
+}
+
+.digest__rest {
+  margin: 10px 0 0;
   font-size: 12px;
   color: var(--stone);
-  letter-spacing: 0.04em;
+}
+
+.digest__last {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: auto;
+  padding-top: 14px;
+  border-top: 1px solid var(--hairline-light);
+  font-size: 13px;
+  min-width: 0;
+}
+
+.digest__last > span {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
+  color: var(--stone);
+}
+
+.digest__last .tag {
+  padding: 2px 10px;
+  font-size: 12px;
+}
+
+.digest__last b {
+  font-family: var(--font-display);
+  font-weight: 600;
+}
+
+.digest__last em {
+  margin-left: auto;
+  font-style: normal;
+  color: var(--mute);
+  white-space: nowrap;
 }
 
 .more-note {
@@ -1791,16 +1890,6 @@ img {
   margin-top: 20px;
 }
 
-.follow-btn[aria-pressed='true'] {
-  background: var(--surface-soft);
-  color: var(--ink);
-}
-
-.follow-btn[aria-pressed='true']::before {
-  content: '✓';
-  font-weight: 700;
-}
-
 .ledger {
   display: grid;
   gap: 2px;
@@ -1877,8 +1966,7 @@ img {
 
 .footer__grid {
   display: grid;
-  /* Cuatro columnas desde que el pie tiene también la legal. */
-  grid-template-columns: 1.6fr 1fr 1fr 1fr;
+  grid-template-columns: 1.6fr 1fr 1fr;
   gap: 40px;
   padding-bottom: 48px;
   border-bottom: 1px solid var(--divider-soft);
@@ -1921,218 +2009,12 @@ img {
   font-size: 13px;
 }
 
-/* El descargo de responsabilidad tiene que leerse, no esconderse entre las
-   notas al pie: mismo sitio, un punto más de contraste. */
-.footer__note--strong {
-  color: var(--on-dark-mute);
-  max-width: 70ch;
-}
-
-.footer__note--strong + .footer__note {
-  margin-top: 12px;
-}
-
 /* --------------------------------------------------------------------------
-   Páginas legales y de error
+   Página de error
    -------------------------------------------------------------------------- */
-
-.legal {
-  max-width: 74ch;
-}
-
-.legal__notice {
-  padding: 20px 24px;
-  margin-bottom: 32px;
-  border-left: 3px solid var(--primary);
-  background: var(--surface-soft);
-  border-radius: 0 12px 12px 0;
-}
-
-.legal__notice h3 {
-  margin: 0 0 8px;
-  font-size: 16px;
-  color: var(--ink);
-}
-
-.legal__notice p,
-.legal__block p {
-  margin: 0;
-  color: var(--mute);
-  font-size: 15px;
-  line-height: 1.7;
-}
-
-.legal__block {
-  margin-bottom: 28px;
-}
-
-.legal__block h3 {
-  margin: 0 0 8px;
-  font-size: 17px;
-  color: var(--ink);
-}
-
-.legal__contact {
-  margin: 32px 0 0;
-  padding-top: 20px;
-  border-top: 1px solid var(--hairline-light);
-  color: var(--mute);
-  font-size: 15px;
-}
-
-.legal__nav {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 20px;
-  margin-top: 16px;
-  font-size: 14px;
-}
 
 .error-page h2 {
   margin-bottom: 24px;
-}
-
-/* --------------------------------------------------------------------------
-   Baja de la cuenta
-   -------------------------------------------------------------------------- */
-
-.danger-zone {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 20px;
-  padding: 24px;
-  border: 1px solid var(--hairline-light);
-  border-radius: 16px;
-  background: var(--surface-card);
-}
-
-.danger-zone h3 {
-  margin: 0 0 4px;
-  font-size: 16px;
-  color: var(--ink);
-}
-
-.danger-zone p {
-  margin: 0;
-  max-width: 52ch;
-  color: var(--mute);
-  font-size: 14px;
-}
-
-.danger-zone__btn {
-  color: var(--sell-ink);
-  border-color: currentColor;
-}
-
-/* --------------------------------------------------------------------------
-   Cuentas
-   -------------------------------------------------------------------------- */
-
-.nav__user {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--ink);
-  text-decoration: none;
-  max-width: 160px;
-}
-
-.nav__user-mark {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  flex: none;
-  border-radius: 50%;
-  background: var(--primary);
-  color: #fff;
-  font-size: 12px;
-  font-weight: 700;
-}
-
-.nav__user-name {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.nav__user:hover {
-  color: var(--primary);
-}
-
-.nav__logout {
-  display: inline-flex;
-}
-
-/* Columna estrecha y centrada: el formulario no tiene por qué ocupar el ancho
-   de la rejilla de datos, y leerlo en línea corta cuesta menos. */
-.auth-card {
-  max-width: 440px;
-  margin: 0 auto;
-  background: var(--surface-card);
-  border: 1px solid var(--hairline-light);
-  border-radius: var(--r-lg);
-  padding: 40px;
-}
-
-.auth-card .band-head {
-  margin-bottom: 28px;
-}
-
-.auth-form {
-  display: grid;
-  gap: 20px;
-}
-
-.auth-form .btn {
-  height: 56px;
-  justify-content: center;
-  margin-top: 4px;
-}
-
-.field > span small {
-  font-weight: 400;
-  text-transform: none;
-  letter-spacing: 0;
-  color: var(--faint);
-}
-
-.field__hint {
-  font-size: 13px;
-  color: var(--mute);
-}
-
-.auth-errors {
-  margin: 0 0 24px;
-  padding: 16px 20px;
-  list-style: none;
-  display: grid;
-  gap: 6px;
-  font-size: 14px;
-  color: var(--sell);
-  background: color-mix(in srgb, var(--sell) 8%, transparent);
-  border: 1px solid color-mix(in srgb, var(--sell) 24%, transparent);
-  border-radius: var(--r-md);
-}
-
-.auth-switch {
-  margin: 24px 0 0;
-  text-align: center;
-  font-size: 14px;
-}
-
-.auth-switch a {
-  color: var(--mute);
-  text-decoration: none;
-}
-
-.auth-switch a:hover {
-  color: var(--primary);
 }
 
 /* --------------------------------------------------------------------------
@@ -2145,7 +2027,7 @@ img {
 
 @media (max-width: 1080px) {
   .trade-grid,
-  .people-grid {
+  .digest-grid {
     grid-template-columns: repeat(2, 1fr);
   }
 
@@ -2163,15 +2045,6 @@ img {
 
   .profile__grid {
     grid-template-columns: 200px minmax(0, 1fr);
-  }
-
-  .rank-row {
-    grid-template-columns: 36px 40px minmax(0, 1fr) 120px;
-  }
-
-  .rank-row__bar,
-  .rank-legend {
-    display: none;
   }
 
   .footer__grid {
@@ -2395,23 +2268,21 @@ img {
     display: none;
   }
 
-  /* Filtros: el buscador y el botón mandan; los tres desplegables se reparten
-     en dos columnas para no comerse la pantalla antes del primer resultado. */
+  /* Filtros: el buscador ocupa la fila entera y los desplegables se reparten
+     de dos en dos, para no comerse la pantalla antes del primer resultado. */
   .filters {
-    grid-template-columns: 1fr 1fr;
-    gap: 10px 10px;
+    gap: 10px;
     padding: 16px;
     margin-bottom: 16px;
   }
 
   .filters .field:first-of-type {
-    grid-column: 1 / -1;
+    flex: 1 1 100%;
   }
 
-  /* El botón cae en el hueco que deja el tercer desplegable en lugar de
-     abrir una fila propia. */
+  .filters .field,
   .filters .btn {
-    grid-column: auto;
+    flex: 1 1 calc(50% - 5px);
   }
 
   .field > span {
@@ -2435,7 +2306,7 @@ img {
      lista — ticker y persona a la izquierda, importe a la derecha, y tipo y
      fecha debajo. */
   .trade-grid,
-  .people-grid {
+  .digest-grid {
     grid-template-columns: 1fr;
     gap: 8px;
   }
@@ -2512,46 +2383,33 @@ img {
     margin-left: auto;
   }
 
-  /* Personas: misma fila de lista, con la foto como ancla visual */
-  .person-card {
-    padding: 10px 14px;
+  /* La ficha no pierde ningún dato en móvil: sólo se aprieta. Las pestañas
+     de perfil pasan a ocupar el ancho, que es donde primero se toca. */
+  .digest {
     gap: 12px;
+    padding: 16px;
     border-radius: var(--r-md);
   }
 
-  .person-card .avatar {
-    width: 38px;
-    height: 38px;
+  .digest__figures {
+    padding: 12px 0;
   }
 
-  .person-card__body h3 {
-    font-size: 15px;
-    line-height: 1.3;
+  .digest__figures strong {
+    font-size: 16px;
   }
 
-  .person-card__body small {
-    font-size: 12px;
-  }
-
-  /* Cifra y unidad en la misma línea: apiladas sumaban una segunda línea a
-     cada una de las veinticuatro filas. */
-  .person-card__count {
+  .scope-tabs {
     display: flex;
-    align-items: baseline;
-    gap: 5px;
+    width: 100%;
+    margin-bottom: 12px;
   }
 
-  .person-card__count strong {
-    display: inline;
-    font-size: 17px;
-  }
-
-  .person-card__count span {
-    font-size: 10.5px;
-  }
-
-  .person-card {
-    padding: 8px 14px;
+  .scope-tab {
+    flex: 1;
+    padding: 8px 10px;
+    font-size: 13px;
+    text-align: center;
   }
 
   .more-note {
@@ -2584,25 +2442,6 @@ img {
     grid-column: 1 / -1;
     text-align: left;
     min-width: 0;
-  }
-
-  /* Clasificación: sin avatar ni barra, sólo puesto, nombre e importe */
-  .rank-card {
-    padding: 6px;
-  }
-
-  .rank-row {
-    grid-template-columns: 28px minmax(0, 1fr) auto;
-    gap: 10px;
-    padding: 11px 10px;
-  }
-
-  .rank-row .avatar {
-    display: none;
-  }
-
-  .rank-row__amount b {
-    font-size: 17px;
   }
 
   .band--brand {
@@ -2761,13 +2600,6 @@ img {
 
   /* A esta anchura la barra ya sólo da para el icono, el idioma, el tema y el
      botón de salir: el nombre se retira igual que la marca. */
-  .nav__user-name {
-    display: none;
-  }
-
-  .auth-card {
-    padding: 28px 20px;
-  }
 
   .hero__stats {
     padding: 0 16px;
@@ -2787,7 +2619,7 @@ img {
   }
 
   .trade-card,
-  .person-card {
+  .digest {
     padding: 10px 12px;
   }
 

@@ -17,16 +17,16 @@
         <span>{{ t.hero_claim_2 }}</span>
       </p>
       <div class="hero__actions">
-        <a class="btn btn--primary" href="#ranking">{{ t.hero_cta }}</a>
+        <a class="btn btn--primary" href="#perfiles">{{ t.hero_cta }}</a>
       </div>
     </div>
 
     <div class="hero__stats">
       <div class="metric-band metric-band--hero">
         <div class="metric">
-          <span>{{ t.stat_trades }}</span>
-          <strong>{{ '{:,.0f}'.format(total_trades) }}</strong>
-          <small>{{ t.stat_trades_sub }}</small>
+          <span>{{ t.stat_people }}</span>
+          <strong>{{ '{:,.0f}'.format(total_politicians) }}</strong>
+          <small>{{ t.stat_people_sub }}</small>
         </div>
         <div class="metric">
           <span>{{ t.stat_capital }}</span>
@@ -34,9 +34,9 @@
           <small>{{ t.stat_capital_sub }}</small>
         </div>
         <div class="metric">
-          <span>{{ t.stat_people }}</span>
-          <strong>{{ '{:,.0f}'.format(total_politicians) }}</strong>
-          <small>{{ t.stat_people_sub }}</small>
+          <span>{{ t.stat_trades }}</span>
+          <strong>{{ '{:,.0f}'.format(total_trades) }}</strong>
+          <small>{{ t.stat_trades_sub }}</small>
         </div>
         <div class="metric">
           <span>{{ t.stat_last }}</span>
@@ -46,84 +46,39 @@
       </div>
     </div>
   </header>
-
-  {% if leaderboard %}
-  <section class="band band--brand" id="ranking">
-    <div class="inner">
-      <div class="band-head band-head--center">
-        <div>
-          <h2>{{ t.rank_title }}</h2>
-          <p>{{ t.rank_sub }}</p>
-        </div>
-      </div>
-
-      <div class="rank-card">
-        <div class="rank-legend">
-          <span>{{ t.rank_investor }}</span>
-          <span>{{ t.rank_capital }}</span>
-        </div>
-        {% set max_volume = leaderboard|map(attribute='volume')|max %}
-        {% for person in leaderboard %}
-        <a
-          class="rank-row {% if loop.index <= 3 %}rank-row--top{% endif %}"
-          href="/politicians/{{ person.id }}"
-        >
-          <span class="rank-row__pos">{{ loop.index }}</span>
-          {{ ui.face(person.name, 'avatar--sm') }}
-          <span class="rank-row__name">
-            <b>{{ person.name }}</b>
-            <small>
-              <i class="dot dot--{{ person.category }}"></i>
-              {{ person.chamber }} · {{ person.state }}
-            </small>
-          </span>
-          <span class="rank-row__bar">
-            <span class="bar-track">
-              <span
-                class="bar-fill"
-                style="width: {{ (person.volume / max_volume * 100)|round(1) if max_volume else 0 }}%"
-              ></span>
-            </span>
-          </span>
-          <span class="rank-row__amount">
-            <b>{{ ui.money(person.volume) }}</b>
-            <small>{{ '{:,.0f}'.format(person.operations) }} {{ t.rank_ops }}</small>
-          </span>
-        </a>
-        {% endfor %}
-      </div>
-    </div>
-  </section>
-  {% endif %}
 </div>
 
-<section class="band band--light" id="operaciones">
+<section class="band band--light" id="perfiles">
   <div class="inner">
     <div class="band-head">
       <div>
-        <h2>{{ t.trades_title }}</h2>
-        <p>{{ t.trades_sub }}</p>
+        <h2>{{ t.digest_title }}</h2>
+        <p>{{ t.digest_sub }}</p>
       </div>
+    </div>
+
+    {# El filtro de perfil va en pestañas, no escondido en un desplegable: el
+       capital de un directivo y el de un congresista se declaran en escalas
+       distintas, y separarlos es lo primero que hace falta para comparar. #}
+    <div class="scope-tabs" role="tablist" aria-label="{{ t.filter_category }}">
+      {% for value, label in [('', t.cat_all), ('congress', t.cat_congress), ('business', t.cat_business)] %}
+      <a
+        class="scope-tab {% if active_category == value %}scope-tab--on{% endif %}"
+        href="{{ scope_url(value) }}"
+        role="tab"
+        aria-selected="{{ 'true' if active_category == value else 'false' }}"
+      >
+        {{ label }}
+      </a>
+      {% endfor %}
     </div>
 
     <form class="filters" method="get">
       <input type="hidden" name="lang" value="{{ lang }}" />
+      <input type="hidden" name="category" value="{{ active_category }}" />
       <label class="field">
         <span>{{ t.filter_search }}</span>
         <input type="text" name="q" value="{{ active_query }}" placeholder="{{ t.filter_search_ph }}" />
-      </label>
-
-      <label class="field">
-        <span>{{ t.filter_category }}</span>
-        <select name="category">
-          <option value="">{{ t.cat_all }}</option>
-          <option value="congress" {% if active_category == 'congress' %}selected{% endif %}>
-            {{ t.cat_congress }}
-          </option>
-          <option value="business" {% if active_category == 'business' %}selected{% endif %}>
-            {{ t.cat_business }}
-          </option>
-        </select>
       </label>
 
       <label class="field">
@@ -138,6 +93,7 @@
         </select>
       </label>
 
+      {% if parties %}
       <label class="field">
         <span>{{ t.filter_party }}</span>
         <select name="party">
@@ -149,6 +105,7 @@
           {% endfor %}
         </select>
       </label>
+      {% endif %}
 
       <button type="submit" class="btn btn--cobalt">{{ t.filter_submit }}</button>
       {% if has_filters %}
@@ -156,34 +113,85 @@
       {% endif %}
     </form>
 
-    <div class="trade-grid">
-      {% for trade in recent_trades %}
-      <a class="trade-card" href="/politicians/{{ trade.politician.id }}">
-        <div class="trade-card__top">
-          {{ ui.side_tag(trade.trade_type, t) }}
-          <span class="trade-card__date">{{ trade.reported_date.strftime('%d/%m/%Y') }}</span>
+    <div class="digest-grid">
+      {% for person in politicians %}
+      <a class="digest" href="/politicians/{{ person.id }}?lang={{ lang }}">
+        <div class="digest__head">
+          {{ ui.face(person.name, 'avatar--sm') }}
+          <div class="digest__ident">
+            <h3>{{ person.name }}</h3>
+            <small>
+              <i class="dot dot--{{ person.category }}"></i>
+              {{ person.chamber }}{% if person.state %} · {{ person.state }}{% endif %}
+              {%- if person.category == 'congress' and person.party and person.party != 'Unknown' %}
+              · {{ person.party }}
+              {%- endif %}
+            </small>
+          </div>
+          <span class="digest__rank">{{ loop.index }}</span>
         </div>
-        <div class="trade-card__ident">
-          <span class="avatar" data-slot="{{ trade.ticker.symbol|accent_slot }}">
-            {{ ui.initials(trade.ticker.symbol) }}
-          </span>
+
+        <div class="digest__figures">
           <div>
-            <h3>{{ trade.ticker.symbol }}</h3>
-            <small>{{ trade.politician.name }} · {{ trade.politician.chamber }}</small>
+            <span>{{ t.digest_capital }}</span>
+            <strong>{{ ui.money(person.volume) }}</strong>
+          </div>
+          <div>
+            <span>{{ t.digest_ops }}</span>
+            <strong>{{ '{:,.0f}'.format(person.operations) }}</strong>
+          </div>
+          <div>
+            <span>{{ t.digest_bias }}</span>
+            {% if person.buy_share is none %}
+            <strong class="digest__bias digest__bias--none">—</strong>
+            {% elif person.buy_share >= 50 %}
+            <strong class="digest__bias digest__bias--buy">{{ person.buy_share }}% {{ t.digest_buying }}</strong>
+            {% else %}
+            <strong class="digest__bias digest__bias--sell">{{ 100 - person.buy_share }}% {{ t.digest_selling }}</strong>
+            {% endif %}
           </div>
         </div>
-        <div class="trade-card__foot">
-          <div>
-            <span>{{ t.trade_amount }}</span>
-            <strong>{{ ui.money(trade.amount) }}</strong>
-          </div>
-          <span class="tag tag--plain">{{ trade.politician.state }}</span>
+
+        {% if person.positions %}
+        <div class="digest__positions">
+          <span class="digest__label">{{ t.digest_positions }}</span>
+          <ul>
+            {% for position in person.positions %}
+            <li>
+              <span class="digest__symbol">{{ position.symbol }}</span>
+              <span class="bar-track">
+                <span class="bar-fill bar-fill--{{ loop.index }}" style="width: {{ position.share }}%"></span>
+              </span>
+              <span class="digest__share">{{ position.share|round(0)|int }}%</span>
+            </li>
+            {% endfor %}
+          </ul>
+          {% if person.other_positions %}
+          <p class="digest__rest">{{ t.digest_more_positions.format(n=person.other_positions) }}</p>
+          {% endif %}
         </div>
+        {% endif %}
+
+        {% if person.last_trade %}
+        <div class="digest__last">
+          <span>{{ t.digest_last }}</span>
+          {{ ui.side_tag(person.last_trade.trade_type, t) }}
+          <b>{{ person.last_trade.symbol }}</b>
+          <em>{{ person.last_trade.date.strftime('%d/%m/%Y') }}</em>
+        </div>
+        {% endif %}
       </a>
       {% else %}
-      <p class="empty-state empty-state--wide">{{ t.trades_empty }}</p>
+      <p class="empty-state empty-state--wide">{{ t.people_empty }}</p>
       {% endfor %}
     </div>
+
+    {% if hidden_politicians %}
+    <p class="more-note">
+      {{ t.people_more.format(n='{:,.0f}'.format(hidden_politicians)) }}
+      <a href="/api/politicians">{{ t.people_more_link }}</a>.
+    </p>
+    {% endif %}
   </div>
 </section>
 
@@ -232,46 +240,43 @@
 </section>
 {% endif %}
 
-<section class="band band--light" id="politicos">
+<section class="band band--light" id="operaciones">
   <div class="inner">
     <div class="band-head">
       <div>
-        <h2>{{ t.people_title }}</h2>
-        <p>{{ t.people_sub }}</p>
+        <h2>{{ t.trades_title }}</h2>
+        <p>{{ t.trades_sub }}</p>
       </div>
-      <span class="tag tag--plain">
-        {{ t.people_active.format(n='{:,.0f}'.format(total_politicians)) }}
-      </span>
     </div>
 
-    <div class="people-grid">
-      {% for politician in politicians %}
-      <a class="person-card" href="/politicians/{{ politician.id }}">
-        {{ ui.face(politician.name) }}
-        <div class="person-card__body">
-          <h3>{{ politician.name }}</h3>
-          <small>
-            <i class="dot dot--{{ politician.category }}"></i>
-            {{ politician.chamber }} · {{ politician.state }}
-          </small>
+    <div class="trade-grid">
+      {% for trade in recent_trades %}
+      <a class="trade-card" href="/politicians/{{ trade.politician.id }}?lang={{ lang }}">
+        <div class="trade-card__top">
+          {{ ui.side_tag(trade.trade_type, t) }}
+          <span class="trade-card__date">{{ trade.reported_date.strftime('%d/%m/%Y') }}</span>
         </div>
-        <div class="person-card__count">
-          <strong>{{ '{:,.0f}'.format(politician.operations) }}</strong>
-          <span>{{ t.people_ops }}</span>
+        <div class="trade-card__ident">
+          <span class="avatar" data-slot="{{ trade.ticker.symbol|accent_slot }}">
+            {{ ui.initials(trade.ticker.symbol) }}
+          </span>
+          <div>
+            <h3>{{ trade.ticker.symbol }}</h3>
+            <small>{{ trade.politician.name }} · {{ trade.politician.chamber }}</small>
+          </div>
+        </div>
+        <div class="trade-card__foot">
+          <div>
+            <span>{{ t.trade_amount }}</span>
+            <strong>{{ ui.money(trade.amount) }}</strong>
+          </div>
+          <span class="tag tag--plain">{{ trade.politician.state }}</span>
         </div>
       </a>
       {% else %}
-      <p class="empty-state empty-state--wide">{{ t.people_empty }}</p>
+      <p class="empty-state empty-state--wide">{{ t.trades_empty }}</p>
       {% endfor %}
     </div>
-
-    {% if hidden_politicians %}
-    <p class="more-note">
-      {{ t.people_more.format(n='{:,.0f}'.format(hidden_politicians)) }}
-      <a href="/api/politicians">{{ t.people_more_link }}</a>.
-    </p>
-    {% endif %}
   </div>
 </section>
 {% endblock %}
-

@@ -47,12 +47,11 @@ Copiar `.env.example` a `.env`. En local todo es opcional: la base es un
 SQLite en el propio directorio y las cotizaciones salen de Yahoo Finance, que
 no pide registro.
 
-Antes de publicar el sitio hay tres variables que sí importan:
+Antes de publicar el sitio hay dos variables que sí importan:
 
 | Variable | Para qué |
 | --- | --- |
 | `DATABASE_URL` | Postgres de producción. Sin ella se usaría un SQLite que en serverless no existe. |
-| `LEGAL_ENTITY` y `LEGAL_CONTACT_EMAIL` | Quién opera el sitio y dónde escribirle. Salen en el aviso legal y en la política de privacidad. Sin rellenar, esas páginas dicen que falta configurarlo. |
 | `ADMIN_TOKEN` | Abre las rutas de administración. **Dejarla vacía en producción**, salvo que se vayan a usar: sin ella esas rutas responden 404. |
 
 Ejecutar las pruebas:
@@ -79,8 +78,8 @@ Postgres externo y la ingesta se lanza desde fuera.
    los identificadores, para que los enlaces `/politicians/278` sigan valiendo.
    Con `--replace` sobrescribe un destino que ya tuviera datos.
 
-3. **Importar el repositorio en Vercel** y definir `DATABASE_URL`,
-   `LEGAL_ENTITY` y `LEGAL_CONTACT_EMAIL`. Las demás tienen valor por defecto.
+3. **Importar el repositorio en Vercel** y definir `DATABASE_URL`. Las demás
+   variables tienen valor por defecto.
 
 4. **Desplegar.** `vercel.json` manda todas las rutas a `api/index.py`, que
    sirve la aplicación FastAPI entera, estáticos incluidos.
@@ -106,34 +105,12 @@ DATABASE_URL="postgresql://..." python -m app.insiders   # nuevas operaciones
 DATABASE_URL="postgresql://..." python -m app.prices     # refresca cotizaciones
 ```
 
-## Cuentas
-
-Registro en `/signup` y entrada en `/login`, con correo y contraseña. Una cuenta
-sirve para seguir perfiles: el botón de la ficha guarda el seguimiento y
-`/account` reúne a quién sigues, sus últimas operaciones y el botón de baja.
-
-No hace falta contratar nada para esto. Los usuarios viven en la misma base que
-el resto —`users`, `sessions`, `follows` y `login_attempts`, creadas solas en el
-primer arranque— y no hay ninguna variable de entorno nueva que configurar.
-
-La sesión es un token aleatorio: el navegador lo guarda en una cookie y la tabla
-`sessions` sólo conserva su hash. En serverless no hay proceso vivo donde
-sostener sesiones en memoria, y guardarlas en la base tiene además la ventaja de
-que salir las revoca de verdad, cosa que un token autofirmado no permite.
-
-Borrar la cuenta elimina el correo, la contraseña y los seguimientos sin dejar
-copia. Queda fuera por ahora la verificación del correo y recuperar la
-contraseña.
-
 ## Seguridad
 
-- **Contraseñas** con bcrypt. Nunca se guarda la contraseña en claro.
-- **CSRF** con testigo por sesión en todos los formularios autenticados, sobre
-  una cookie `SameSite=Lax`.
-- **Límite de intentos** por dirección IP: diez entradas fallidas cada cuarto de
-  hora y cinco altas por hora. Se cuenta en la tabla `login_attempts`, que se
-  purga sola a las 24 horas, porque en serverless no hay memoria compartida
-  entre invocaciones donde llevar la cuenta.
+La web es de sólo lectura: no hay cuentas, ni sesiones, ni formularios que
+escriban nada. Lo único que un visitante puede guardar es el idioma y el tema,
+en su propio navegador.
+
 - **Cabeceras**: política de seguridad de contenido con *nonce* por respuesta
   para los scripts en línea, `X-Content-Type-Options`, `Referrer-Policy`,
   `X-Frame-Options`, `Permissions-Policy` y HSTS donde hay TLS.
@@ -156,13 +133,13 @@ interactiva que genera FastAPI está en `/docs`.
 
 ## Estado actual
 
-- Cuentas de usuario, seguimiento de perfiles y baja de la cuenta.
 - Operaciones del Congreso (House Stock Watcher) y de directivos (SEC Form 4).
-- Ranking, tendencias, filtros y fichas individuales, en español e inglés.
+- Fichas-resumen por persona, tendencias, filtros y perfiles individuales, en
+  español e inglés.
 - Biografías y retratos de Wikipedia/Wikimedia Commons, con su atribución.
 - Patrimonio en acciones de los directivos, valorado a precio de mercado.
 - Polling periódico de las fuentes, con deduplicación por operación.
-- Páginas legales, `robots.txt` y `sitemap.xml`.
+- `robots.txt` y `sitemap.xml`.
 
 ## Tareas de datos
 

@@ -9,32 +9,23 @@ from pathlib import Path
 from typing import Any, Optional
 from urllib.parse import parse_qsl, urlencode
 
-from fastapi import Depends, FastAPI, Form, HTTPException, Query, Request, Response
-from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse, RedirectResponse
+from fastapi import Depends, FastAPI, HTTPException, Query, Request, Response
+from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session, joinedload
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from app import auth
-from app.auth import current_user, require_user
 from app.database import SessionLocal, get_db, init_db, prepare_database
 from app.i18n import DEFAULT_LANG, get_translations, normalise_lang
 from app.ingestion import load_filing_into_db
-from app.models import Follow, Politician, Ticker, Trade, User
+from app.models import Politician, Ticker, Trade
 from app.prices import provider_name as price_source
 from app.prices import value_holdings
-from app.runtime import is_serverless
+from app.runtime import is_serverless, utcnow
 from app.scheduler import polling_enabled, start_polling_loop, stop_polling_loop
-from app.security import (
-    attempts_exhausted,
-    clear_attempts,
-    client_ip,
-    record_attempt,
-    require_admin,
-    security_headers_middleware,
-)
+from app.security import require_admin, security_headers_middleware
 from app.sources import poll_official_sources
 
 logging.basicConfig(
@@ -52,29 +43,6 @@ TEMPLATES_DIR = APP_DIR / "templates"
 DATA_DIR = APP_DIR / "data"
 
 
-def warn_about_missing_legal_settings() -> None:
-    """Avisa por el registro de lo que falta para publicar el sitio.
-
-    Antes lo decía la propia página legal, que es el único sitio donde no debe
-    decirse: quien la lee no puede arreglarlo y sí se entera del nombre de las
-    variables. Aquí lo ve quien despliega, que es quien las configura.
-    """
-    missing = [
-        name
-        for name, value in (
-            ("LEGAL_ENTITY", LEGAL_ENTITY),
-            ("LEGAL_CONTACT_EMAIL", LEGAL_CONTACT_EMAIL),
-        )
-        if not value
-    ]
-    if missing:
-        logger.warning(
-            "Páginas legales incompletas: falta configurar %s. El aviso legal y la "
-            "política de privacidad se publican sin titular ni vía de contacto.",
-            ", ".join(missing),
-        )
-
-
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
     """Ciclo de vida de la aplicación.
@@ -83,7 +51,6 @@ async def lifespan(_app: FastAPI):
     Starlette. El hilo de polling corre aparte: no bloquea el arranque y no
     comparte conexión con las peticiones web. Se desactiva con ENABLE_POLLING=0.
     """
-    warn_about_missing_legal_settings()
     if polling_enabled():
         start_polling_loop()
     yield
@@ -158,7 +125,7 @@ REMOTE_PHOTO_TTL = timedelta(minutes=5)
 def remote_photo_index() -> dict[str, dict[str, Optional[str]]]:
     global _REMOTE_PHOTOS, _REMOTE_PHOTOS_AT
 
-    now = auth.utcnow()
+    now = utcnow()
     if _REMOTE_PHOTOS_AT and now - _REMOTE_PHOTOS_AT < REMOTE_PHOTO_TTL:
         return _REMOTE_PHOTOS
 
@@ -234,6 +201,17 @@ def resolve_lang(request: Request, lang: Optional[str]) -> str:
     return normalise_lang(request.cookies.get(LANG_COOKIE, DEFAULT_LANG))
 
 
+def scope_url(request: Request, category: str) -> str:
+    """Enlace de una pestaña de perfil, conservando búsqueda y filtros."""
+    raw_query = request.scope.get("query_string", b"") or b""
+    if isinstance(raw_query, bytes):
+        raw_query = raw_query.decode("utf-8", "ignore")
+    params = [(key, value) for key, value in parse_qsl(raw_query) if key != "category"]
+    if category:
+        params.append(("category", category))
+    return ("/?" + urlencode(params) if params else "/") + "#perfiles"
+
+
 def lang_switch_url(request: Request, target: str) -> str:
     """Cambia de idioma conservando los filtros de la URL actual."""
     raw_query = request.scope.get("query_string", b"") or b""
@@ -249,7 +227,6 @@ def render(
     template: str,
     context: dict[str, Any],
     lang: str,
-    user: Optional[User] = None,
 ) -> Any:
     other_lang = "en" if lang == "es" else "es"
     context = {
@@ -259,10 +236,6 @@ def render(
         "other_lang": other_lang,
         "lang_switch_url": lang_switch_url(request, other_lang),
         "t": get_translations(lang),
-        "user": user,
-        # Lo deja `current_user` al resolver la sesión: los formularios ya
-        # autenticados lo mandan de vuelta para que el POST se acepte.
-        "csrf_token": getattr(request.state, "csrf_token", ""),
         # Lo pone el middleware. Sin él, la política de seguridad de contenido
         # descarta los scripts en línea de las plantillas.
         "csp_nonce": getattr(request.state, "csp_nonce", ""),
@@ -271,6 +244,126 @@ def render(
     response = templates.TemplateResponse(request, template, context)
     response.set_cookie(LANG_COOKIE, lang, max_age=60 * 60 * 24 * 365, samesite="lax")
     return response
+
+
+# Lo que el dataset del Congreso deja en la columna de partido cuando no lo
+# trae, más la etiqueta con la que se marca a los directivos. Ninguno de los dos
+# es un partido: como opción del filtro sólo ofrecerían una lista que no filtra.
+PARTY_PLACEHOLDERS = {"Unknown", "Business", ""}
+
+
+# Cuántas fichas-resumen caben en la portada. Cada una lleva sus posiciones,
+# su sesgo y su última operación, así que el número no es sólo cuestión de
+# maquetación: multiplica lo que hay que agregar en la base.
+DIGEST_PAGE_SIZE = 24
+
+# Posiciones que se pintan dentro de una ficha. Cuatro caben sin que la tarjeta
+# crezca, y bastan para leer de un vistazo dónde está concentrado el dinero.
+DIGEST_POSITIONS = 4
+
+
+def attach_digests(db: Session, people: list[dict[str, Any]], scoped_ids) -> None:
+    """Rellena cada persona con el resumen que se pinta en su ficha.
+
+    Tres consultas para toda la portada, no tres por persona: las posiciones
+    principales, el reparto entre compras y ventas y la última operación
+    declarada. Todo dentro del mismo filtro que ya acotó la búsqueda, para que
+    la ficha no cuente operaciones que la portada no está mostrando.
+    """
+    if not people:
+        return
+
+    by_id = {person["id"]: person for person in people}
+    ids = list(by_id)
+    for person in people:
+        person["positions"] = []
+        person["sides"] = {"buy": 0, "sell": 0, "other": 0}
+        person["buy_share"] = None
+        person["last_trade"] = None
+
+    # --- Dónde está el dinero -------------------------------------------
+    position_rows = db.execute(
+        select(
+            Trade.politician_id,
+            Ticker.symbol,
+            func.count(Trade.id),
+            func.coalesce(func.sum(Trade.amount), 0.0),
+        )
+        .select_from(Trade)
+        .join(scoped_ids, scoped_ids.c.id == Trade.id)
+        .join(Ticker, Ticker.id == Trade.ticker_id)
+        .where(Trade.politician_id.in_(ids))
+        .group_by(Trade.politician_id, Ticker.symbol)
+    ).all()
+
+    grouped: dict[int, list[dict[str, Any]]] = {}
+    for politician_id, symbol, operations, volume in position_rows:
+        grouped.setdefault(politician_id, []).append(
+            {"symbol": symbol, "operations": operations, "volume": float(volume)}
+        )
+
+    for politician_id, entries in grouped.items():
+        entries.sort(key=lambda item: item["volume"], reverse=True)
+        top = entries[:DIGEST_POSITIONS]
+        # La cuota es sobre el capital declarado de esa persona, no sobre su
+        # mayor posición: así el número se lee solo ("el 92% de lo que declara
+        # está en un único valor") en vez de necesitar la barra de al lado.
+        declared = by_id[politician_id]["volume"]
+        for entry in top:
+            entry["share"] = round(entry["volume"] / declared * 100, 1) if declared else 0.0
+        by_id[politician_id]["positions"] = top
+        by_id[politician_id]["other_positions"] = max(len(entries) - len(top), 0)
+
+    # --- Sesgo comprador o vendedor --------------------------------------
+    side_rows = db.execute(
+        select(Trade.politician_id, Trade.trade_type, func.count(Trade.id))
+        .select_from(Trade)
+        .join(scoped_ids, scoped_ids.c.id == Trade.id)
+        .where(Trade.politician_id.in_(ids))
+        .group_by(Trade.politician_id, Trade.trade_type)
+    ).all()
+
+    for politician_id, trade_type, count in side_rows:
+        by_id[politician_id]["sides"][trade_side(trade_type)] += count
+
+    for person in people:
+        sides = person["sides"]
+        # Las operaciones sin clasificar quedan fuera del porcentaje: no son
+        # ni compra ni venta, y meterlas en el denominador diluiría el sesgo.
+        classified = sides["buy"] + sides["sell"]
+        if classified:
+            person["buy_share"] = round(sides["buy"] / classified * 100)
+
+    # --- Última operación declarada ---------------------------------------
+    # Una función de ventana en lugar de una consulta por persona: numera las
+    # operaciones de cada una por fecha y se queda con la primera de cada grupo.
+    ranked = (
+        select(
+            Trade.politician_id.label("politician_id"),
+            Ticker.symbol.label("symbol"),
+            Trade.trade_type.label("trade_type"),
+            Trade.reported_date.label("reported_date"),
+            Trade.amount.label("amount"),
+            func.row_number()
+            .over(
+                partition_by=Trade.politician_id,
+                order_by=(Trade.reported_date.desc(), Trade.id.desc()),
+            )
+            .label("position"),
+        )
+        .select_from(Trade)
+        .join(scoped_ids, scoped_ids.c.id == Trade.id)
+        .join(Ticker, Ticker.id == Trade.ticker_id)
+        .where(Trade.politician_id.in_(ids))
+        .subquery()
+    )
+    for row in db.execute(select(ranked).where(ranked.c.position == 1)).all():
+        by_id[row.politician_id]["last_trade"] = {
+            "symbol": row.symbol,
+            "trade_type": row.trade_type,
+            "date": row.reported_date,
+            "amount": float(row.amount),
+        }
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -282,7 +375,6 @@ def home(
     q: Optional[str] = None,
     category: Optional[str] = None,
     lang: Optional[str] = None,
-    user: Optional[User] = Depends(current_user),
 ) -> Any:
     search_value = q.strip().lower() if q else ""
 
@@ -348,7 +440,10 @@ def home(
         .limit(6)
     ).all()
 
-    # Ranking de políticos: conteo y volumen resueltos en una sola consulta agregada.
+    # Una fila por persona con su conteo y su capital, resueltas en una sola
+    # consulta agregada. El orden es por capital declarado: es lo que responde
+    # a "en qué invierte", mientras que contar operaciones sólo premia a quien
+    # opera mucho aunque mueva calderilla.
     politician_query = (
         select(
             Politician,
@@ -359,7 +454,7 @@ def home(
         .join(scoped_ids, scoped_ids.c.id == Trade.id)
         .join(Politician, Politician.id == Trade.politician_id)
         .group_by(Politician.id)
-        .order_by(func.count(Trade.id).desc())
+        .order_by(func.coalesce(func.sum(Trade.amount), 0.0).desc())
     )
     politician_rows = db.execute(politician_query).all()
     politicians = [
@@ -375,10 +470,8 @@ def home(
         }
         for politician, operations, volume in politician_rows
     ]
-    visible_politicians = politicians[:24]
-
-    # Clasificación de los mayores inversores: por capital declarado, no por nº de operaciones.
-    leaderboard = sorted(politicians, key=lambda item: item["volume"], reverse=True)[:10]
+    visible_politicians = politicians[:DIGEST_PAGE_SIZE]
+    attach_digests(db, visible_politicians, scoped_ids)
 
     unique_chambers = db.scalars(select(Politician.chamber).distinct()).all()
     unique_parties = db.scalars(select(Politician.party).distinct()).all()
@@ -388,7 +481,6 @@ def home(
         "index.html",
         {
             "politicians": visible_politicians,
-            "leaderboard": leaderboard,
             "hidden_politicians": max(len(politicians) - len(visible_politicians), 0),
             "recent_trades": recent_trades,
             "total_trades": total_trades,
@@ -406,10 +498,12 @@ def home(
             "active_query": q or "",
             "has_filters": bool(chamber or party or search_value or category),
             "chambers": [value for value in unique_chambers if value],
-            "parties": [value for value in unique_parties if value],
+            "parties": [
+                value for value in unique_parties if value not in PARTY_PLACEHOLDERS
+            ],
+            "scope_url": lambda value: scope_url(request, value),
         },
         resolve_lang(request, lang),
-        user,
     )
 
 
@@ -542,7 +636,6 @@ def politician_detail_page(
     politician_id: int,
     db: Session = Depends(get_db),
     lang: Optional[str] = None,
-    user: Optional[User] = Depends(current_user),
 ) -> Any:
     politician = db.get(Politician, politician_id)
     if not politician:
@@ -601,241 +694,9 @@ def politician_detail_page(
             "bio_headline": headline,
             "wealth": wealth,
             "price_source": price_source(),
-            "following": auth.is_following(db, user, politician_id),
         },
         resolved_lang,
-        user,
     )
-
-
-def auth_page(
-    request: Request,
-    lang: str,
-    mode: str,
-    errors: Optional[list[str]] = None,
-    email: str = "",
-) -> Any:
-    """Formulario de entrada o de alta: mismo molde, distinto rótulo."""
-    return render(
-        request,
-        "auth.html",
-        {"mode": mode, "errors": errors or [], "email": email},
-        lang,
-    )
-
-
-@app.get("/login", response_class=HTMLResponse)
-def login_page(request: Request, lang: Optional[str] = None) -> Any:
-    return auth_page(request, resolve_lang(request, lang), "login")
-
-
-@app.post("/login")
-def login_submit(
-    request: Request,
-    email: str = Form(""),
-    password: str = Form(""),
-    db: Session = Depends(get_db),
-    lang: Optional[str] = None,
-) -> Any:
-    resolved_lang = resolve_lang(request, lang)
-    t = get_translations(resolved_lang)
-    address = auth.normalise_email(email)
-    ip = client_ip(request)
-
-    # Antes de comprobar nada: verificar la contraseña cuesta unos cien
-    # milisegundos de CPU, y sin un tope eso es lo que dura cada intento de un
-    # ataque por fuerza bruta que no le cuesta nada a quien lo lanza.
-    if attempts_exhausted(db, "login", ip):
-        logger.warning("Login: cupo de intentos agotado para %s", ip)
-        return auth_page(request, resolved_lang, "login", [t["auth_error_throttled"]], address)
-
-    user = db.scalar(select(User).where(User.email == address))
-    if user is None or not auth.verify_password(password, user.password_hash):
-        record_attempt(db, "login", ip)
-        # El mismo mensaje para "no existe" y "contraseña mala": distinguirlos
-        # convierte el formulario en un detector de qué correos están dados de alta.
-        return auth_page(request, resolved_lang, "login", [t["auth_error_credentials"]], address)
-
-    # Quien acierta no arrastra los fallos de antes: un error tipográfico no
-    # puede dejar a nadie fuera durante el resto de la ventana.
-    clear_attempts(db, "login", ip)
-    response = RedirectResponse("/account", status_code=303)
-    auth.set_session_cookie(response, auth.create_session(db, user), request)
-    return response
-
-
-@app.get("/signup", response_class=HTMLResponse)
-def signup_page(request: Request, lang: Optional[str] = None) -> Any:
-    return auth_page(request, resolve_lang(request, lang), "signup")
-
-
-@app.post("/signup")
-def signup_submit(
-    request: Request,
-    email: str = Form(""),
-    password: str = Form(""),
-    display_name: str = Form(""),
-    db: Session = Depends(get_db),
-    lang: Optional[str] = None,
-) -> Any:
-    resolved_lang = resolve_lang(request, lang)
-    t = get_translations(resolved_lang)
-    address = auth.normalise_email(email)
-    ip = client_ip(request)
-
-    # Sin verificación de correo, el alta es gratis: el tope es lo único que
-    # separa el formulario de una tabla llena de cuentas inventadas.
-    if attempts_exhausted(db, "signup", ip):
-        logger.warning("Alta: cupo de registros agotado para %s", ip)
-        return auth_page(request, resolved_lang, "signup", [t["auth_error_throttled"]], address)
-
-    errors = auth.credential_errors(email, password, t)
-    if not errors and db.scalar(select(User.id).where(User.email == address)) is not None:
-        errors.append(t["auth_error_taken"])
-    if errors:
-        return auth_page(request, resolved_lang, "signup", errors, address)
-
-    user = User(
-        email=address,
-        password_hash=auth.hash_password(password),
-        # Sin nombre, la parte del correo anterior a la arroba: la barra de
-        # navegación necesita algo que mostrar.
-        display_name=display_name.strip() or address.split("@")[0],
-        created_at=auth.utcnow(),
-    )
-    db.add(user)
-    db.commit()
-    # El alta consumada cuenta contra el cupo: si no, se registran mil cuentas
-    # buenas seguidas sin tocar nunca el límite, que sólo vería las fallidas.
-    record_attempt(db, "signup", ip)
-
-    response = RedirectResponse("/account", status_code=303)
-    auth.set_session_cookie(response, auth.create_session(db, user), request)
-    return response
-
-
-@app.post("/logout")
-def logout(
-    request: Request,
-    csrf_token: str = Form(""),
-    db: Session = Depends(get_db),
-    user: User = Depends(require_user),
-) -> Any:
-    auth.check_csrf(request, csrf_token)
-    auth.destroy_session(db, request.cookies.get(auth.SESSION_COOKIE))
-
-    response = RedirectResponse("/", status_code=303)
-    auth.clear_session_cookie(response, request)
-    return response
-
-
-@app.get("/account", response_class=HTMLResponse)
-def account_page(
-    request: Request,
-    db: Session = Depends(get_db),
-    lang: Optional[str] = None,
-    user: User = Depends(require_user),
-) -> Any:
-    followed = db.execute(
-        select(
-            Politician,
-            func.count(Trade.id).label("operations"),
-            func.coalesce(func.sum(Trade.amount), 0.0).label("volume"),
-        )
-        .select_from(Follow)
-        .join(Politician, Politician.id == Follow.politician_id)
-        # Outer join: alguien recién seguido puede no tener operaciones y aun
-        # así tiene que aparecer en la lista.
-        .outerjoin(Trade, Trade.politician_id == Politician.id)
-        .where(Follow.user_id == user.id)
-        .group_by(Politician.id)
-        .order_by(func.coalesce(func.sum(Trade.amount), 0.0).desc())
-    ).all()
-
-    followed_ids = [politician.id for politician, _, _ in followed]
-    recent_trades = []
-    if followed_ids:
-        recent_trades = db.scalars(
-            select(Trade)
-            .where(Trade.politician_id.in_(followed_ids))
-            .order_by(Trade.reported_date.desc(), Trade.id.desc())
-            .limit(12)
-        ).all()
-
-    return render(
-        request,
-        "account.html",
-        {
-            "followed": [
-                {
-                    "id": politician.id,
-                    "name": politician.name,
-                    "chamber": politician.chamber,
-                    "state": politician.state,
-                    "party": politician.party,
-                    "category": politician.category,
-                    "operations": operations,
-                    "volume": float(volume),
-                }
-                for politician, operations, volume in followed
-            ],
-            "recent_trades": recent_trades,
-        },
-        resolve_lang(request, lang),
-        user,
-    )
-
-
-@app.post("/account/delete")
-def delete_account(
-    request: Request,
-    csrf_token: str = Form(""),
-    db: Session = Depends(get_db),
-    user: User = Depends(require_user),
-) -> Any:
-    """Cierra la cuenta y borra todo lo que sabemos de ella.
-
-    El derecho de supresión no admite un formulario de contacto como respuesta:
-    tiene que poder ejercerse desde la propia web. Sesiones y seguimientos caen
-    en cascada con el usuario, así que no queda ninguna fila huérfana.
-    """
-    auth.check_csrf(request, csrf_token)
-    logger.info("Baja de cuenta solicitada por el usuario %s", user.id)
-    db.delete(user)
-    db.commit()
-
-    response = RedirectResponse("/", status_code=303)
-    auth.clear_session_cookie(response, request)
-    return response
-
-
-@app.post("/politicians/{politician_id}/follow")
-def follow_politician(
-    request: Request,
-    politician_id: int,
-    csrf_token: str = Form(""),
-    db: Session = Depends(get_db),
-    user: User = Depends(require_user),
-) -> Any:
-    auth.check_csrf(request, csrf_token)
-    if db.get(Politician, politician_id) is None:
-        raise HTTPException(status_code=404, detail="Politician not found")
-
-    auth.follow(db, user, politician_id)
-    return RedirectResponse(f"/politicians/{politician_id}", status_code=303)
-
-
-@app.post("/politicians/{politician_id}/unfollow")
-def unfollow_politician(
-    request: Request,
-    politician_id: int,
-    csrf_token: str = Form(""),
-    db: Session = Depends(get_db),
-    user: User = Depends(require_user),
-) -> Any:
-    auth.check_csrf(request, csrf_token)
-    auth.unfollow(db, user, politician_id)
-    return RedirectResponse(f"/politicians/{politician_id}", status_code=303)
 
 
 @app.post("/api/load-sample-filing")
@@ -866,47 +727,11 @@ def health_check() -> dict[str, str]:
     return {"status": "ok", "service": "TheWhaleFiles"}
 
 
-# --- Páginas legales -------------------------------------------------------
-
-# El titular y la dirección de contacto no pueden estar escritos en el código:
-# quien despliegue esto no tiene por qué ser quien lo escribió.
-LEGAL_ENTITY = os.getenv("LEGAL_ENTITY", "")
-LEGAL_CONTACT_EMAIL = os.getenv("LEGAL_CONTACT_EMAIL", "")
-
-LEGAL_DOCS = ("notice", "privacy", "terms", "cookies")
-
-
-@app.get("/legal/{doc}", response_class=HTMLResponse)
-def legal_page(
-    request: Request,
-    doc: str,
-    lang: Optional[str] = None,
-    user: Optional[User] = Depends(current_user),
-) -> Any:
-    if doc not in LEGAL_DOCS:
-        raise HTTPException(status_code=404, detail="Not found")
-
-    return render(
-        request,
-        "legal.html",
-        {
-            "doc": doc,
-            "legal_entity": LEGAL_ENTITY,
-            "legal_contact": LEGAL_CONTACT_EMAIL,
-        },
-        resolve_lang(request, lang),
-        user,
-    )
-
-
 # --- Indexación ------------------------------------------------------------
 
-# Las páginas de cuenta no pintan nada en un buscador, y la API tampoco: lo que
-# se indexa son las fichas y la portada.
+# La API no pinta nada en un buscador: lo que se indexa son las fichas y la
+# portada.
 ROBOTS_TXT = """User-agent: *
-Disallow: /account
-Disallow: /login
-Disallow: /signup
 Disallow: /api/
 
 Sitemap: {base}/sitemap.xml
@@ -935,7 +760,6 @@ def sitemap(request: Request, db: Session = Depends(get_db)) -> Any:
     ).all()
 
     urls = [f"{base}/"] + [f"{base}/politicians/{person_id}" for person_id in ids]
-    urls += [f"{base}/legal/{doc}" for doc in LEGAL_DOCS]
     body = "".join(f"<url><loc>{url}</loc></url>" for url in urls)
     xml = f'<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">{body}</urlset>'
     return Response(content=xml, media_type="application/xml")
@@ -951,12 +775,6 @@ def wants_json(request: Request) -> bool:
 
 @app.exception_handler(StarletteHTTPException)
 async def http_exception_handler(request: Request, exc: StarletteHTTPException) -> Any:
-    # `require_user` levanta un 303 con Location para mandar al formulario de
-    # entrada: eso es una redirección, no un error que pintar.
-    location = (exc.headers or {}).get("Location")
-    if location:
-        return RedirectResponse(location, status_code=exc.status_code)
-
     if wants_json(request):
         return JSONResponse({"detail": exc.detail}, status_code=exc.status_code)
 
@@ -972,8 +790,6 @@ async def http_exception_handler(request: Request, exc: StarletteHTTPException) 
             "other_lang": "en" if lang == "es" else "es",
             "lang_switch_url": lang_switch_url(request, "en" if lang == "es" else "es"),
             "t": t,
-            "user": None,
-            "csrf_token": "",
             "csp_nonce": getattr(request.state, "csp_nonce", ""),
             "status_code": exc.status_code,
             "message": t[key],
@@ -1002,8 +818,6 @@ async def unhandled_exception_handler(request: Request, exc: Exception) -> Any:
             "other_lang": "en" if lang == "es" else "es",
             "lang_switch_url": lang_switch_url(request, "en" if lang == "es" else "es"),
             "t": t,
-            "user": None,
-            "csrf_token": "",
             "csp_nonce": getattr(request.state, "csp_nonce", ""),
             "status_code": 500,
             "message": t["error_generic"],

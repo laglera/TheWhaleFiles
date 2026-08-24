@@ -1,20 +1,14 @@
-"""Pruebas de lo que protege el perímetro: límite de intentos, puerta de
-administración y cabeceras. Sin TestClient, como el resto del proyecto: las
-funciones se llaman directamente y la base es una en memoria."""
+"""Pruebas de lo que protege el perímetro: puerta de administración y
+cabeceras. Sin TestClient, como el resto del proyecto: las funciones se llaman
+directamente."""
 
 import os
 import unittest
-from datetime import timedelta
 
 from fastapi import HTTPException
-from sqlalchemy import create_engine, select
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy.pool import StaticPool
 from starlette.requests import Request
 
 from app import security
-from app.models import Base, LoginAttempt
-from app.runtime import utcnow
 
 
 def make_request(path="/", headers=None, client=("203.0.113.7", 5000)):
@@ -35,77 +29,6 @@ def make_request(path="/", headers=None, client=("203.0.113.7", 5000)):
             "client": client,
         }
     )
-
-
-class ClientIpTests(unittest.TestCase):
-    def test_uses_the_socket_address_when_there_is_no_proxy(self):
-        self.assertEqual(security.client_ip(make_request()), "203.0.113.7")
-
-    def test_prefers_the_first_address_of_x_forwarded_for(self):
-        request = make_request(headers={"x-forwarded-for": "198.51.100.4, 10.0.0.1"})
-        # Detrás de Vercel la conexión la abre su proxy: sin esto el límite se
-        # aplicaría a todo el mundo a la vez.
-        self.assertEqual(security.client_ip(request), "198.51.100.4")
-
-
-class RateLimitTests(unittest.TestCase):
-    def setUp(self):
-        self.engine = create_engine(
-            "sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool
-        )
-        Base.metadata.create_all(bind=self.engine)
-        self.db = sessionmaker(bind=self.engine)()
-
-    def tearDown(self):
-        self.db.close()
-        self.engine.dispose()
-
-    def test_a_fresh_address_has_its_whole_quota(self):
-        self.assertFalse(security.attempts_exhausted(self.db, "login", "198.51.100.4"))
-
-    def test_the_quota_runs_out(self):
-        limit, _ = security.LIMITS["login"]
-        for _ in range(limit):
-            security.record_attempt(self.db, "login", "198.51.100.4")
-        self.assertTrue(security.attempts_exhausted(self.db, "login", "198.51.100.4"))
-
-    def test_the_quota_is_counted_per_address(self):
-        limit, _ = security.LIMITS["login"]
-        for _ in range(limit):
-            security.record_attempt(self.db, "login", "198.51.100.4")
-        self.assertFalse(security.attempts_exhausted(self.db, "login", "198.51.100.9"))
-
-    def test_each_form_has_its_own_quota(self):
-        limit, _ = security.LIMITS["login"]
-        for _ in range(limit):
-            security.record_attempt(self.db, "login", "198.51.100.4")
-        self.assertFalse(security.attempts_exhausted(self.db, "signup", "198.51.100.4"))
-
-    def test_getting_it_right_wipes_the_previous_failures(self):
-        limit, _ = security.LIMITS["login"]
-        for _ in range(limit):
-            security.record_attempt(self.db, "login", "198.51.100.4")
-        security.clear_attempts(self.db, "login", "198.51.100.4")
-        self.assertFalse(security.attempts_exhausted(self.db, "login", "198.51.100.4"))
-
-    def test_attempts_outside_the_window_do_not_count(self):
-        limit, window = security.LIMITS["login"]
-        old = utcnow() - window - timedelta(minutes=1)
-        for _ in range(limit):
-            self.db.add(LoginAttempt(scope="login", bucket="198.51.100.4", created_at=old))
-        self.db.commit()
-        self.assertFalse(security.attempts_exhausted(self.db, "login", "198.51.100.4"))
-
-    def test_old_rows_are_swept_when_a_new_one_lands(self):
-        # No hay proceso de limpieza en serverless: la tabla crecería sin fin.
-        stale = utcnow() - security.PURGE_AFTER - timedelta(hours=1)
-        self.db.add(LoginAttempt(scope="login", bucket="198.51.100.4", created_at=stale))
-        self.db.commit()
-
-        security.record_attempt(self.db, "login", "198.51.100.9")
-
-        remaining = self.db.scalars(select(LoginAttempt.bucket)).all()
-        self.assertEqual(remaining, ["198.51.100.9"])
 
 
 class AdminGateTests(unittest.TestCase):

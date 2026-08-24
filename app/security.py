@@ -1,85 +1,18 @@
-"""Defensas del perímetro: cabeceras, límite de intentos y acceso de administración.
+"""Defensas del perímetro: cabeceras y acceso de administración.
 
-Nada de esto hacía falta mientras el proyecto vivía en localhost. En cuanto la
-web queda expuesta, tres cosas dejan de ser opcionales: que los formularios de
-cuenta no se puedan probar a ciegas, que los endpoints que escriben en la base
-no estén abiertos, y que el navegador reciba las instrucciones mínimas sobre
-qué puede cargar.
+La web es de sólo lectura: no hay formularios ni sesiones que proteger. Quedan
+dos cosas que sí importan en cuanto deja de vivir en localhost: que los
+endpoints que escriben en la base o salen a la red no estén abiertos, y que el
+navegador reciba las instrucciones mínimas sobre qué puede cargar.
 """
 
 from __future__ import annotations
 
 import os
 import secrets
-from datetime import timedelta
 from typing import Optional
 
 from fastapi import HTTPException, Request
-from sqlalchemy import delete, func, select
-from sqlalchemy.orm import Session
-
-from app.models import LoginAttempt
-from app.runtime import utcnow
-
-# --- Identidad de quien llama ---------------------------------------------
-
-# Detrás de Vercel la conexión la abre su proxy: request.client.host sería
-# siempre la misma dirección y el límite se aplicaría a todo el mundo a la vez.
-FORWARD_HEADERS = ("x-forwarded-for", "x-real-ip")
-
-
-def client_ip(request: Request) -> str:
-    for header in FORWARD_HEADERS:
-        value = request.headers.get(header)
-        if value:
-            # El primero de la lista es el cliente; los siguientes, los proxies
-            # por los que ha pasado.
-            return value.split(",")[0].strip()[:120]
-    return (request.client.host if request.client else "unknown")[:120]
-
-
-# --- Límite de intentos ----------------------------------------------------
-
-# Un login legítimo falla dos o tres veces; mil, no. La ventana es corta para
-# que un error tipográfico no deje a nadie fuera durante horas.
-LIMITS = {
-    "login": (10, timedelta(minutes=15)),
-    "signup": (5, timedelta(hours=1)),
-}
-
-# Las filas caducadas se barren al pasar por aquí: no hay proceso de limpieza
-# en serverless, y la tabla crecería sin fin.
-PURGE_AFTER = timedelta(days=1)
-
-
-def attempts_exhausted(db: Session, scope: str, bucket: str) -> bool:
-    """¿Ha gastado esta dirección su cupo de intentos fallidos?"""
-    limit, window = LIMITS[scope]
-    since = utcnow() - window
-    used = db.scalar(
-        select(func.count(LoginAttempt.id)).where(
-            LoginAttempt.scope == scope,
-            LoginAttempt.bucket == bucket,
-            LoginAttempt.created_at >= since,
-        )
-    )
-    return (used or 0) >= limit
-
-
-def record_attempt(db: Session, scope: str, bucket: str) -> None:
-    now = utcnow()
-    db.add(LoginAttempt(scope=scope, bucket=bucket, created_at=now))
-    db.execute(delete(LoginAttempt).where(LoginAttempt.created_at < now - PURGE_AFTER))
-    db.commit()
-
-
-def clear_attempts(db: Session, scope: str, bucket: str) -> None:
-    """Se llama al acertar: quien entra bien no arrastra sus fallos anteriores."""
-    db.execute(
-        delete(LoginAttempt).where(LoginAttempt.scope == scope, LoginAttempt.bucket == bucket)
-    )
-    db.commit()
-
 
 # --- Acceso de administración ---------------------------------------------
 
