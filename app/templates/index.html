@@ -20,31 +20,6 @@
         <a class="btn btn--primary" href="#perfiles">{{ t.hero_cta }}</a>
       </div>
     </div>
-
-    <div class="hero__stats">
-      <div class="metric-band metric-band--hero">
-        <div class="metric">
-          <span>{{ t.stat_people }}</span>
-          <strong>{{ '{:,.0f}'.format(total_politicians) }}</strong>
-          <small>{{ t.stat_people_sub }}</small>
-        </div>
-        <div class="metric">
-          <span>{{ t.stat_capital }}</span>
-          <strong>{{ ui.money(total_amount) }}</strong>
-          <small>{{ t.stat_capital_sub }}</small>
-        </div>
-        <div class="metric">
-          <span>{{ t.stat_trades }}</span>
-          <strong>{{ '{:,.0f}'.format(total_trades) }}</strong>
-          <small>{{ t.stat_trades_sub }}</small>
-        </div>
-        <div class="metric">
-          <span>{{ t.stat_last }}</span>
-          <strong>{{ last_reported.strftime('%d/%m/%Y') if last_reported else '—' }}</strong>
-          <small>{{ t.stat_last_sub }}</small>
-        </div>
-      </div>
-    </div>
   </header>
 </div>
 
@@ -54,6 +29,16 @@
       <div>
         <h2>{{ t.digest_title }}</h2>
         <p>{{ t.digest_sub }}</p>
+        {# Cada dato va en su propio bloque: al envolverse la línea, "24.861" y
+           "operaciones" no pueden acabar en renglones distintos. #}
+        <p class="band-facts">
+          <span><b>{{ '{:,.0f}'.format(total_politicians) }}</b> {{ t.facts_people }}</span>
+          <span><b>{{ '{:,.0f}'.format(total_trades) }}</b> {{ t.facts_trades }}</span>
+          <span><b>{{ ui.money(total_amount) }}</b> {{ t.facts_capital }}</span>
+          {% if last_reported %}
+          <span>{{ t.facts_last }} <b>{{ last_reported.strftime('%d/%m/%Y') }}</b></span>
+          {% endif %}
+        </p>
       </div>
     </div>
 

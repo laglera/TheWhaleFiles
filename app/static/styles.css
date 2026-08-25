@@ -317,6 +317,37 @@ img {
   padding: 48px 0;
 }
 
+/* Los totales de la portada: un dato de contexto bajo el encabezado, en el
+   sitio donde empiezan los datos. Antes eran cuatro cajas en el hero, donde
+   competían con el propio reclamo y con el botón. */
+/* Va con la especificidad de `.band-head p`, que si no gana ella: el párrafo
+   de sección impone 18px y un ancho de 56ch pensados para leer prosa, y aquí
+   lo que hay son cifras sueltas. */
+.band-head .band-facts {
+  max-width: none;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 20px;
+  margin: 20px 0 0;
+  padding-top: 18px;
+  border-top: 1px solid var(--hairline-light);
+  font-size: 14px;
+  line-height: 1.6;
+  letter-spacing: 0;
+  color: var(--stone);
+  font-variant-numeric: tabular-nums;
+}
+
+.band-head .band-facts span {
+  white-space: nowrap;
+}
+
+.band-head .band-facts b {
+  font-weight: 600;
+  color: var(--ink);
+}
+
 .band-head p {
   margin: 8px 0 0;
   color: var(--mute);
@@ -587,7 +618,9 @@ img {
   position: relative;
   background: var(--brand-gradient);
   color: var(--on-dark);
-  padding: 168px 0 88px;
+  /* El aire de abajo lo daba la banda de métricas, que ya no está: sin
+     recortarlo, el reclamo se queda flotando en medio de una pantalla vacía. */
+  padding: 148px 0 116px;
   overflow: hidden;
   text-align: center;
 }
@@ -759,26 +792,7 @@ img {
   z-index: 1;
   color: var(--on-dark);
   padding-top: 0;
-}
-
-.hero__stats {
-  position: relative;
-  z-index: 1;
-  max-width: var(--container);
-  margin: 72px auto 0;
-  padding: 0 32px;
-  width: 100%;
-}
-
-.hero__stats,
-.band--brand {
   text-align: left;
-}
-
-/* Dentro de la ficha ya hay padding de contenedor */
-.profile .hero__stats {
-  margin-top: 24px;
-  padding: 0;
 }
 
 /* --------------------------------------------------------------------------
@@ -880,17 +894,6 @@ img {
   font-size: 12.5px;
   color: rgba(255, 255, 255, 0.5);
   line-height: 1.35;
-}
-
-/* En la portada las métricas son el primer dato de la página, no una nota
-   al pie de una ficha: mismo bloque, más aire y más cuerpo. */
-.metric-band--hero .metric {
-  padding: 30px 28px;
-  gap: 6px;
-}
-
-.metric-band--hero .metric strong {
-  font-size: clamp(30px, 3.4vw, 44px);
 }
 
 .metric__split {
@@ -2190,7 +2193,7 @@ img {
   }
 
   .hero {
-    padding: 88px 0 40px;
+    padding: 88px 0 64px;
   }
 
   .hero__claim {
@@ -2205,11 +2208,6 @@ img {
 
   .hero__actions .btn {
     flex: 1 1 auto;
-  }
-
-  .hero__stats {
-    margin-top: 32px;
-    padding: 0 20px;
   }
 
   /* Los halos cuestan caros de pintar en un móvil y aquí sólo se ven a trozos */
@@ -2270,8 +2268,7 @@ img {
     border-top: 0;
   }
 
-  .metric,
-  .metric-band--hero .metric {
+  .metric {
     padding: 16px 16px 18px;
     gap: 2px;
   }
@@ -2279,10 +2276,6 @@ img {
   .metric span {
     font-size: 10px;
     letter-spacing: 0.06em;
-  }
-
-  .metric-band--hero .metric strong {
-    font-size: 26px;
   }
 
   .metric small {
@@ -2622,10 +2615,6 @@ img {
   /* A esta anchura la barra ya sólo da para el icono, el idioma, el tema y el
      botón de salir: el nombre se retira igual que la marca. */
 
-  .hero__stats {
-    padding: 0 16px;
-  }
-
   .band-head h2 {
     font-size: 26px;
   }
@@ -2644,13 +2633,8 @@ img {
     padding: 10px 12px;
   }
 
-  .metric,
-  .metric-band--hero .metric {
+  .metric {
     padding: 14px 14px 16px;
-  }
-
-  .metric-band--hero .metric strong {
-    font-size: 23px;
   }
 
   .ledger__row,
