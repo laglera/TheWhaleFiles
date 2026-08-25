@@ -24,9 +24,9 @@ jobs:
 
       - name: Ejecutar las pruebas
         # Sin DATABASE_URL la suite usa el SQLite del directorio de trabajo, que
-        # en el runner nace vacío y se siembra con los registros de ejemplo, sin
-        # bajarse el dataset entero. El polling se apaga: aquí no hay nada que
-        # vigilar y sólo alargaría el arranque.
+        # en el runner nace vacío: SEED_REAL_DATASET=0 evita bajarse el dataset
+        # entero y cada prueba se monta los datos que necesita. El polling se
+        # apaga: aquí no hay nada que vigilar y sólo alargaría el arranque.
         env:
           ENABLE_POLLING: "0"
           SEED_REAL_DATASET: "0"

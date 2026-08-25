@@ -57,6 +57,14 @@ class Trade(Base):
     __tablename__ = "trades"
     # Una operación declarada queda identificada por quién, qué, cómo, cuánto y
     # cuándo. Sin esto, cada pasada del polling reinsertaría el dataset entero.
+    #
+    # Las dos fechas entran en la identidad porque un mismo filing puede
+    # declarar dos compras iguales del mismo valor ejecutadas en días
+    # distintos: sin la fecha de operación, la segunda se descartaría como
+    # duplicada. Cuando la fuente no da fecha de operación la columna queda a
+    # NULL y el índice deja de proteger esas filas —dos NULL no colisionan en
+    # SQL—, así que el filtro que de verdad evita duplicados es el de
+    # `load_trade_records_into_db`, que compara en memoria.
     __table_args__ = (
         UniqueConstraint(
             "politician_id",
@@ -64,6 +72,7 @@ class Trade(Base):
             "trade_type",
             "amount",
             "reported_date",
+            "transaction_date",
             name="uq_trade_identity",
         ),
     )
@@ -73,7 +82,13 @@ class Trade(Base):
     ticker_id: Mapped[int] = mapped_column(ForeignKey("tickers.id"), nullable=False)
     trade_type: Mapped[str] = mapped_column(String(30), nullable=False)
     amount: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
+    # Fecha en que el filing se hizo público. Es la que ordena la web: lo que
+    # esta plataforma mide es cuándo se pudo saber, no cuándo se operó.
     reported_date: Mapped[date] = mapped_column(Date, nullable=False)
+    # Fecha en que se ejecutó la operación, según el propio filing. Nula cuando
+    # la fuente no la trae o cuando el dato es imposible (posterior a su propia
+    # publicación): antes que enseñar una fecha falsa, no se enseña ninguna.
+    transaction_date: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
     notes: Mapped[str] = mapped_column(String(500), default="")
 
     politician: Mapped[Politician] = relationship(back_populates="trades")

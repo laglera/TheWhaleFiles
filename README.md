@@ -38,8 +38,10 @@ asesoramiento de inversión.
    ```
 
 La primera vez la base se siembra sola descargando el dataset público del
-Congreso. Para arrancar sin red —o en integración continua— basta con
-`SEED_REAL_DATASET=0`, que siembra en su lugar cuatro registros de ejemplo.
+Congreso. Con `SEED_REAL_DATASET=0` no se descarga nada y la base arranca
+vacía, que es lo que hace la integración continua. Si la descarga falla, la
+base también se queda vacía: nunca se rellena con datos de ejemplo, porque una
+vez publicados serían indistinguibles de los declarados de verdad.
 
 ## Configuración
 
@@ -131,6 +133,20 @@ GET /api/politicians/{id}?limit=100&offset=0
 Cada respuesta trae `total`, `limit`, `offset` y `results`. La documentación
 interactiva que genera FastAPI está en `/docs`.
 
+Cada operación lleva las dos fechas del filing, que no son la misma cosa:
+
+| Campo | Qué es |
+| --- | --- |
+| `reported_date` | Cuándo se hizo público el documento. Es la que ordena la web. |
+| `transaction_date` | Cuándo se ejecutó la operación, según el propio documento. `null` si el filing no la trae o si es imposible. |
+
+Una fecha de operación es imposible cuando cae después de la publicación que la
+declara: eso sólo puede ser un error de escritura en el documento original —lo
+habitual, un año equivocado en enero— y no hay forma de saber cuál era la
+buena. En ese caso la operación se guarda con su fecha de publicación, que sí
+consta, y sin fecha de operación. Un filing fechado en el futuro se descarta
+entero.
+
 ## Estado actual
 
 - Operaciones del Congreso (House Stock Watcher) y de directivos (SEC Form 4).
@@ -152,6 +168,20 @@ python -m app.prices      # precarga las cotizaciones en caché
 python -m app.backfill    # normaliza nombres y corrige cámara/estado
 ```
 
+Sobre una base creada antes de que existiera `transaction_date`, todas las
+operaciones guardan en `reported_date` la fecha en que se operó, no la de
+publicación. El esquema se migra solo al arrancar, pero la fecha que falta hay
+que volver a leerla de la fuente:
+
+```bash
+python -m scripts.repair_dates                  # Congreso + SEC (relee EDGAR, tarda)
+python -m scripts.repair_dates --skip-insiders  # sólo el dataset del Congreso
+```
+
+Borra lo importado y lo reingiere con las dos fechas separadas. Conserva los
+identificadores de las personas, así que los enlaces `/politicians/{id}` siguen
+valiendo. Contra producción, con `DATABASE_URL` delante.
+
 ## Origen de los datos
 
 - **Congreso**: declaraciones bajo la STOCK Act. Sólo tramos de importe, sin
@@ -170,6 +200,10 @@ no existe ningún mecanismo legal de reporte en tiempo real. Ninguna plataforma
 —ni esta ni las de pago— puede ver la operación antes de que se declare. Lo que
 se puede reducir es el tiempo entre que la fuente oficial publica el documento y
 que aparece aquí, y en eso consiste el polling.
+
+Por eso la web ordena y mide por fecha de publicación, y enseña la de la
+operación como un dato aparte: entre una y otra pueden pasar semanas, y
+confundirlas haría creer que se sabe antes de lo que se puede saber.
 
 ## Licencia
 

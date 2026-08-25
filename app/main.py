@@ -543,6 +543,9 @@ def get_trades(
                 "trade_type": trade.trade_type,
                 "amount": float(trade.amount),
                 "reported_date": trade.reported_date.isoformat(),
+                "transaction_date": (
+                    trade.transaction_date.isoformat() if trade.transaction_date else None
+                ),
             }
             for trade in trades
         ],
@@ -624,6 +627,9 @@ def get_politician_detail(
                 "trade_type": trade.trade_type,
                 "amount": float(trade.amount),
                 "reported_date": trade.reported_date.isoformat(),
+                "transaction_date": (
+                    trade.transaction_date.isoformat() if trade.transaction_date else None
+                ),
             }
             for trade in trades
         ],

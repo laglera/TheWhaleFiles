@@ -1,19 +1,30 @@
 from __future__ import annotations
 
 import json
+import logging
 import re
+from datetime import datetime
 from html import unescape
-from typing import Any
+from typing import Any, Optional
 from urllib.request import Request, urlopen
 
 from app.ingestion import load_trade_records_into_db
 
-DEFAULT_SOURCE_URLS = [
-    "https://efdsearch.senate.gov/search/",
-    "https://disclosures-clerk.house.gov/",
-]
+LOGGER = logging.getLogger(__name__)
 
 REAL_DATASET_URL = "https://raw.githubusercontent.com/TattooedHead/house-stock-watcher-data/master/data/all_transactions.json"
+
+
+def _iso_from_us_date(value: Any) -> Optional[str]:
+    """Convierte la fecha MM/DD/YYYY de la fuente a ISO, o None si no lo es.
+
+    Sin valor por defecto a propósito: una fecha inventada en el hueco de una
+    que falta es indistinguible de un dato declarado.
+    """
+    try:
+        return datetime.strptime(str(value).strip(), "%m/%d/%Y").date().isoformat()
+    except (TypeError, ValueError):
+        return None
 
 
 def parse_real_dataset(raw_json: str) -> list[dict[str, Any]]:
@@ -42,12 +53,14 @@ def parse_real_dataset(raw_json: str) -> list[dict[str, Any]]:
             else:
                 amount = 0.0
 
-        date_value = item.get("transaction_date") or "01/01/2026"
-        try:
-            month, day, year = date_value.split("/")
-            reported_date = f"{int(year):04d}-{int(month):02d}-{int(day):02d}"
-        except Exception:
-            reported_date = "2026-01-01"
+        # `disclosure_date` es cuándo se hizo público el filing y
+        # `transaction_date` cuándo se ejecutó la operación: son cosas
+        # distintas y la web las enseña por separado. Sin fecha de publicación
+        # el registro no se puede situar en el tiempo, así que se descarta.
+        reported_date = _iso_from_us_date(item.get("disclosure_date"))
+        if reported_date is None:
+            continue
+        transaction_date = _iso_from_us_date(item.get("transaction_date"))
 
         # El district viene como "PA16": los dos primeros caracteres son el estado.
         district = str(item.get("district") or "").strip().upper()
@@ -60,6 +73,7 @@ def parse_real_dataset(raw_json: str) -> list[dict[str, Any]]:
                 "trade_type": trade_type.title(),
                 "amount": float(amount),
                 "reported_date": reported_date,
+                "transaction_date": transaction_date,
                 "chamber": "House",
                 "state": state or "Unknown",
             }
@@ -102,12 +116,14 @@ def parse_official_html_filing(raw_html: str, politician_name: str) -> list[dict
         amount_match = re.search(r"Amount\s*[:\-]\s*\$?\s*([0-9,]+(?:\.\d+)?)", plain, flags=re.IGNORECASE)
         date_match = re.search(r"Date\s*[:\-]\s*(\d{4}-\d{2}-\d{2})", plain, flags=re.IGNORECASE)
 
-        if not ticker_match:
+        # Sin ticker no hay operación, y sin fecha no hay forma de fecharla:
+        # antes se rellenaba con el 1 de enero, que no lo había declarado nadie.
+        if not ticker_match or not date_match:
             continue
 
         amount_text = amount_match.group(1).replace(",", "") if amount_match else "0"
         trade_type = type_match.group(1).title() if type_match else "Unknown"
-        reported_date = date_match.group(1) if date_match else "2026-01-01"
+        reported_date = date_match.group(1)
 
         entries.append(
             {
@@ -172,19 +188,20 @@ def ingest_real_dataset(
     )
 
 
-def poll_official_sources(urls: list[str] | None = None, database_url: str | None = None) -> list[dict[str, Any]]:
-    """Poll known official source URLs and import any new filings found."""
-    source_urls = urls or DEFAULT_SOURCE_URLS
-    results: list[dict[str, Any]] = []
+def poll_official_sources(database_url: str | None = None) -> list[dict[str, Any]]:
+    """Relee las fuentes públicas y guarda las operaciones que aún no estén.
 
+    Sólo entra aquí lo que venga firmado por una persona identificada en el
+    propio filing. Antes esta función también rascaba los buscadores del Senado
+    y de la Cámara y atribuía lo que saliera a un nombre de ejemplo fijo: hoy
+    no parseaban nada, pero el día que lo hubieran hecho habrían escrito en la
+    base operaciones a nombre de alguien que no existe.
+    """
     try:
-        results.extend(ingest_real_dataset(database_url=database_url))
+        return ingest_real_dataset(database_url=database_url)
     except Exception:
-        pass
-
-    for url in source_urls:
-        try:
-            results.extend(ingest_official_filing(url, "Alex Morgan", database_url=database_url))
-        except Exception:
-            continue
-    return results
+        # La ingesta corre en un hilo de fondo y en un endpoint de
+        # administración: un fallo de red no debe tumbar ninguno de los dos,
+        # pero tampoco puede pasar en silencio.
+        LOGGER.exception("Fallo al releer el dataset público")
+        return []

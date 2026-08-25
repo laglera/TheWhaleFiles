@@ -268,7 +268,17 @@
             {% endif %}
           </div>
         </div>
-        <span class="ledger__date">{{ trade.reported_date.strftime('%d/%m/%Y') }}</span>
+        <span class="ledger__date">
+          {{ trade.reported_date.strftime('%d/%m/%Y') }}
+          <em>
+            {{ t.trade_executed }}:
+            {% if trade.transaction_date %}
+            {{ trade.transaction_date.strftime('%d/%m/%Y') }}
+            {% else %}
+            {{ t.trade_date_missing }}
+            {% endif %}
+          </em>
+        </span>
         <span class="ledger__amount">{{ ui.money(trade.amount) }}</span>
       </div>
       {% endfor %}

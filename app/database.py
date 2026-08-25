@@ -1,14 +1,16 @@
 from __future__ import annotations
 
+import logging
 import os
 from collections.abc import Generator
-from datetime import date
 
 from sqlalchemy import create_engine, event
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import NullPool, StaticPool
 
-from app.models import Base, Politician, Ticker, Trade
+from app.models import Base, Politician
+
+LOGGER = logging.getLogger(__name__)
 
 DEFAULT_DATABASE_URL = "sqlite:///./thewhalefiles.db"
 
@@ -94,11 +96,19 @@ engine = get_engine()
 SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
 
 
-TRADE_IDENTITY_COLUMNS = "politician_id, ticker_id, trade_type, amount, reported_date"
+TRADE_IDENTITY_COLUMNS = (
+    "politician_id, ticker_id, trade_type, amount, reported_date, transaction_date"
+)
+# La identidad de las primeras versiones, sin la fecha de operación. Se guarda
+# para poder retirar el índice viejo al migrar.
+LEGACY_TRADE_IDENTITY_COLUMNS = "politician_id, ticker_id, trade_type, amount, reported_date"
 
 # Columnas añadidas después de las primeras versiones de la base. `create_all`
 # no toca tablas existentes, así que hay que añadirlas a mano.
 ADDED_COLUMNS = {
+    "trades": [
+        ("transaction_date", "DATE"),
+    ],
     "politicians": [
         ("category", "VARCHAR(20) NOT NULL DEFAULT 'congress'"),
         ("bio_es", "TEXT"),
@@ -113,6 +123,17 @@ ADDED_COLUMNS = {
         ("profile_fetched_at", "DATETIME"),
     ],
 }
+
+
+def _identity_of(inspector, table: str, name: str) -> list[str] | None:
+    """Columnas que indexa una restricción de unicidad, esté como esté creada."""
+    for constraint in inspector.get_unique_constraints(table):
+        if constraint["name"] == name:
+            return list(constraint["column_names"])
+    for index in inspector.get_indexes(table):
+        if index["name"] == name:
+            return list(index["column_names"])
+    return None
 
 
 def ensure_schema(target_engine=None) -> None:
@@ -134,11 +155,30 @@ def ensure_schema(target_engine=None) -> None:
                     connection.execute(text(f"ALTER TABLE {table} ADD COLUMN {name} {ddl}"))
 
     if "trades" in table_names:
-        existing = {index["name"] for index in inspector.get_indexes("trades")}
-        existing |= {
+        # `get_indexes` no ve las restricciones UNIQUE declaradas en el CREATE
+        # TABLE, y `get_unique_constraints` no ve los índices creados aquí a
+        # mano: `_identity_of` mira en los dos sitios.
+        constraint_names = {
             constraint["name"] for constraint in inspector.get_unique_constraints("trades")
         }
-        if "uq_trade_identity" not in existing:
+
+        identity_columns = _identity_of(inspector, "trades", "uq_trade_identity")
+        expected = [column.strip() for column in TRADE_IDENTITY_COLUMNS.split(",")]
+
+        # El índice viejo indexaba sin la fecha de operación: dos operaciones
+        # declaradas el mismo día en el mismo filing chocaban entre sí y la
+        # segunda se perdía. Se sustituye por el que incluye las dos fechas.
+        if identity_columns is not None and identity_columns != expected:
+            with target_engine.begin() as connection:
+                if "uq_trade_identity" in constraint_names:
+                    connection.execute(
+                        text("ALTER TABLE trades DROP CONSTRAINT uq_trade_identity")
+                    )
+                else:
+                    connection.execute(text("DROP INDEX uq_trade_identity"))
+            identity_columns = None
+
+        if identity_columns is None:
             with target_engine.begin() as connection:
                 # Las bases anteriores acumularon una copia de cada operación por
                 # cada pasada de ingesta; hay que limpiarlas antes de que el
@@ -146,7 +186,7 @@ def ensure_schema(target_engine=None) -> None:
                 connection.execute(
                     text(
                         "DELETE FROM trades WHERE id NOT IN ("
-                        f"SELECT MIN(id) FROM trades GROUP BY {TRADE_IDENTITY_COLUMNS}"
+                        f"SELECT MIN(id) FROM trades GROUP BY {LEGACY_TRADE_IDENTITY_COLUMNS}"
                         ")"
                     )
                 )
@@ -170,13 +210,20 @@ def seed_from_network() -> bool:
 
     En integración continua no: la base nace vacía en cada ejecución y bajar
     veinticinco mil operaciones para correr las pruebas es lento y depende de
-    que GitHub conteste. Con esto apagado se siembran los pocos registros de
-    ejemplo que hay más abajo, que es todo lo que las pruebas necesitan.
+    que GitHub conteste. Las pruebas se montan sus propios datos.
     """
     return os.getenv("SEED_REAL_DATASET", "1").lower() not in {"0", "false", "no"}
 
 
 def init_db() -> None:
+    """Siembra la base la primera vez, sólo con operaciones declaradas de verdad.
+
+    Antes, si la descarga fallaba, se caía en unos registros de ejemplo con dos
+    políticos inventados. Servía para ver la web llena en local, pero en un
+    despliegue con la red torcida esos nombres se publicaban con el mismo
+    aspecto que los reales. Una base vacía se explica sola; una base con datos
+    falsos, no.
+    """
     from app.sources import ingest_real_dataset
 
     prepare_database()
@@ -184,60 +231,14 @@ def init_db() -> None:
         if db.query(Politician).first():
             return
 
-        if seed_from_network():
-            imported = ingest_real_dataset()
-            if imported:
-                return
+    if not seed_from_network():
+        return
 
-        senator = Politician(
-            name="Alex Morgan",
-            chamber="Senate",
-            state="California",
-            party="Democratic",
+    if not ingest_real_dataset():
+        LOGGER.error(
+            "La siembra inicial no importó ninguna operación: la base queda vacía "
+            "hasta que la fuente vuelva a estar disponible."
         )
-        rep = Politician(
-            name="Jordan Lee",
-            chamber="House",
-            state="Texas",
-            party="Republican",
-        )
-
-        apple = Ticker(symbol="AAPL", name="Apple Inc.")
-        nvda = Ticker(symbol="NVDA", name="NVIDIA Corporation")
-        msft = Ticker(symbol="MSFT", name="Microsoft Corporation")
-
-        db.add_all([senator, rep, apple, nvda, msft])
-        db.flush()
-
-        trades = [
-            Trade(
-                politician_id=senator.id,
-                ticker_id=apple.id,
-                trade_type="Buy",
-                amount=15000.0,
-                reported_date=date(2026, 7, 12),
-                notes="Compra reportada en el último filing del Senado.",
-            ),
-            Trade(
-                politician_id=senator.id,
-                ticker_id=nvda.id,
-                trade_type="Buy",
-                amount=25000.0,
-                reported_date=date(2026, 7, 18),
-                notes="Nueva posición en semiconductores.",
-            ),
-            Trade(
-                politician_id=rep.id,
-                ticker_id=msft.id,
-                trade_type="Sell",
-                amount=20000.0,
-                reported_date=date(2026, 7, 28),
-                notes="Venta parcial para reequilibrar cartera.",
-            ),
-        ]
-
-        db.add_all(trades)
-        db.commit()
 
 
 def get_db() -> Generator[Session, None, None]:

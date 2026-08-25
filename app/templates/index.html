@@ -177,7 +177,7 @@
           <span>{{ t.digest_last }}</span>
           {{ ui.side_tag(person.last_trade.trade_type, t) }}
           <b>{{ person.last_trade.symbol }}</b>
-          <em>{{ person.last_trade.date.strftime('%d/%m/%Y') }}</em>
+          <em title="{{ t.trade_filed }}">{{ person.last_trade.date.strftime('%d/%m/%Y') }}</em>
         </div>
         {% endif %}
       </a>
@@ -254,7 +254,9 @@
       <a class="trade-card" href="/politicians/{{ trade.politician.id }}?lang={{ lang }}">
         <div class="trade-card__top">
           {{ ui.side_tag(trade.trade_type, t) }}
-          <span class="trade-card__date">{{ trade.reported_date.strftime('%d/%m/%Y') }}</span>
+          <span class="trade-card__date" title="{{ t.stat_last_sub }}">
+            {{ t.trade_filed }} {{ trade.reported_date.strftime('%d/%m/%Y') }}
+          </span>
         </div>
         <div class="trade-card__ident">
           <span class="avatar" data-slot="{{ trade.ticker.symbol|accent_slot }}">
@@ -272,6 +274,16 @@
           </div>
           <span class="tag tag--plain">{{ trade.politician.state }}</span>
         </div>
+        {# La fecha en que se operó es un dato aparte del de publicación, y hay
+           filings que no la traen o la traen mal: en ese caso se dice. #}
+        <p class="trade-card__traded">
+          {{ t.trade_executed }}:
+          {% if trade.transaction_date %}
+          {{ trade.transaction_date.strftime('%d/%m/%Y') }}
+          {% else %}
+          <em>{{ t.trade_date_missing }}</em>
+          {% endif %}
+        </p>
       </a>
       {% else %}
       <p class="empty-state empty-state--wide">{{ t.trades_empty }}</p>

@@ -68,6 +68,13 @@ TRANSACTION_CODES = {
 }
 
 
+def _parse_iso(value: Any) -> Optional[date]:
+    try:
+        return datetime.strptime(str(value), "%Y-%m-%d").date()
+    except (TypeError, ValueError):
+        return None
+
+
 def _fetch(url: str) -> bytes:
     request = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
     with urllib.request.urlopen(request, timeout=30) as response:
@@ -122,7 +129,9 @@ def parse_form4(xml_bytes: bytes) -> dict[str, Any]:
             {
                 "trade_type": TRANSACTION_CODES.get(code, code or "Unknown"),
                 "amount": round(amount, 2),
-                "reported_date": traded_on,
+                # La fecha de publicación la pone el filing, no la transacción:
+                # la añade `fetch_insider_trades` con el filingDate de EDGAR.
+                "transaction_date": traded_on,
                 "shares": float(shares),
                 "shares_owned": shares_owned,
             }
@@ -165,8 +174,27 @@ def fetch_insider_trades(insider: dict[str, str], filings_limit: int = 12) -> li
             continue
         if not parsed["symbol"]:
             continue
+        # `filingDate` es el día en que EDGAR publicó el Form 4: eso es lo que
+        # la web llama fecha de publicación. La fecha que trae cada transacción
+        # dentro del formulario es cuándo se operó, que es otra cosa.
+        filed_on = _parse_iso(filing.get("filed"))
+        if filed_on is None:
+            continue
         for transaction in parsed["transactions"]:
-            collected.append({**transaction, "symbol": parsed["symbol"], "issuer": parsed["issuer"]})
+            traded_on = transaction["transaction_date"]
+            if traded_on > filed_on:
+                # Imposible: nadie declara antes de operar. El formulario trae
+                # la fecha mal escrita y no se puede adivinar la buena.
+                traded_on = None
+            collected.append(
+                {
+                    **transaction,
+                    "reported_date": filed_on,
+                    "transaction_date": traded_on,
+                    "symbol": parsed["symbol"],
+                    "issuer": parsed["issuer"],
+                }
+            )
     return collected
 
 
@@ -204,7 +232,13 @@ def import_insiders(
                 imported_people += 1
 
             existing = {
-                (trade.ticker.symbol, trade.trade_type, trade.reported_date, round(trade.amount, 2))
+                (
+                    trade.ticker.symbol,
+                    trade.trade_type,
+                    trade.reported_date,
+                    trade.transaction_date,
+                    round(trade.amount, 2),
+                )
                 for trade in person.trades
             }
 
@@ -222,6 +256,7 @@ def import_insiders(
                     item["symbol"],
                     item["trade_type"],
                     item["reported_date"],
+                    item["transaction_date"],
                     round(item["amount"], 2),
                 )
                 if key in existing:
@@ -235,6 +270,7 @@ def import_insiders(
                         trade_type=item["trade_type"],
                         amount=item["amount"],
                         reported_date=item["reported_date"],
+                        transaction_date=item["transaction_date"],
                         notes=f"SEC Form 4 · {insider['org']}",
                     )
                 )
@@ -263,8 +299,13 @@ def _update_holdings(db, person: Politician, trades: list[dict[str, Any]]) -> in
     for item in trades:
         if item.get("shares_owned") is None:
             continue
+        # `as_of` dice a qué día corresponde la posición, así que sólo sirven
+        # las operaciones con fecha de ejecución fiable. Sin ella, la posición
+        # se queda con el dato anterior en lugar de fecharse a ojo.
+        if item.get("transaction_date") is None:
+            continue
         current = latest.get(item["symbol"])
-        if current is None or item["reported_date"] > current["reported_date"]:
+        if current is None or item["transaction_date"] > current["transaction_date"]:
             latest[item["symbol"]] = item
 
     updated = 0
@@ -281,12 +322,12 @@ def _update_holdings(db, person: Politician, trades: list[dict[str, Any]]) -> in
         if holding is None:
             holding = Holding(politician_id=person.id, ticker_id=ticker.id)
             db.add(holding)
-        elif holding.as_of >= item["reported_date"]:
+        elif holding.as_of >= item["transaction_date"]:
             # Lo que ya hay es igual de reciente o más: no se pisa.
             continue
 
         holding.shares = item["shares_owned"]
-        holding.as_of = item["reported_date"]
+        holding.as_of = item["transaction_date"]
         holding.source = "SEC Form 4"
         updated += 1
 

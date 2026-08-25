@@ -35,7 +35,7 @@ TRANSLATIONS: dict[str, dict[str, Any]] = {
         "stat_ops_declared": "Declaradas en filings oficiales",
         "stat_split": "Compras / ventas",
         "stat_split_sub": "Reparto de la actividad declarada",
-        "stat_last_trade": "Última operación",
+        "stat_last_trade": "Última publicación",
         # Fichas-resumen
         "digest_title": "En qué invierte cada uno",
         "digest_sub": (
@@ -123,8 +123,14 @@ TRANSLATIONS: dict[str, dict[str, Any]] = {
         "history_sub": "Ordenadas por fecha de publicación del filing, de más reciente a más antigua.",
         "history_type": "Tipo",
         "history_security": "Valor",
-        "history_date": "Fecha",
+        "history_date": "Publicación",
         "history_amount": "Importe",
+        # Las dos fechas de un filing son cosas distintas: cuándo se operó y
+        # cuándo se pudo saber. La web las nombra por separado para que nadie
+        # lea una como la otra.
+        "trade_filed": "Publicado",
+        "trade_executed": "Operación",
+        "trade_date_missing": "sin fecha en el filing",
         "history_more": "Mostrando las 60 más recientes · {n} operaciones más disponibles vía",
         "history_empty": "Este político aún no tiene operaciones registradas.",
         # Footer
@@ -177,7 +183,7 @@ TRANSLATIONS: dict[str, dict[str, Any]] = {
         "stat_ops_declared": "Declared in official filings",
         "stat_split": "Buys / sells",
         "stat_split_sub": "Split of the declared activity",
-        "stat_last_trade": "Latest trade",
+        "stat_last_trade": "Latest filing",
         # Digest cards
         "digest_title": "What each of them invests in",
         "digest_sub": (
@@ -264,8 +270,11 @@ TRANSLATIONS: dict[str, dict[str, Any]] = {
         "history_sub": "Sorted by filing publication date, most recent first.",
         "history_type": "Type",
         "history_security": "Security",
-        "history_date": "Date",
+        "history_date": "Filed",
         "history_amount": "Amount",
+        "trade_filed": "Filed",
+        "trade_executed": "Trade date",
+        "trade_date_missing": "not stated in the filing",
         "history_more": "Showing the 60 most recent · {n} more trades available through the",
         "history_empty": "This politician has no recorded trades yet.",
         # Footer

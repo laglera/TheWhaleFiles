@@ -90,12 +90,47 @@ class ScraperParsingTests(unittest.TestCase):
         self.assertEqual(trades[1]["ticker"], "PEP")
         self.assertEqual(trades[1]["trade_type"], "Purchase")
 
+        # Cada fecha en su sitio: `reported_date` es cuándo se publicó el
+        # filing y `transaction_date` cuándo se operó.
+        self.assertEqual(trades[0]["reported_date"], "2026-08-12")
+        self.assertEqual(trades[0]["transaction_date"], "2026-07-17")
+
+    def test_parse_real_dataset_drops_records_without_a_disclosure_date(self):
+        payload = json.dumps([
+            {
+                "transaction_date": "07/17/2026",
+                "ticker": "ABT",
+                "type": "Sale",
+                "amount_mid": 8000,
+                "representative": "Mike Kelly",
+            }
+        ])
+
+        from app.sources import parse_real_dataset
+
+        # Sin fecha de publicación no hay forma de situar la operación en el
+        # tiempo. Antes se rellenaba con el 1 de enero, que no lo declaró nadie.
+        self.assertEqual(parse_real_dataset(payload), [])
+
+    def test_parse_official_html_filing_drops_entries_without_a_date(self):
+        html = """
+        <div>Transaction 1:</div>
+        <div>Ticker: AAPL</div>
+        <div>Type: Buy</div>
+        <div>Amount: $15,000</div>
+        """
+
+        from app.sources import parse_official_html_filing
+
+        self.assertEqual(parse_official_html_filing(html, "Mike Kelly"), [])
+
     def test_ingest_real_dataset_imports_records(self):
         from app.sources import ingest_real_dataset
 
         raw_payload = json.dumps([
             {
                 "transaction_date": "07/17/2026",
+                "disclosure_date": "08/12/2026",
                 "ticker": "ABT",
                 "type": "Sale",
                 "amount": "$1,001 - $15,000",
