@@ -4,12 +4,10 @@ leen los buscadores, los errores con estilo y la API paginada."""
 import unittest
 
 from fastapi import HTTPException
-from sqlalchemy import select
 from starlette.requests import Request
 
 from app import main
-from app.database import get_db
-from app.models import Politician
+from tests.support import memory_session, seed_declarant
 
 
 def make_request(path="/", query=b""):
@@ -34,19 +32,32 @@ class IndexingTests(unittest.TestCase):
         self.assertIn("Sitemap: http://testserver/sitemap.xml", body)
 
     def test_the_sitemap_lists_the_home_page_and_the_profiles(self):
-        db = next(get_db())
+        db = memory_session()
         try:
+            person = seed_declarant(db)
             xml = main.sitemap(make_request("/sitemap.xml"), db).body.decode()
-            first = db.scalar(select(Politician.id).order_by(Politician.id))
         finally:
             db.close()
         self.assertIn("<loc>http://testserver/</loc>", xml)
-        self.assertIn(f"<loc>http://testserver/politicians/{first}</loc>", xml)
+        self.assertIn(f"<loc>http://testserver/politicians/{person.id}</loc>", xml)
+
+    def test_the_sitemap_leaves_out_profiles_without_trades(self):
+        # Una ficha vacía no le aporta nada a quien llega desde un buscador,
+        # y el sitemap la filtra con un join que la prueba anterior no veía:
+        # sembraba operaciones para todos.
+        db = memory_session()
+        try:
+            silent = seed_declarant(db, name="Robin Vega", trades=0)
+            xml = main.sitemap(make_request("/sitemap.xml"), db).body.decode()
+        finally:
+            db.close()
+        self.assertNotIn(f"/politicians/{silent.id}<", xml)
 
 
 class PaginationTests(unittest.TestCase):
     def setUp(self):
-        self.db = next(get_db())
+        self.db = memory_session()
+        self.person = seed_declarant(self.db)
 
     def tearDown(self):
         self.db.close()
@@ -57,10 +68,14 @@ class PaginationTests(unittest.TestCase):
         self.assertGreaterEqual(payload["total"], len(payload["results"]))
 
     def test_the_offset_moves_the_window(self):
+        # Con datos propios el desplazamiento se comprueba de verdad: antes,
+        # sobre una base que podía estar vacía, el "if" dejaba pasar la prueba
+        # sin haber comparado nada.
         first = main.get_trades(self.db, limit=3, offset=0)["results"]
         second = main.get_trades(self.db, limit=3, offset=3)["results"]
-        if first and second:
-            self.assertNotEqual([row["id"] for row in first], [row["id"] for row in second])
+        self.assertEqual(len(first), 3)
+        self.assertEqual(len(second), 3)
+        self.assertNotEqual([row["id"] for row in first], [row["id"] for row in second])
 
     def test_politicians_carry_their_trade_count_without_a_query_each(self):
         payload = main.get_politicians(self.db, limit=5, offset=0)
@@ -68,10 +83,9 @@ class PaginationTests(unittest.TestCase):
             self.assertIsInstance(row["trade_count"], int)
 
     def test_a_profile_returns_its_trades_capped(self):
-        politician = self.db.scalar(select(Politician).order_by(Politician.id))
-        payload = main.get_politician_detail(politician.id, self.db, limit=4, offset=0)
-        self.assertLessEqual(len(payload["trades"]), 4)
-        self.assertIn("total_trades", payload)
+        payload = main.get_politician_detail(self.person.id, self.db, limit=4, offset=0)
+        self.assertEqual(len(payload["trades"]), 4)
+        self.assertEqual(payload["total_trades"], 6)
 
 
 class DatabaseUrlTests(unittest.TestCase):

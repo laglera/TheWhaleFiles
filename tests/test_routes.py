@@ -1,27 +1,29 @@
 import unittest
 
-from sqlalchemy import select
 from starlette.requests import Request
 
-from app.database import get_db
 from app.main import politician_detail_page
-from app.models import Politician
+from tests.support import memory_session, seed_declarant
 
 
 class RouteTests(unittest.TestCase):
+    def setUp(self):
+        self.db = memory_session()
+        self.person = seed_declarant(self.db)
+
+    def tearDown(self):
+        self.db.close()
+
     def test_politician_detail_page_loads(self):
-        db = next(get_db())
-        try:
-            politician = db.scalar(select(Politician).order_by(Politician.id))
-            self.assertIsNotNone(politician)
-            request = Request({
-                "type": "http",
-                "method": "GET",
-                "path": f"/politicians/{politician.id}",
-                "headers": [],
-            })
-            response = politician_detail_page(request, politician.id, db, None)
-            html = response.body.decode("utf-8")
-            self.assertIn(politician.name, html)
-        finally:
-            db.close()
+        request = Request({
+            "type": "http",
+            "method": "GET",
+            "scheme": "http",
+            "server": ("testserver", 80),
+            "path": f"/politicians/{self.person.id}",
+            "query_string": b"",
+            "headers": [],
+        })
+        response = politician_detail_page(request, self.person.id, self.db, None)
+        html = response.body.decode("utf-8")
+        self.assertIn(self.person.name, html)
