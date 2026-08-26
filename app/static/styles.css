@@ -618,22 +618,27 @@ img {
   position: relative;
   background: var(--brand-gradient);
   color: var(--on-dark);
-  /* El aire de abajo lo daba la banda de métricas, que ya no está: sin
-     recortarlo, el reclamo se queda flotando en medio de una pantalla vacía. */
-  padding: 148px 0 116px;
+  padding: 132px 0 104px;
   overflow: hidden;
-  text-align: center;
 }
 
+/* Dos columnas: el mensaje a la izquierda y el dato en vivo a la derecha.
+   Centrado y a una sola columna, el hero era un cartel; con el panel al lado
+   la portada enseña de qué va el sitio antes del primer scroll. */
 .hero__inner {
   position: relative;
   z-index: 1;
-  max-width: 920px;
+  max-width: var(--container);
   margin: 0 auto;
   padding: 0 32px;
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: minmax(0, 1.08fr) minmax(0, 0.92fr);
   align-items: center;
+  gap: 64px;
+}
+
+.hero__copy {
+  min-width: 0;
 }
 
 .eyebrow {
@@ -659,46 +664,69 @@ img {
   font-weight: 700;
 }
 
-/* El mínimo baja hasta 38px: "TheWhaleFiles" es una sola palabra de trece
-   letras y a 52px no entraba en un móvil de 360px. */
+/* Distintivo de procedencia: lo primero que se lee es de dónde salen los
+   datos, porque es lo que separa esto de una opinión sobre el tema. */
+.hero__badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 16px 7px 12px;
+  border-radius: var(--r-full);
+  background: var(--glass);
+  border: 1px solid var(--glass-line);
+  color: rgba(255, 255, 255, 0.92);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.hero__badge i {
+  width: 7px;
+  height: 7px;
+  border-radius: var(--r-full);
+  background: var(--buy);
+  box-shadow: 0 0 0 4px rgba(0, 168, 126, 0.22);
+  flex: none;
+}
+
+/* El titular ya no es la marca sino el mensaje, así que se dimensiona como
+   frase larga: se mide en ch para que no llegue a cuatro renglones. */
 .hero__title {
-  margin: 0;
-  max-width: 100%;
-  font-size: clamp(38px, 8.4vw, 124px);
-  line-height: 0.98;
-  letter-spacing: -0.035em;
-}
-
-.hero__claim {
-  margin: 24px 0 0;
+  margin: 26px 0 0;
+  max-width: 17ch;
   font-family: var(--font-display);
-  font-size: clamp(22px, 2.4vw, 32px);
-  font-weight: 500;
-  line-height: 1.25;
-  letter-spacing: -0.01em;
-  color: #ffffff;
+  font-size: clamp(36px, 4vw, 54px);
+  font-weight: 600;
+  line-height: 1.08;
+  letter-spacing: -0.032em;
 }
 
-.hero__claim span {
+.hero__title span {
   display: block;
-  color: rgba(255, 255, 255, 0.82);
+  color: rgba(255, 255, 255, 0.62);
 }
 
 .hero__lede {
-  margin: 20px auto 0;
-  max-width: 56ch;
-  color: rgba(255, 255, 255, 0.86);
-  font-size: 18px;
-  line-height: 1.56;
+  margin: 22px 0 0;
+  max-width: 46ch;
+  color: rgba(255, 255, 255, 0.78);
+  font-size: 17px;
+  line-height: 1.6;
   letter-spacing: -0.09px;
 }
 
 .hero__actions {
   display: flex;
   flex-wrap: wrap;
-  justify-content: center;
   gap: 12px;
-  margin-top: 36px;
+  margin-top: 32px;
+}
+
+.hero__sources {
+  margin: 22px 0 0;
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 13px;
+  letter-spacing: 0.01em;
 }
 
 .hero__note {
@@ -706,6 +734,158 @@ img {
   color: rgba(255, 255, 255, 0.7);
   font-size: 13px;
   max-width: 52ch;
+}
+
+/* --------------------------------------------------------------------------
+   Panel en vivo del hero: las últimas operaciones publicadas
+   -------------------------------------------------------------------------- */
+
+.hero__panel {
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid var(--glass-line);
+  border-radius: var(--r-xl);
+  padding: 8px;
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  box-shadow: 0 32px 64px rgba(4, 10, 26, 0.38);
+}
+
+.hero__panel-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px 12px;
+}
+
+.hero__panel-title {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.62);
+}
+
+.hero__panel-date {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.45);
+  font-variant-numeric: tabular-nums;
+}
+
+.hero-feed {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  background: rgba(6, 12, 28, 0.45);
+  border-radius: var(--r-lg);
+  overflow: hidden;
+}
+
+.hero-feed__row {
+  display: grid;
+  grid-template-columns: 4px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 14px;
+  padding: 13px 18px;
+}
+
+.hero-feed__row + .hero-feed__row {
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+/* El sentido de la operación se lee por color en el filo de la fila: una
+   etiqueta por fila, cinco veces, convertía el panel en un semáforo. */
+.hero-feed__side {
+  width: 4px;
+  height: 26px;
+  border-radius: var(--r-full);
+  /* Blanco con alfa, no --faint: el panel es oscuro en los dos temas y el
+     token gris se apaga hasta desaparecer en modo noche. */
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.hero-feed__side--buy {
+  background: var(--buy);
+}
+
+.hero-feed__side--sell {
+  background: var(--sell);
+}
+
+.hero-feed__ident {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.hero-feed__ident b {
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: #ffffff;
+}
+
+.hero-feed__ident small {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.55);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.hero-feed__amount {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+}
+
+.hero-feed__amount b {
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 600;
+  color: #ffffff;
+  font-variant-numeric: tabular-nums;
+}
+
+.hero-feed__amount small {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.45);
+  font-variant-numeric: tabular-nums;
+}
+
+.hero-feed__empty {
+  padding: 24px 18px;
+  text-align: center;
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 14px;
+}
+
+.hero__panel-foot {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 14px 16px 12px;
+  color: rgba(255, 255, 255, 0.78);
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+  font-variant-numeric: tabular-nums;
+}
+
+.hero__panel-foot span {
+  transition: transform 0.18s ease;
+}
+
+.hero__panel-foot:hover {
+  color: #ffffff;
+}
+
+.hero__panel-foot:hover span {
+  transform: translateX(4px);
 }
 
 .btn--glass {
@@ -2050,6 +2230,14 @@ img {
    -------------------------------------------------------------------------- */
 
 @media (max-width: 1080px) {
+  .hero {
+    padding: 116px 0 88px;
+  }
+
+  .hero__inner {
+    gap: 40px;
+  }
+
   .trade-grid,
   .digest-grid {
     grid-template-columns: repeat(2, 1fr);
@@ -2080,6 +2268,17 @@ img {
 /* Tablet: la ficha de patrimonio es la primera que se queda sin sitio, con
    cinco columnas de datos numéricos. */
 @media (max-width: 900px) {
+  /* El panel deja de caber al lado del titular: pasa debajo, a ancho
+     completo, que es donde mejor se leen sus filas. */
+  .hero__inner {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 36px;
+  }
+
+  .hero__title {
+    max-width: 20ch;
+  }
+
   .band {
     padding: 72px 0;
   }
@@ -2193,12 +2392,21 @@ img {
   }
 
   .hero {
-    padding: 88px 0 64px;
+    padding: 88px 0 56px;
   }
 
-  .hero__claim {
-    margin-top: 14px;
-    font-size: 20px;
+  .hero__inner {
+    gap: 28px;
+  }
+
+  .hero__title {
+    margin-top: 20px;
+    max-width: 100%;
+  }
+
+  .hero__lede {
+    margin-top: 16px;
+    font-size: 16px;
   }
 
   .hero__actions {
@@ -2208,6 +2416,24 @@ img {
 
   .hero__actions .btn {
     flex: 1 1 auto;
+  }
+
+  .hero__badge {
+    font-size: 12px;
+    padding: 6px 13px 6px 10px;
+  }
+
+  .hero-feed__row {
+    padding: 12px 14px;
+    gap: 12px;
+  }
+
+  /* Sin blur en móvil: el panel ocupa casi toda la pantalla y el coste de
+     pintarlo se nota al hacer scroll. */
+  .hero__panel {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    background: rgba(255, 255, 255, 0.06);
   }
 
   /* Los halos cuestan caros de pintar en un móvil y aquí sólo se ven a trozos */

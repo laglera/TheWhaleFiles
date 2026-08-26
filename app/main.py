@@ -257,6 +257,9 @@ PARTY_PLACEHOLDERS = {"Unknown", "Business", ""}
 # maquetación: multiplica lo que hay que agregar en la base.
 DIGEST_PAGE_SIZE = 24
 
+# Operaciones que caben en el panel del hero sin que crezca más que el titular.
+HERO_FEED_SIZE = 5
+
 # Posiciones que se pintan dentro de una ficha. Cuatro caben sin que la tarjeta
 # crezca, y bastan para leer de un vistazo dónde está concentrado el dinero.
 DIGEST_POSITIONS = 4
@@ -402,6 +405,28 @@ def home(
         trade_query.order_by(Trade.reported_date.desc(), Trade.id.desc()).limit(12)
     ).all()
 
+    # El panel del hero enseña una operación por persona. Un mismo filing trae
+    # decenas de líneas seguidas, así que sin esto la portada abre con cinco
+    # veces el mismo nombre y parece que sólo hay un declarante.
+    hero_trades: list[Trade] = []
+    seen_people: set[int] = set()
+    for trade in recent_trades:
+        # Hay filings que llegan sin importe: un "$0" en la primera pantalla
+        # parece un fallo del sitio, no un dato que falta en el origen.
+        if trade.politician_id in seen_people or not trade.amount:
+            continue
+        seen_people.add(trade.politician_id)
+        hero_trades.append(trade)
+        if len(hero_trades) == HERO_FEED_SIZE:
+            break
+    # Si en lo reciente sólo hay un declarante, mejor repetir nombre que
+    # dejar el panel a medias.
+    if len(hero_trades) < HERO_FEED_SIZE:
+        chosen = {id(trade) for trade in hero_trades}
+        hero_trades += [
+            trade for trade in recent_trades if id(trade) not in chosen
+        ][: HERO_FEED_SIZE - len(hero_trades)]
+
     # Agregados sobre el mismo filtro, calculados en SQL para no traer 30k filas.
     scoped_ids = trade_query.with_only_columns(Trade.id).subquery()
     totals_query = (
@@ -483,6 +508,7 @@ def home(
             "politicians": visible_politicians,
             "hidden_politicians": max(len(politicians) - len(visible_politicians), 0),
             "recent_trades": recent_trades,
+            "hero_trades": hero_trades,
             "total_trades": total_trades,
             "total_amount": float(total_amount),
             "total_politicians": total_politicians,

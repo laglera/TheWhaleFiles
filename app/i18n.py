@@ -23,6 +23,17 @@ TRANSLATIONS: dict[str, dict[str, Any]] = {
         "hero_claim_1": "Legislan sobre unos mercados en los que también invierten.",
         "hero_claim_2": "Mira lo que declaran.",
         "hero_cta": "Ver quién invierte en qué",
+        "hero_cta_alt": "Últimas operaciones",
+        "hero_badge": "Declaraciones oficiales del Senado y la Cámara",
+        "hero_lede": (
+            "Cada compra y cada venta que un congresista o un alto cargo está "
+            "obligado a declarar, reunida en un mismo sitio y con el nombre de "
+            "quien la firma."
+        ),
+        "hero_feed_title": "Recién declarado",
+        "hero_feed_empty": "Aún no hay operaciones cargadas.",
+        "hero_feed_all": "Ver las {n} operaciones",
+        "hero_sources": "Fuentes: eFD del Senado · House Clerk",
         # Métricas
         "stat_trades": "Operaciones",
         "stat_capital": "Capital declarado",
@@ -173,6 +184,17 @@ TRANSLATIONS: dict[str, dict[str, Any]] = {
         "hero_claim_1": "They legislate on markets they also invest in.",
         "hero_claim_2": "See what they declare.",
         "hero_cta": "See who invests in what",
+        "hero_cta_alt": "Latest trades",
+        "hero_badge": "Official Senate and House disclosures",
+        "hero_lede": (
+            "Every purchase and every sale a member of Congress or a corporate "
+            "officer is required to declare, gathered in one place and signed "
+            "with a name."
+        ),
+        "hero_feed_title": "Just declared",
+        "hero_feed_empty": "No trades loaded yet.",
+        "hero_feed_all": "See all {n} trades",
+        "hero_sources": "Sources: Senate eFD · House Clerk",
         # Stats
         "stat_trades": "Trades",
         "stat_capital": "Declared capital",

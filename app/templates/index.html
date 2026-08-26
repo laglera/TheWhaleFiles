@@ -9,16 +9,69 @@
     <span class="orb orb--3"></span>
   </div>
 
+  {# El hero dejó de ser un cartel con el nombre en grande: el nombre ya está
+     en la barra, y lo que hay que entender al entrar es qué se mira aquí. El
+     titular lleva el mensaje y al lado va el producto en vivo — las últimas
+     operaciones declaradas — para que la promesa se vea cumplida sin scroll. #}
   <header class="hero">
     <div class="hero__inner">
-      <h1 class="hero__title">TheWhaleFiles</h1>
-      <p class="hero__claim">
-        {{ t.hero_claim_1 }}
-        <span>{{ t.hero_claim_2 }}</span>
-      </p>
-      <div class="hero__actions">
-        <a class="btn btn--primary" href="#perfiles">{{ t.hero_cta }}</a>
+      <div class="hero__copy">
+        <span class="hero__badge">
+          <i aria-hidden="true"></i>
+          {{ t.hero_badge }}
+        </span>
+
+        <h1 class="hero__title">
+          {{ t.hero_claim_1 }}
+          <span>{{ t.hero_claim_2 }}</span>
+        </h1>
+
+        <p class="hero__lede">{{ t.hero_lede }}</p>
+
+        <div class="hero__actions">
+          <a class="btn btn--primary" href="#perfiles">{{ t.hero_cta }}</a>
+          <a class="btn btn--glass" href="#operaciones">{{ t.hero_cta_alt }}</a>
+        </div>
+
+        <p class="hero__sources">{{ t.hero_sources }}</p>
       </div>
+
+      <aside class="hero__panel" aria-label="{{ t.hero_feed_title }}">
+        <div class="hero__panel-head">
+          <span class="hero__panel-title">{{ t.hero_feed_title }}</span>
+          {% if last_reported %}
+          <span class="hero__panel-date">{{ last_reported.strftime('%d/%m/%Y') }}</span>
+          {% endif %}
+        </div>
+
+        <ul class="hero-feed">
+          {% for trade in hero_trades %}
+          {% set side = trade.trade_type|trade_side %}
+          <li class="hero-feed__row">
+            <span class="hero-feed__side hero-feed__side--{{ side }}" aria-hidden="true"></span>
+            <span class="hero-feed__ident">
+              <b>{{ trade.ticker.symbol }}</b>
+              <small>{{ trade.politician.name }}</small>
+            </span>
+            <span class="hero-feed__amount">
+              <b>{{ ui.money(trade.amount) }}</b>
+              <small>{{ trade.reported_date.strftime('%d/%m') }}</small>
+            </span>
+          </li>
+          {% else %}
+          <li class="hero-feed__empty">{{ t.hero_feed_empty }}</li>
+          {% endfor %}
+        </ul>
+
+        {# El pie es una salida, no una métrica suelta: el número justifica el
+           enlace en vez de repetir la cifra que ya va sobre las fichas. #}
+        {% if total_trades %}
+        <a class="hero__panel-foot" href="#operaciones">
+          {{ t.hero_feed_all.format(n='{:,.0f}'.format(total_trades)) }}
+          <span aria-hidden="true">&rarr;</span>
+        </a>
+        {% endif %}
+      </aside>
     </div>
   </header>
 </div>
