@@ -24,16 +24,16 @@ TRANSLATIONS: dict[str, dict[str, Any]] = {
         "hero_claim_2": "Mira lo que declaran.",
         "hero_cta": "Ver quién invierte en qué",
         "hero_cta_alt": "Últimas operaciones",
-        "hero_badge": "Declaraciones oficiales del Senado y la Cámara",
+        "hero_badge": "Declaraciones oficiales de la Cámara y la SEC",
         "hero_lede": (
-            "Cada compra y cada venta que un congresista o un alto cargo está "
+            "Cada compra y cada venta que un congresista o un alto directivo está "
             "obligado a declarar, reunida en un mismo sitio y con el nombre de "
             "quien la firma."
         ),
         "hero_feed_title": "Recién declarado",
         "hero_feed_empty": "Aún no hay operaciones cargadas.",
         "hero_feed_all": "Ver las últimas operaciones",
-        "hero_sources": "Fuentes: eFD del Senado · House Clerk",
+        "hero_sources": "Fuentes: House Clerk (STOCK Act) · SEC EDGAR (Formulario 4)",
         # Métricas
         "stat_trades": "Operaciones",
         "stat_capital": "Volumen declarado",
@@ -160,11 +160,12 @@ TRANSLATIONS: dict[str, dict[str, Any]] = {
         "history_empty": "Este político aún no tiene operaciones registradas.",
         # Footer
         "footer_about": (
-            "Datos públicos extraídos de las declaraciones de transparencia financiera "
-            "(STOCK Act). Mostramos lo declarado, sin interpretar intenciones."
+            "Datos públicos extraídos de las declaraciones de la Cámara de Representantes "
+            "(STOCK Act) y de los Formularios 4 de la SEC. Mostramos lo declarado, sin "
+            "interpretar intenciones."
         ),
         "footer_sources": "Fuentes",
-        "footer_senate": "Senado — eFD",
+        "footer_sec": "SEC — EDGAR",
         "footer_house": "Cámara — House Clerk",
         "footer_data": "Datos",
         "footer_trades_json": "Operaciones (JSON)",
@@ -178,6 +179,16 @@ TRANSLATIONS: dict[str, dict[str, Any]] = {
             "Seguimiento de las operaciones bursátiles declaradas por políticos y figuras "
             "públicas de EEUU."
         ),
+        # Lo que la base guarda tal cual lo trae la fuente (cámara, cargo,
+        # partido) y la interfaz tiene que decir en su idioma.
+        "labels": {
+            "House": "Cámara",
+            "Senate": "Senado",
+            "Democrat": "Demócrata",
+            "Republican": "Republicano",
+            "Independent": "Independiente",
+            "Libertarian": "Libertario",
+        },
         # Errores
         "error_404": "Esta página no existe.",
         "error_generic": "Algo ha fallado por nuestro lado.",
@@ -197,7 +208,7 @@ TRANSLATIONS: dict[str, dict[str, Any]] = {
         "hero_claim_2": "See what they declare.",
         "hero_cta": "See who invests in what",
         "hero_cta_alt": "Latest trades",
-        "hero_badge": "Official Senate and House disclosures",
+        "hero_badge": "Official House and SEC disclosures",
         "hero_lede": (
             "Every purchase and every sale a member of Congress or a corporate "
             "officer is required to declare, gathered in one place and signed "
@@ -206,7 +217,7 @@ TRANSLATIONS: dict[str, dict[str, Any]] = {
         "hero_feed_title": "Just declared",
         "hero_feed_empty": "No trades loaded yet.",
         "hero_feed_all": "See the latest trades",
-        "hero_sources": "Sources: Senate eFD · House Clerk",
+        "hero_sources": "Sources: House Clerk (STOCK Act) · SEC EDGAR (Form 4)",
         # Stats
         "stat_trades": "Trades",
         "stat_capital": "Declared volume",
@@ -328,12 +339,12 @@ TRANSLATIONS: dict[str, dict[str, Any]] = {
         "history_empty": "This politician has no recorded trades yet.",
         # Footer
         "footer_about": (
-            "Public data extracted from financial transparency disclosures (STOCK Act). "
-            "We show what was declared, without interpreting intent."
+            "Public data extracted from House of Representatives disclosures (STOCK Act) "
+            "and SEC Form 4 filings. We show what was declared, without interpreting intent."
         ),
         "footer_sources": "Sources",
-        "footer_senate": "Senate — eFD",
-        "footer_house": "House Clerk",
+        "footer_sec": "SEC — EDGAR",
+        "footer_house": "House — Clerk",
         "footer_data": "Data",
         "footer_trades_json": "Trades (JSON)",
         "footer_people_json": "Politicians (JSON)",
@@ -345,6 +356,11 @@ TRANSLATIONS: dict[str, dict[str, Any]] = {
         "meta_description": (
             "Tracking the stock trades declared by US politicians and public figures."
         ),
+        "labels": {
+            "Fundador": "Founder",
+            "Presidente": "Chair",
+            "Ex-CEO": "Former CEO",
+        },
         # Errors
         "error_404": "This page does not exist.",
         "error_generic": "Something broke on our side.",

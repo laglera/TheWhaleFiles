@@ -247,7 +247,10 @@ def scope_url(request: Request, category: str) -> str:
     raw_query = request.scope.get("query_string", b"") or b""
     if isinstance(raw_query, bytes):
         raw_query = raw_query.decode("utf-8", "ignore")
-    params = [(key, value) for key, value in parse_qsl(raw_query) if key != "category"]
+    # El partido sólo existe en el Congreso: llevarlo a la pestaña de empresa
+    # dejaba la lista vacía sin que se viera por qué.
+    dropped = {"category", "party"} if category == "business" else {"category"}
+    params = [(key, value) for key, value in parse_qsl(raw_query) if key not in dropped]
     if category:
         params.append(("category", category))
     return ("/?" + urlencode(params) if params else "/") + "#perfiles"
@@ -428,6 +431,10 @@ def home(
     lang: Optional[str] = None,
 ) -> Any:
     search_value = q.strip().lower() if q else ""
+    # Los directivos no tienen partido: en su pestaña el filtro se ignora en
+    # vez de dejar la lista vacía.
+    if category == "business":
+        party = None
 
     scope_filters = []
     if chamber:
@@ -553,8 +560,15 @@ def home(
     visible_politicians = politicians[:DIGEST_PAGE_SIZE]
     attach_digests(db, visible_politicians, scoped_ids)
 
-    unique_chambers = db.scalars(select(Politician.chamber).distinct()).all()
-    unique_parties = db.scalars(select(Politician.party).distinct()).all()
+    # Las opciones de cada desplegable, las de la pestaña activa: en la del
+    # Congreso no pintan nada los cargos de empresa.
+    category_filter = [Politician.category == category] if category in ("congress", "business") else []
+    unique_chambers = db.scalars(
+        select(Politician.chamber).where(*category_filter).distinct().order_by(Politician.chamber)
+    ).all()
+    unique_parties = db.scalars(
+        select(Politician.party).where(*category_filter).distinct().order_by(Politician.party)
+    ).all()
 
     return render(
         request,

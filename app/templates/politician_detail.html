@@ -50,9 +50,9 @@
             <div>
               <p class="identity__kicker">
                 <i class="dot dot--{{ politician.category }}"></i>
-                {{ politician.chamber }}{% if politician.state %} · {{ politician.state }}{% endif %}
+                {{ t.labels.get(politician.chamber, politician.chamber) }}{% if politician.state %} · {{ politician.state }}{% endif %}
                 {%- if politician.category == 'congress' and politician.party and politician.party != 'Unknown' %}
-                · {{ politician.party }}
+                · {{ t.labels.get(politician.party, politician.party) }}
                 {%- endif %}
               </p>
               <h1>{{ politician.name }}</h1>

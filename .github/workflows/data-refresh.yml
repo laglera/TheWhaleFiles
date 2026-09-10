@@ -67,6 +67,11 @@ jobs:
       - name: Nuevas operaciones del Congreso
         run: python -m app.sources
 
+      - name: Partido de los congresistas
+        # El dataset de la Cámara no lo trae: sin este paso, quien entra por
+        # primera vez se queda como "Unknown" y fuera del filtro por partido.
+        run: python -m app.legislators
+
       - name: Nuevas operaciones de directivos (SEC Form 4)
         run: python -m app.insiders
 

@@ -125,20 +125,20 @@
           <option value="">{{ t.filter_all_f }}</option>
           {% for chamber_name in chambers %}
           <option value="{{ chamber_name }}" {% if chamber_name == active_chamber %}selected{% endif %}>
-            {{ chamber_name }}
+            {{ t.labels.get(chamber_name, chamber_name) }}
           </option>
           {% endfor %}
         </select>
       </label>
 
-      {% if parties %}
+      {% if parties and active_category != 'business' %}
       <label class="field">
         <span>{{ t.filter_party }}</span>
         <select name="party">
           <option value="">{{ t.filter_all_m }}</option>
           {% for party_name in parties %}
           <option value="{{ party_name }}" {% if party_name == active_party %}selected{% endif %}>
-            {{ party_name }}
+            {{ t.labels.get(party_name, party_name) }}
           </option>
           {% endfor %}
         </select>
@@ -160,9 +160,9 @@
             <h3>{{ person.name }}</h3>
             <small>
               <i class="dot dot--{{ person.category }}"></i>
-              {{ person.chamber }}{% if person.state %} · {{ person.state }}{% endif %}
+              {{ t.labels.get(person.chamber, person.chamber) }}{% if person.state %} · {{ person.state }}{% endif %}
               {%- if person.category == 'congress' and person.party and person.party != 'Unknown' %}
-              · {{ person.party }}
+              · {{ t.labels.get(person.party, person.party) }}
               {%- endif %}
             </small>
           </div>
@@ -305,7 +305,7 @@
           </span>
           <div>
             <h3>{{ trade.ticker.symbol }}</h3>
-            <small>{{ trade.politician.name }} · {{ trade.politician.chamber }}</small>
+            <small>{{ trade.politician.name }} · {{ t.labels.get(trade.politician.chamber, trade.politician.chamber) }}</small>
           </div>
         </div>
         <div class="trade-card__foot">
