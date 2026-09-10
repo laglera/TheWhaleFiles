@@ -104,6 +104,25 @@ class HomePageTests(unittest.TestCase):
         self.assertEqual(len(names), 5)
         self.assertEqual(len(set(names)), 5)
 
+    def test_a_filing_dated_in_the_future_is_not_the_latest(self):
+        # En producción abría la portada una compra "publicada" el 26/12/2026:
+        # un error de escritura del documento original.
+        from datetime import date, timedelta
+
+        from sqlalchemy import select
+
+        from app.models import Trade
+
+        self.add("Ana", "Purchase", 5_000, 3)
+        future = self.db.scalar(select(Trade))
+        future.reported_date = date.today() + timedelta(days=90)
+        self.add("Bea", "Purchase", 5_000, 2)
+
+        context = self.home().context
+        self.assertEqual([trade.politician.name for trade in context["recent_trades"]], ["Bea"])
+        self.assertNotEqual(context["last_reported"], future.reported_date)
+        self.assertEqual(main.get_trades(self.db, limit=10, offset=0)["total"], 1)
+
     def test_grants_do_not_count_as_declared_volume(self):
         self.add("Elon Musk", "Grant", 141_000_000_000, 1, symbol="TSLA")
         self.add("Elon Musk", "Sale", 2_000, 2, symbol="TSLA")
