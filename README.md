@@ -145,6 +145,13 @@ Cada operación lleva las dos fechas del filing, que no son la misma cosa:
 | `reported_date` | Cuándo se hizo público el documento. Es la que ordena la web. |
 | `transaction_date` | Cuándo se ejecutó la operación, según el propio documento. `null` si el filing no la trae o si es imposible. |
 
+Los congresistas no declaran importes exactos sino tramos fijados por ley
+(`$1,001 - $15,000`, `$15,001 - $50,000`…). En sus operaciones `amount` es el
+punto medio del tramo —lo que permite sumar volúmenes— y `amount_range` trae
+los límites `[mínimo, máximo]` (`máximo` es `null` en el tramo sin techo). En
+las de la SEC, que sí declaran precio y número de títulos, `amount_range` es
+`null` y `amount` es la cifra exacta.
+
 Una fecha de operación es imposible cuando cae después de la publicación que la
 declara: eso sólo puede ser un error de escritura en el documento original —lo
 habitual, un año equivocado en enero— y no hay forma de saber cuál era la

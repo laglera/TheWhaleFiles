@@ -139,7 +139,8 @@ TRANSLATIONS: dict[str, dict[str, Any]] = {
         ),
         "wealth_congress_note": (
             "Los congresistas declaran sus operaciones en tramos de importe, sin número "
-            "de acciones ni posiciones, así que no es posible calcular su patrimonio."
+            "de acciones ni posiciones, así que no es posible calcular su patrimonio. "
+            "Cada importe es el tramo declarado; el volumen suma el punto medio de cada uno."
         ),
         "history_title": "Últimas inversiones",
         "history_sub": "Ordenadas por fecha de publicación del filing, de más reciente a más antigua.",
@@ -306,7 +307,8 @@ TRANSLATIONS: dict[str, dict[str, Any]] = {
         ),
         "wealth_congress_note": (
             "Members of Congress declare trades in amount brackets, without share counts "
-            "or positions, so their holdings cannot be calculated."
+            "or positions, so their holdings cannot be calculated. Each amount is the "
+            "declared bracket; volume adds up the midpoint of each one."
         ),
         "history_title": "Latest investments",
         "history_sub": "Sorted by filing publication date, most recent first.",
