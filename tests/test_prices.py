@@ -70,5 +70,19 @@ class CombinePositionsTests(unittest.TestCase):
         self.assertEqual(result["positions"], [])
 
 
+class ValueHoldingsTests(unittest.TestCase):
+    def test_a_profile_never_waits_for_the_quote_provider(self):
+        # Cada valor sin precio esperaba hasta medio minuto de reintentos
+        # contra Yahoo dentro de la petición: la ficha de Buffett tardaba tres
+        # minutos. Por defecto sólo se lee la caché.
+        from unittest import mock
+
+        from app import prices
+
+        with mock.patch.object(prices, "fetch_quote", side_effect=AssertionError("red")):
+            result = prices.value_holdings([holding("NOPRICE-XYZ", 10)])
+        self.assertEqual(result["missing"], 1)
+
+
 if __name__ == "__main__":
     unittest.main()
