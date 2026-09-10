@@ -13,7 +13,7 @@ from fastapi import Depends, FastAPI, HTTPException, Query, Request, Response
 from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from sqlalchemy import func, or_, select
+from sqlalchemy import case, func, or_, select
 from sqlalchemy.orm import Session, joinedload
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
@@ -83,6 +83,44 @@ def trade_side(trade_type: str) -> str:
     if value in SELL_TYPES or value.startswith("sale"):
         return "sell"
     return "other"
+
+
+# Lo que no es compra ni venta, con nombre propio: un canje del Congreso o una
+# concesión de acciones de la SEC no son lo mismo, y "sin clasificar" los
+# confundía a todos con un dato que falta.
+TRADE_KINDS = {
+    "exchange": "exchange",
+    "grant": "grant",
+    "option exercise": "option",
+    "tax withholding": "tax",
+    "gift": "gift",
+    "conversion": "conversion",
+    "disposition": "disposition",
+}
+
+
+def trade_kind(trade_type: str) -> str:
+    """Tipo de operación para la etiqueta: buy, sell o el tipo concreto."""
+    side = trade_side(trade_type)
+    if side != "other":
+        return side
+    return TRADE_KINDS.get((trade_type or "").strip().lower(), "other")
+
+
+# Compras y ventas en mercado, en SQL. Es lo único que mueve dinero por
+# decisión propia: una concesión de acciones, una retención fiscal o una
+# donación no son inversión, y sumarlas convertía los 141.000 millones del
+# paquete de Musk en "capital declarado".
+_LOWER_TYPE = func.lower(Trade.trade_type)
+OPEN_MARKET = or_(
+    _LOWER_TYPE.in_(BUY_TYPES),
+    _LOWER_TYPE.in_(SELL_TYPES),
+    _LOWER_TYPE.like("sale%"),
+)
+OPEN_MARKET_VOLUME = func.coalesce(
+    func.sum(case((OPEN_MARKET, Trade.amount), else_=0.0)), 0.0
+)
+OPEN_MARKET_COUNT = func.coalesce(func.sum(case((OPEN_MARKET, 1), else_=0)), 0)
 
 
 def compact_money(value: float) -> str:
@@ -186,6 +224,7 @@ def static_url(filename: str) -> str:
 
 templates.env.globals["static_url"] = static_url
 templates.env.filters["trade_side"] = trade_side
+templates.env.filters["trade_kind"] = trade_kind
 templates.env.filters["accent_slot"] = accent_slot
 templates.env.filters["photo_url"] = photo_url
 templates.env.filters["photo_url_lg"] = photo_url_lg
@@ -259,6 +298,9 @@ DIGEST_PAGE_SIZE = 24
 
 # Operaciones que caben en el panel del hero sin que crezca más que el titular.
 HERO_FEED_SIZE = 5
+# Cuántas operaciones recientes se repasan para encontrar cinco personas
+# distintas. Un Form 4 de venta escalonada trae decenas de líneas.
+HERO_FEED_WINDOW = 200
 
 # Posiciones que se pintan dentro de una ficha. Cuatro caben sin que la tarjeta
 # crezca, y bastan para leer de un vistazo dónde está concentrado el dinero.
@@ -284,7 +326,9 @@ def attach_digests(db: Session, people: list[dict[str, Any]], scoped_ids) -> Non
         person["buy_share"] = None
         person["last_trade"] = None
 
-    # --- Dónde está el dinero -------------------------------------------
+    # --- Dónde concentra su volumen -------------------------------------
+    # Sólo compras y ventas: es el mismo volumen que ordena la portada, y una
+    # concesión de acciones no dice nada de dónde decide meter su dinero.
     position_rows = db.execute(
         select(
             Trade.politician_id,
@@ -295,7 +339,7 @@ def attach_digests(db: Session, people: list[dict[str, Any]], scoped_ids) -> Non
         .select_from(Trade)
         .join(scoped_ids, scoped_ids.c.id == Trade.id)
         .join(Ticker, Ticker.id == Trade.ticker_id)
-        .where(Trade.politician_id.in_(ids))
+        .where(Trade.politician_id.in_(ids), OPEN_MARKET)
         .group_by(Trade.politician_id, Ticker.symbol)
     ).all()
 
@@ -308,9 +352,9 @@ def attach_digests(db: Session, people: list[dict[str, Any]], scoped_ids) -> Non
     for politician_id, entries in grouped.items():
         entries.sort(key=lambda item: item["volume"], reverse=True)
         top = entries[:DIGEST_POSITIONS]
-        # La cuota es sobre el capital declarado de esa persona, no sobre su
-        # mayor posición: así el número se lee solo ("el 92% de lo que declara
-        # está en un único valor") en vez de necesitar la barra de al lado.
+        # La cuota es sobre el volumen declarado de esa persona, no sobre su
+        # mayor valor: así el número se lee solo ("el 92% de lo que compra y
+        # vende es un único valor") en vez de necesitar la barra de al lado.
         declared = by_id[politician_id]["volume"]
         for entry in top:
             entry["share"] = round(entry["volume"] / declared * 100, 1) if declared else 0.0
@@ -337,9 +381,11 @@ def attach_digests(db: Session, people: list[dict[str, Any]], scoped_ids) -> Non
         if classified:
             person["buy_share"] = round(sides["buy"] / classified * 100)
 
-    # --- Última operación declarada ---------------------------------------
+    # --- Última compra o venta declarada ----------------------------------
     # Una función de ventana en lugar de una consulta por persona: numera las
     # operaciones de cada una por fecha y se queda con la primera de cada grupo.
+    # Las concesiones y retenciones quedan fuera: la última decisión de
+    # inversión es la señal, no la última nómina en acciones.
     ranked = (
         select(
             Trade.politician_id.label("politician_id"),
@@ -357,7 +403,7 @@ def attach_digests(db: Session, people: list[dict[str, Any]], scoped_ids) -> Non
         .select_from(Trade)
         .join(scoped_ids, scoped_ids.c.id == Trade.id)
         .join(Ticker, Ticker.id == Trade.ticker_id)
-        .where(Trade.politician_id.in_(ids))
+        .where(Trade.politician_id.in_(ids), OPEN_MARKET)
         .subquery()
     )
     for row in db.execute(select(ranked).where(ranked.c.position == 1)).all():
@@ -405,15 +451,19 @@ def home(
         trade_query.order_by(Trade.reported_date.desc(), Trade.id.desc()).limit(12)
     ).all()
 
-    # El panel del hero enseña una operación por persona. Un mismo filing trae
-    # decenas de líneas seguidas, así que sin esto la portada abre con cinco
-    # veces el mismo nombre y parece que sólo hay un declarante.
+    # El panel del hero enseña una compra o venta por persona. Un mismo filing
+    # trae decenas de líneas seguidas —un directivo vendiendo por tramos—, así
+    # que las doce operaciones de abajo no dan para cinco nombres: en
+    # producción el panel abría con cuatro veces el mismo. Se mira más atrás.
+    hero_candidates = db.scalars(
+        trade_query.where(OPEN_MARKET, Trade.amount > 0)
+        .order_by(Trade.reported_date.desc(), Trade.id.desc())
+        .limit(HERO_FEED_WINDOW)
+    ).all()
     hero_trades: list[Trade] = []
     seen_people: set[int] = set()
-    for trade in recent_trades:
-        # Hay filings que llegan sin importe: un "$0" en la primera pantalla
-        # parece un fallo del sitio, no un dato que falta en el origen.
-        if trade.politician_id in seen_people or not trade.amount:
+    for trade in hero_candidates:
+        if trade.politician_id in seen_people:
             continue
         seen_people.add(trade.politician_id)
         hero_trades.append(trade)
@@ -424,7 +474,7 @@ def home(
     if len(hero_trades) < HERO_FEED_SIZE:
         chosen = {id(trade) for trade in hero_trades}
         hero_trades += [
-            trade for trade in recent_trades if id(trade) not in chosen
+            trade for trade in hero_candidates if id(trade) not in chosen
         ][: HERO_FEED_SIZE - len(hero_trades)]
 
     # Agregados sobre el mismo filtro, calculados en SQL para no traer 30k filas.
@@ -432,7 +482,7 @@ def home(
     totals_query = (
         select(
             func.count(Trade.id),
-            func.coalesce(func.sum(Trade.amount), 0.0),
+            OPEN_MARKET_VOLUME,
             func.count(func.distinct(Trade.politician_id)),
         )
         .select_from(Trade)
@@ -460,26 +510,29 @@ def home(
         .select_from(Trade)
         .join(scoped_ids, scoped_ids.c.id == Trade.id)
         .join(Ticker, Ticker.id == Trade.ticker_id)
+        # Compras y ventas: las concesiones periódicas de acciones a un
+        # directivo inflaban el recuento de su propia empresa.
+        .where(OPEN_MARKET)
         .group_by(Ticker.symbol)
         .order_by(func.count(Trade.id).desc())
         .limit(6)
     ).all()
 
-    # Una fila por persona con su conteo y su capital, resueltas en una sola
-    # consulta agregada. El orden es por capital declarado: es lo que responde
-    # a "en qué invierte", mientras que contar operaciones sólo premia a quien
-    # opera mucho aunque mueva calderilla.
+    # Una fila por persona con su conteo y su volumen, resueltas en una sola
+    # consulta agregada. El orden es por volumen de compras y ventas: es lo que
+    # responde a "en qué mueve su dinero", mientras que contar operaciones sólo
+    # premia a quien opera mucho aunque mueva calderilla.
     politician_query = (
         select(
             Politician,
             func.count(Trade.id).label("operations"),
-            func.coalesce(func.sum(Trade.amount), 0.0).label("volume"),
+            OPEN_MARKET_VOLUME.label("volume"),
         )
         .select_from(Trade)
         .join(scoped_ids, scoped_ids.c.id == Trade.id)
         .join(Politician, Politician.id == Trade.politician_id)
         .group_by(Politician.id)
-        .order_by(func.coalesce(func.sum(Trade.amount), 0.0).desc())
+        .order_by(OPEN_MARKET_VOLUME.desc(), func.count(Trade.id).desc())
     )
     politician_rows = db.execute(politician_query).all()
     politicians = [
@@ -673,13 +726,23 @@ def politician_detail_page(
     if not politician:
         raise HTTPException(status_code=404, detail="Politician not found")
 
-    ordered_trades = sorted(politician.trades, key=lambda trade: trade.reported_date, reverse=True)
-    total_amount = sum(float(trade.amount) for trade in ordered_trades)
+    # El id desempata: un mismo filing trae varias líneas con la misma fecha y,
+    # sin él, su orden cambiaba de una visita a otra.
+    ordered_trades = sorted(
+        politician.trades, key=lambda trade: (trade.reported_date, trade.id), reverse=True
+    )
 
+    # Volumen y valores más operados, sólo con compras y ventas: la misma
+    # cuenta que la portada, para que la ficha no diga otra cifra.
+    total_amount = 0.0
     side_counts = {"buy": 0, "sell": 0, "other": 0}
     ticker_volume: dict[str, dict[str, Any]] = {}
     for trade in ordered_trades:
-        side_counts[trade_side(trade.trade_type)] += 1
+        side = trade_side(trade.trade_type)
+        side_counts[side] += 1
+        if side == "other":
+            continue
+        total_amount += float(trade.amount)
         entry = ticker_volume.setdefault(
             trade.ticker.symbol, {"symbol": trade.ticker.symbol, "operations": 0, "volume": 0.0}
         )

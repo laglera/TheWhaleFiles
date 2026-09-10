@@ -63,11 +63,11 @@
           {% endfor %}
         </ul>
 
-        {# El pie es una salida, no una métrica suelta: el número justifica el
-           enlace en vez de repetir la cifra que ya va sobre las fichas. #}
+        {# El pie es una salida a la lista de abajo. Antes prometía "ver las
+           24.861 operaciones" y llevaba a una sección con doce. #}
         {% if total_trades %}
         <a class="hero__panel-foot" href="#operaciones">
-          {{ t.hero_feed_all.format(n='{:,.0f}'.format(total_trades)) }}
+          {{ t.hero_feed_all }}
           <span aria-hidden="true">&rarr;</span>
         </a>
         {% endif %}
@@ -178,7 +178,7 @@
             <span>{{ t.digest_ops }}</span>
             <strong>{{ '{:,.0f}'.format(person.operations) }}</strong>
           </div>
-          <div>
+          <div title="{{ t.digest_bias_hint }}">
             <span>{{ t.digest_bias }}</span>
             {% if person.buy_share is none %}
             <strong class="digest__bias digest__bias--none">—</strong>
@@ -200,7 +200,10 @@
               <span class="bar-track">
                 <span class="bar-fill bar-fill--{{ loop.index }}" style="width: {{ position.share }}%"></span>
               </span>
-              <span class="digest__share">{{ position.share|round(0)|int }}%</span>
+              {# Un valor con el 0,3% del volumen no es un 0%: lo que hay es poco. #}
+              <span class="digest__share">
+                {%- if 0 < position.share < 1 -%}&lt;1%{%- else -%}{{ position.share|round(0)|int }}%{%- endif -%}
+              </span>
             </li>
             {% endfor %}
           </ul>

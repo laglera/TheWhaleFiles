@@ -37,12 +37,15 @@ ${{ '{:,.0f}'.format(amount) }}
 {%- endif -%}
 {%- endmacro %}
 
-{# Etiqueta de operación: compra / venta / sin clasificar #}
+{# Etiqueta de operación: compra, venta o el tipo concreto (canje, concesión…).
+   El color sigue al lado; el texto dice qué fue, que no es lo mismo una
+   donación que una retención fiscal. #}
 {% macro side_tag(trade_type, t) -%}
 {%- set side = trade_type|trade_side -%}
+{%- set kind = trade_type|trade_kind -%}
 <span class="tag tag--{{ side }}">
   {%- if side == 'buy' -%}{{ t.side_buy }}{%- elif side == 'sell' -%}{{ t.side_sell }}
-  {%- else -%}{{ t.side_other }}{%- endif -%}
+  {%- else -%}{{ t['kind_' ~ kind] }}{%- endif -%}
 </span>
 {%- endmacro %}
 

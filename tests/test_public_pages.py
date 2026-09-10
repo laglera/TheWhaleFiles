@@ -54,6 +54,68 @@ class IndexingTests(unittest.TestCase):
         self.assertNotIn(f"/politicians/{silent.id}<", xml)
 
 
+class HomePageTests(unittest.TestCase):
+    def setUp(self):
+        self.db = memory_session()
+
+    def tearDown(self):
+        self.db.close()
+
+    def add(self, name, trade_type, amount, day, symbol="ACME"):
+        from datetime import date
+
+        from sqlalchemy import select
+
+        from app.models import Politician, Ticker, Trade
+
+        person = self.db.scalar(select(Politician).where(Politician.name == name))
+        if person is None:
+            person = Politician(name=name, chamber="CEO", state="Acme", category="business")
+            self.db.add(person)
+            self.db.flush()
+        ticker = self.db.scalar(select(Ticker).where(Ticker.symbol == symbol))
+        if ticker is None:
+            ticker = Ticker(symbol=symbol, name=symbol)
+            self.db.add(ticker)
+            self.db.flush()
+        self.db.add(
+            Trade(
+                politician_id=person.id,
+                ticker_id=ticker.id,
+                trade_type=trade_type,
+                amount=amount,
+                reported_date=date(2026, 8, day),
+            )
+        )
+        self.db.flush()
+
+    def home(self):
+        return main.home(make_request("/"), self.db)
+
+    def test_the_hero_shows_five_people_even_after_a_long_filing(self):
+        # Un directivo vendiendo por tramos llenaba las doce operaciones más
+        # recientes, y el panel repetía su nombre cuatro veces de cinco.
+        for index in range(30):
+            self.add("Brian Chesky", "Sale", 1_000_000 + index, 20)
+        for index, name in enumerate(["Ana", "Bea", "Carla", "Dora"]):
+            self.add(name, "Purchase", 5_000, 10 - index)
+
+        names = [trade.politician.name for trade in self.home().context["hero_trades"]]
+        self.assertEqual(len(names), 5)
+        self.assertEqual(len(set(names)), 5)
+
+    def test_grants_do_not_count_as_declared_volume(self):
+        self.add("Elon Musk", "Grant", 141_000_000_000, 1, symbol="TSLA")
+        self.add("Elon Musk", "Sale", 2_000, 2, symbol="TSLA")
+        self.add("Ana", "Purchase", 5_000, 3)
+
+        context = self.home().context
+        self.assertEqual(context["total_amount"], 7_000.0)
+        # Ordenados por lo que compran y venden, no por lo que les conceden.
+        self.assertEqual([person["name"] for person in context["politicians"]], ["Ana", "Elon Musk"])
+        self.assertNotIn("Grant", [trade.trade_type for trade in context["hero_trades"]])
+
+
 class PaginationTests(unittest.TestCase):
     def setUp(self):
         self.db = memory_session()
