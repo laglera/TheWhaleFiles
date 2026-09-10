@@ -41,6 +41,18 @@ def resolve_database_url(raw: str | None = None) -> str:
     # error que no señala a ninguna parte.
     url = url.strip()
 
+    # Los paneles de Neon y compañía ofrecen la cadena lista para la consola
+    # —`psql 'postgresql://…'`— y es fácil copiarla entera, o la línea del
+    # .env con su `DATABASE_URL=` delante. SQLAlchemy no reconoce ninguna de
+    # las dos y el error no enseña el valor, porque es un secreto.
+    if url.lower().startswith("psql "):
+        url = url[5:].strip()
+    for var in DATABASE_URL_VARS:
+        if url.startswith(f"{var}="):
+            url = url[len(var) + 1 :].strip()
+    if len(url) >= 2 and url[0] == url[-1] and url[0] in "'\"":
+        url = url[1:-1].strip()
+
     # Varios proveedores siguen entregando el esquema "postgres://", que
     # SQLAlchemy 2 ya no reconoce.
     if url.startswith("postgres://"):

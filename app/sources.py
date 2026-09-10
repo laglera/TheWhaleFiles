@@ -205,3 +205,13 @@ def poll_official_sources(database_url: str | None = None) -> list[dict[str, Any
         # pero tampoco puede pasar en silencio.
         LOGGER.exception("Fallo al releer el dataset público")
         return []
+
+
+if __name__ == "__main__":
+    # Lo lanza el refresco programado contra producción. Aquí un fallo sí debe
+    # romper: si se tragara la excepción, el workflow saldría en verde con los
+    # datos del Congreso congelados.
+    logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s %(message)s")
+    print("Releyendo el dataset público del Congreso...")
+    imported = ingest_real_dataset()
+    print(f"Listo: {len(imported)} operaciones nuevas")

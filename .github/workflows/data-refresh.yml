@@ -10,20 +10,32 @@ on:
     # la fuente, no cada cuánto preguntamos.
     - cron: "0 */6 * * *"
   workflow_dispatch:
+    inputs:
+      repair_dates:
+        # Para bases creadas antes de separar la fecha de publicación de la de
+        # operación: borra lo importado y lo relee de las fuentes. Tarda, y
+        # sólo hace falta una vez por base.
+        description: "Reparar fechas (borra y reingiere Congreso y SEC)"
+        type: boolean
+        default: false
 
 concurrency:
   # Dos pasadas a la vez sobre la misma base se pisarían al deduplicar.
   group: data-refresh
   cancel-in-progress: false
 
+env:
+  DATABASE_URL: ${{ secrets.DATABASE_URL }}
+  ENABLE_POLLING: "0"
+
 jobs:
   refresh:
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.11"
           cache: pip
@@ -33,10 +45,29 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install -r requirements.txt
 
-      - name: Nuevas operaciones declaradas
-        env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
-          ENABLE_POLLING: "0"
+      - name: Comprobar la conexión con la base
+        # Falla aquí, con un mensaje que dice qué revisar, en vez de a mitad de
+        # la ingesta con un traceback de SQLAlchemy.
+        run: |
+          python - <<'EOF'
+          import sys
+          from sqlalchemy import text
+          from app.database import DATABASE_URL, engine
+          if not DATABASE_URL.startswith("postgresql"):
+              sys.exit("DATABASE_URL no está definida o no es una URL de Postgres (postgresql://…).")
+          with engine.connect() as connection:
+              connection.execute(text("SELECT 1"))
+          print("Conexión con la base: ok")
+          EOF
+
+      - name: Reparar fechas
+        if: ${{ inputs.repair_dates }}
+        run: python -m scripts.repair_dates
+
+      - name: Nuevas operaciones del Congreso
+        run: python -m app.sources
+
+      - name: Nuevas operaciones de directivos (SEC Form 4)
         run: python -m app.insiders
 
       - name: Refrescar cotizaciones
@@ -44,7 +75,5 @@ jobs:
         # más viejos: en serverless las páginas sirven lo que hay en caché y no
         # llaman al proveedor.
         env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
           FINNHUB_API_KEY: ${{ secrets.FINNHUB_API_KEY }}
-          ENABLE_POLLING: "0"
         run: python -m app.prices

@@ -8,7 +8,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import sessionmaker
 
-from app.database import get_engine, prepare_database
+from app.database import DATABASE_URL, get_engine, prepare_database
 from app.models import Politician, Ticker, Trade
 from app.names import clean_person_name
 from app.scraper import parse_senate_filing
@@ -118,7 +118,11 @@ def load_trade_records_into_db(
     if not records:
         return []
 
-    engine = get_engine(database_url or "sqlite:///./thewhalefiles.db")
+    # Sin URL explícita, la misma base que sirve la web. Antes se caía a un
+    # SQLite fijo: con DATABASE_URL apuntando a Postgres, el polling y
+    # `repair_dates` escribían las operaciones del Congreso en un fichero local
+    # que nadie leía, y producción se quedaba sin ellas.
+    engine = get_engine(database_url or DATABASE_URL)
     prepare_database(engine)
     SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
 
