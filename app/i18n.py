@@ -117,10 +117,10 @@ TRANSLATIONS: dict[str, dict[str, Any]] = {
         "profile_photo_credit": "Foto: {author} · {license}",
         "profile_top_sub": "Volumen de compras y ventas por valor · top {n}",
         # Patrimonio (sólo perfiles empresariales)
-        "wealth_title": "Patrimonio en acciones",
+        "wealth_title": "Acciones declaradas",
         "wealth_sub": (
-            "Títulos que declara poseer en su Formulario 4 más reciente, valorados "
-            "a precio de mercado."
+            "Títulos que declara poseer —a su nombre o a través de trusts y sociedades— "
+            "en sus Formularios 4 más recientes, valorados a precio de mercado."
         ),
         "wealth_total": "Valor de mercado",
         "wealth_positions": "Posiciones",
@@ -134,8 +134,10 @@ TRANSLATIONS: dict[str, dict[str, Any]] = {
         "wealth_missing_short": "{n} sin cotizar",
         "wealth_unavailable": "No disponible",
         "wealth_disclaimer": (
-            "Sólo cuenta las acciones de empresas donde es directivo o gran accionista "
-            "y está obligado a declarar ante la SEC. No es su patrimonio total."
+            "No es su patrimonio total: sólo cuenta acciones ordinarias de empresas donde "
+            "está obligado a declarar ante la SEC, y deja fuera las convertibles y otros "
+            "derivados (como la clase B de Meta o la clase A de Berkshire). La propiedad "
+            "indirecta puede incluir participaciones de sociedades que controla."
         ),
         "wealth_congress_note": (
             "Los congresistas declaran sus operaciones en tramos de importe, sin número "
@@ -286,9 +288,10 @@ TRANSLATIONS: dict[str, dict[str, Any]] = {
         "profile_photo_credit": "Photo: {author} · {license}",
         "profile_top_sub": "Buy and sell volume per security · top {n}",
         # Wealth (business profiles only)
-        "wealth_title": "Equity holdings",
+        "wealth_title": "Declared holdings",
         "wealth_sub": (
-            "Shares declared in their most recent Form 4, valued at market price."
+            "Shares they declare owning —directly or through trusts and companies— in "
+            "their most recent Form 4 filings, valued at market price."
         ),
         "wealth_total": "Market value",
         "wealth_positions": "Positions",
@@ -302,8 +305,10 @@ TRANSLATIONS: dict[str, dict[str, Any]] = {
         "wealth_missing_short": "{n} unpriced",
         "wealth_unavailable": "Unavailable",
         "wealth_disclaimer": (
-            "Only covers shares in companies where they are an officer or major "
-            "shareholder and must report to the SEC. This is not their total net worth."
+            "This is not their total net worth: it only counts common shares in companies "
+            "where they must report to the SEC, and leaves out convertible shares and other "
+            "derivatives (such as Meta's class B or Berkshire's class A). Indirect ownership "
+            "may include stakes held by companies they control."
         ),
         "wealth_congress_note": (
             "Members of Congress declare trades in amount brackets, without share counts "
