@@ -178,6 +178,7 @@ python -m app.profiles    # biografías y retratos
 python -m app.insiders    # Form 4 de la SEC: operaciones y posiciones
 python -m app.prices      # precarga las cotizaciones en caché
 python -m app.backfill    # normaliza nombres y corrige cámara/estado
+python -m app.legislators # partido de cada congresista (lo lanza también el refresco)
 ```
 
 Sobre una base creada antes de que existiera `transaction_date`, todas las
@@ -199,6 +200,9 @@ valiendo. Contra producción, con `DATABASE_URL` delante.
 - **Congreso**: declaraciones bajo la STOCK Act. Sólo tramos de importe, sin
   número de acciones, así que no permiten calcular patrimonio.
 - **Directivos**: Formulario 4 de la SEC, que sí declara títulos poseídos.
+- **Partido**: registro público `unitedstates/congress-legislators` (dominio
+  público), cruzado por el identificador del Congreso de cada retrato o por
+  nombre y estado.
 - **Biografías y fotos**: Wikipedia y Wikimedia Commons (CC BY-SA, con
   atribución en cada ficha).
 - **Cotizaciones**: Yahoo Finance por defecto, Finnhub si se configura

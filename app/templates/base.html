@@ -81,10 +81,13 @@
           <div>
             <h4>{{ t.footer_sources }}</h4>
             <ul>
-              <li><a href="https://efdsearch.senate.gov" rel="noopener">{{ t.footer_senate }}</a></li>
+              {# Las dos fuentes de las que de verdad salen los datos: el Senado no
+                 aparecía en ninguna operación y la SEC, en la mitad de perfiles, no
+                 se citaba. #}
               <li>
                 <a href="https://disclosures-clerk.house.gov" rel="noopener">{{ t.footer_house }}</a>
               </li>
+              <li><a href="https://www.sec.gov/edgar/search/" rel="noopener">{{ t.footer_sec }}</a></li>
             </ul>
           </div>
           <div>
