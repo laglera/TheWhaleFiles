@@ -37,6 +37,14 @@ ${{ '{:,.0f}'.format(amount) }}
 {%- endif -%}
 {%- endmacro %}
 
+{# Importe de una operación. Las del Congreso se declaran por tramos y se
+   guardan con su punto medio para poder sumarlas, pero enseñar "$8K" daba por
+   exacta una cifra que el filing sólo sitúa entre $1K y $15K. #}
+{% macro trade_amount(trade) -%}
+{%- set bracket = (trade.amount|bracket_label) if trade.politician.category == 'congress' else none -%}
+{%- if bracket -%}{{ bracket }}{%- else -%}{{ money(trade.amount) }}{%- endif -%}
+{%- endmacro %}
+
 {# Etiqueta de operación: compra, venta o el tipo concreto (canje, concesión…).
    El color sigue al lado; el texto dice qué fue, que no es lo mismo una
    donación que una retención fiscal. #}

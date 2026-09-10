@@ -17,6 +17,7 @@ from sqlalchemy import case, func, or_, select
 from sqlalchemy.orm import Session, joinedload
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
+from app.amounts import bracket_for, bracket_label
 from app.database import SessionLocal, get_db, init_db, prepare_database
 from app.i18n import DEFAULT_LANG, get_translations, normalise_lang
 from app.ingestion import load_filing_into_db
@@ -225,6 +226,7 @@ def static_url(filename: str) -> str:
 templates.env.globals["static_url"] = static_url
 templates.env.filters["trade_side"] = trade_side
 templates.env.filters["trade_kind"] = trade_kind
+templates.env.filters["bracket_label"] = bracket_label
 templates.env.filters["accent_slot"] = accent_slot
 templates.env.filters["photo_url"] = photo_url
 templates.env.filters["photo_url_lg"] = photo_url_lg
@@ -592,6 +594,18 @@ API_PAGE_SIZE = 100
 API_MAX_PAGE_SIZE = 500
 
 
+def amount_range(trade: Trade, category: str) -> Optional[list[Optional[int]]]:
+    """Tramo declarado de una operación del Congreso, para la API.
+
+    `amount` es el punto medio del tramo —lo que permite sumar—, y sin los
+    límites al lado quien consuma la API lo leería como una cifra exacta.
+    """
+    if category != "congress":
+        return None
+    bracket = bracket_for(trade.amount)
+    return list(bracket) if bracket else None
+
+
 @app.get("/api/trades")
 def get_trades(
     db: Session = Depends(get_db),
@@ -621,6 +635,7 @@ def get_trades(
                 "ticker": trade.ticker.symbol,
                 "trade_type": trade.trade_type,
                 "amount": float(trade.amount),
+                "amount_range": amount_range(trade, trade.politician.category),
                 "reported_date": trade.reported_date.isoformat(),
                 "transaction_date": (
                     trade.transaction_date.isoformat() if trade.transaction_date else None
@@ -705,6 +720,7 @@ def get_politician_detail(
                 "ticker": trade.ticker.symbol,
                 "trade_type": trade.trade_type,
                 "amount": float(trade.amount),
+                "amount_range": amount_range(trade, politician.category),
                 "reported_date": trade.reported_date.isoformat(),
                 "transaction_date": (
                     trade.transaction_date.isoformat() if trade.transaction_date else None

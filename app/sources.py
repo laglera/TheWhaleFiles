@@ -8,6 +8,7 @@ from html import unescape
 from typing import Any, Optional
 from urllib.request import Request, urlopen
 
+from app.amounts import congress_amount
 from app.ingestion import load_trade_records_into_db
 
 LOGGER = logging.getLogger(__name__)
@@ -45,13 +46,10 @@ def parse_real_dataset(raw_json: str) -> list[dict[str, Any]]:
 
         representative = (item.get("representative") or "Unknown Representative").strip()
         trade_type = str(item.get("type") or "Unknown")
-        amount = item.get("amount_mid")
-        if amount is None:
-            amount_match = re.search(r"\$?([0-9,]+(?:\.\d+)?)", str(item.get("amount") or ""), flags=re.IGNORECASE)
-            if amount_match:
-                amount = float(amount_match.group(1).replace(",", ""))
-            else:
-                amount = 0.0
+        # Punto medio del tramo declarado. El `amount_mid` de la fuente no
+        # sirve solo: cuando el PDF llega recortado ("$15,001") trae el límite
+        # inferior, y la misma operación valía 15.001 o 32.500 según el caso.
+        amount = congress_amount(item.get("amount"), item.get("amount_mid"))
 
         # `disclosure_date` es cuándo se hizo público el filing y
         # `transaction_date` cuándo se ejecutó la operación: son cosas
@@ -173,6 +171,56 @@ def fetch_real_dataset(url: str = REAL_DATASET_URL) -> str:
     return payload.decode("utf-8", errors="ignore")
 
 
+def normalise_congress_amounts(database_url: str | None = None) -> int:
+    """Pasa al punto medio de su tramo los importes guardados como límite inferior.
+
+    Hasta que la ingesta leyó el tramo del texto, un filing recortado se
+    guardaba con el límite inferior (15.001) y uno completo con el punto medio
+    (32.500): la misma operación valía distinto según el PDF. Se corrige en la
+    base antes de cada ingesta —si no, la siguiente pasada vería la operación
+    corregida como nueva y la duplicaría—, y a partir de ahí no encuentra nada.
+
+    Si la versión corregida ya existe, la del límite inferior es la misma
+    operación leída dos veces y se retira en lugar de chocar con el índice.
+    """
+    from sqlalchemy import text
+
+    from app.amounts import BRACKETS
+    from app.database import DATABASE_URL, get_engine, prepare_database
+
+    engine = get_engine(database_url or DATABASE_URL)
+    prepare_database(engine)
+    congress = "politician_id IN (SELECT id FROM politicians WHERE category = 'congress')"
+    fixed = 0
+    with engine.begin() as connection:
+        for lower, _upper, mid in BRACKETS:
+            if lower == mid:
+                continue
+            params = {"lower": float(lower), "mid": float(mid)}
+            connection.execute(
+                text(
+                    f"DELETE FROM trades WHERE amount = :lower AND {congress} AND EXISTS ("
+                    " SELECT 1 FROM trades keep"
+                    " WHERE keep.politician_id = trades.politician_id"
+                    " AND keep.ticker_id = trades.ticker_id"
+                    " AND keep.trade_type = trades.trade_type"
+                    " AND keep.amount = :mid"
+                    " AND keep.reported_date = trades.reported_date"
+                    " AND (keep.transaction_date = trades.transaction_date"
+                    "      OR (keep.transaction_date IS NULL AND trades.transaction_date IS NULL)))"
+                ),
+                params,
+            )
+            result = connection.execute(
+                text(f"UPDATE trades SET amount = :mid WHERE amount = :lower AND {congress}"),
+                params,
+            )
+            fixed += result.rowcount or 0
+    if fixed:
+        LOGGER.info("Importes del Congreso llevados al punto medio de su tramo: %s", fixed)
+    return fixed
+
+
 def ingest_real_dataset(
     url: str = REAL_DATASET_URL,
     database_url: str | None = None,
@@ -180,6 +228,7 @@ def ingest_real_dataset(
 ) -> list[dict[str, Any]]:
     """Import a public real dataset into the app database."""
     raw_json = raw_json if raw_json is not None else fetch_real_dataset(url)
+    normalise_congress_amounts(database_url)
     parsed = parse_real_dataset(raw_json)
     return load_trade_records_into_db(
         parsed,
