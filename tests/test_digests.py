@@ -13,7 +13,7 @@ from sqlalchemy import create_engine, func, select
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
-from app.main import DIGEST_POSITIONS, attach_digests
+from app.main import DIGEST_POSITIONS, OPEN_MARKET_VOLUME, attach_digests, trade_kind
 from app.models import Base, Politician, Ticker, Trade
 
 
@@ -57,9 +57,7 @@ class DigestTests(unittest.TestCase):
             select(Trade).join(Trade.politician).join(Trade.ticker)
         ).with_only_columns(Trade.id).subquery()
         volume = self.db.scalar(
-            select(func.coalesce(func.sum(Trade.amount), 0.0)).where(
-                Trade.politician_id == self.person.id
-            )
+            select(OPEN_MARKET_VOLUME).where(Trade.politician_id == self.person.id)
         )
         operations = self.db.scalar(
             select(func.count(Trade.id)).where(Trade.politician_id == self.person.id)
@@ -131,6 +129,37 @@ class DigestTests(unittest.TestCase):
         self.assertEqual(last["symbol"], "NEW")
         self.assertEqual(last["trade_type"], "Sale")
         self.assertEqual(last["date"], date(2026, 3, 2))
+
+    def test_grants_are_not_money_put_into_a_security(self):
+        # El paquete de acciones de Musk (141.000 millones en un Grant) salía
+        # como "capital declarado" y como el 100% de dónde estaba su dinero.
+        self.add_trade("TSLA", "Grant", 141_000_000_000, date(2025, 11, 10))
+        self.add_trade("TSLA", "Tax withholding", 7_000_000_000, date(2026, 6, 17))
+        self.add_trade("AAA", "Purchase", 300, date(2026, 1, 1))
+        self.add_trade("BBB", "Sale", 100, date(2026, 1, 2))
+
+        digest = self.digest()
+        self.assertEqual(digest["volume"], 400.0)
+        self.assertEqual([entry["symbol"] for entry in digest["positions"]], ["AAA", "BBB"])
+        self.assertEqual(digest["positions"][0]["share"], 75.0)
+
+    def test_the_latest_trade_skips_grants(self):
+        # La última decisión de inversión es la señal; la última nómina en
+        # acciones, no.
+        self.add_trade("AAA", "Sale", 100, date(2026, 1, 1))
+        self.add_trade("AAA", "Grant", 100, date(2026, 2, 1))
+
+        last = self.digest()["last_trade"]
+        self.assertEqual(last["trade_type"], "Sale")
+        self.assertEqual(last["date"], date(2026, 1, 1))
+
+    def test_other_trade_types_keep_their_own_name(self):
+        self.assertEqual(trade_kind("Purchase"), "buy")
+        self.assertEqual(trade_kind("Sale (Partial)"), "sell")
+        self.assertEqual(trade_kind("Exchange"), "exchange")
+        self.assertEqual(trade_kind("Option exercise"), "option")
+        self.assertEqual(trade_kind("Tax withholding"), "tax")
+        self.assertEqual(trade_kind("J"), "other")
 
     def test_a_person_without_trades_gets_an_empty_digest(self):
         digest = self.digest()

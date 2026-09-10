@@ -32,36 +32,37 @@ TRANSLATIONS: dict[str, dict[str, Any]] = {
         ),
         "hero_feed_title": "Recién declarado",
         "hero_feed_empty": "Aún no hay operaciones cargadas.",
-        "hero_feed_all": "Ver las {n} operaciones",
+        "hero_feed_all": "Ver las últimas operaciones",
         "hero_sources": "Fuentes: eFD del Senado · House Clerk",
         # Métricas
         "stat_trades": "Operaciones",
-        "stat_capital": "Capital declarado",
-        "stat_capital_sub": "Suma de los importes reportados",
+        "stat_capital": "Volumen declarado",
+        "stat_capital_sub": "Compras más ventas, sin concesiones ni donaciones",
         "stat_last_sub": "Fecha del filing más reciente",
         # Los mismos números que antes ocupaban el hero, ahora en una línea de
         # contexto encima de las fichas.
         "facts_people": "perfiles",
         "facts_trades": "operaciones",
-        "facts_capital": "declarados",
+        "facts_capital": "en compras y ventas",
         "facts_last": "último filing",
         "stat_ops_declared": "Declaradas en filings oficiales",
         "stat_split": "Compras / ventas",
         "stat_split_sub": "Reparto de la actividad declarada",
         "stat_last_trade": "Última publicación",
         # Fichas-resumen
-        "digest_title": "En qué invierte cada uno",
+        "digest_title": "Qué compra y vende cada uno",
         "digest_sub": (
-            "Una ficha por persona, ordenadas por el capital que declaran. Cada una "
-            "resume dónde está concentrado ese dinero, si está comprando o vendiendo "
-            "y cuándo fue la última vez que lo declaró."
+            "Una ficha por persona, ordenadas por el volumen que declaran en compras y "
+            "ventas. Cada una resume en qué valores lo concentra, si está comprando o "
+            "vendiendo y cuál fue su última operación."
         ),
-        "digest_capital": "Capital",
+        "digest_capital": "Volumen",
         "digest_ops": "Ops",
         "digest_bias": "Sesgo",
+        "digest_bias_hint": "Según el número de compras y de ventas declaradas",
         "digest_buying": "compras",
         "digest_selling": "ventas",
-        "digest_positions": "Dónde está el dinero",
+        "digest_positions": "Dónde concentra su volumen",
         "digest_more_positions": "y {n} valores más",
         "digest_last": "Última",
         # Operaciones
@@ -85,18 +86,26 @@ TRANSLATIONS: dict[str, dict[str, Any]] = {
         "trends_title": "Tendencias",
         "trends_sub": "Dónde se concentra la actividad declarada dentro de la selección actual.",
         "trends_top_title": "Valores más operados",
-        "trends_top_sub": "Número de operaciones declaradas por ticker · top {n}",
+        "trends_top_sub": "Compras y ventas declaradas por ticker · top {n}",
         "trends_split_title": "Compras frente a ventas",
         "trends_split_sub": "Reparto de las operaciones filtradas",
         "trends_split_sub_profile": "Reparto sobre {n} operaciones",
         "side_buy": "Compra",
         "side_sell": "Venta",
-        "side_other": "Sin clasificar",
+        "side_other": "Otros tipos",
+        "kind_exchange": "Canje",
+        "kind_grant": "Concesión",
+        "kind_option": "Ejercicio de opciones",
+        "kind_tax": "Retención fiscal",
+        "kind_gift": "Donación",
+        "kind_conversion": "Conversión",
+        "kind_disposition": "Transmisión",
+        "kind_other": "Otra",
         "side_buys": "Compras",
         "side_sells": "Ventas",
         "ops_short": "ops",
         "people_empty": "No hay políticos que coincidan con esta búsqueda.",
-        "people_more": "Mostrando los 24 que más capital declaran · {n} más disponibles vía",
+        "people_more": "Mostrando los 24 con más volumen declarado · {n} más disponibles vía",
         "people_more_link": "API",
         # Ficha
         "profile_back": "Todos los perfiles",
@@ -106,7 +115,7 @@ TRANSLATIONS: dict[str, dict[str, Any]] = {
         "profile_bio_source": "Biografía de {source}, bajo licencia CC BY-SA.",
         "profile_bio_other_lang": "Biografía disponible sólo en inglés.",
         "profile_photo_credit": "Foto: {author} · {license}",
-        "profile_top_sub": "Capital declarado por valor · top {n}",
+        "profile_top_sub": "Volumen de compras y ventas por valor · top {n}",
         # Patrimonio (sólo perfiles empresariales)
         "wealth_title": "Patrimonio en acciones",
         "wealth_sub": (
@@ -193,34 +202,35 @@ TRANSLATIONS: dict[str, dict[str, Any]] = {
         ),
         "hero_feed_title": "Just declared",
         "hero_feed_empty": "No trades loaded yet.",
-        "hero_feed_all": "See all {n} trades",
+        "hero_feed_all": "See the latest trades",
         "hero_sources": "Sources: Senate eFD · House Clerk",
         # Stats
         "stat_trades": "Trades",
-        "stat_capital": "Declared capital",
-        "stat_capital_sub": "Sum of all reported amounts",
+        "stat_capital": "Declared volume",
+        "stat_capital_sub": "Buys plus sells, excluding grants and gifts",
         "stat_last_sub": "Date of the most recent filing",
         "facts_people": "profiles",
         "facts_trades": "trades",
-        "facts_capital": "declared",
+        "facts_capital": "in buys and sells",
         "facts_last": "latest filing",
         "stat_ops_declared": "Declared in official filings",
         "stat_split": "Buys / sells",
         "stat_split_sub": "Split of the declared activity",
         "stat_last_trade": "Latest filing",
         # Digest cards
-        "digest_title": "What each of them invests in",
+        "digest_title": "What each of them buys and sells",
         "digest_sub": (
-            "One card per person, sorted by the capital they declare. Each one sums up "
-            "where that money is concentrated, whether they are buying or selling, and "
-            "when they last declared it."
+            "One card per person, sorted by the volume they declare in buys and sells. "
+            "Each one sums up which securities it goes into, whether they are buying or "
+            "selling, and what their latest trade was."
         ),
-        "digest_capital": "Capital",
+        "digest_capital": "Volume",
         "digest_ops": "Trades",
         "digest_bias": "Bias",
+        "digest_bias_hint": "Based on the number of declared buys and sells",
         "digest_buying": "buys",
         "digest_selling": "sells",
-        "digest_positions": "Where the money is",
+        "digest_positions": "Where their volume goes",
         "digest_more_positions": "and {n} more securities",
         "digest_last": "Latest",
         # Trades
@@ -244,18 +254,26 @@ TRANSLATIONS: dict[str, dict[str, Any]] = {
         "trends_title": "Trends",
         "trends_sub": "Where the declared activity concentrates within the current selection.",
         "trends_top_title": "Most traded securities",
-        "trends_top_sub": "Declared trades per ticker · top {n}",
+        "trends_top_sub": "Declared buys and sells per ticker · top {n}",
         "trends_split_title": "Buys versus sells",
         "trends_split_sub": "Split of the filtered trades",
         "trends_split_sub_profile": "Split across {n} trades",
         "side_buy": "Buy",
         "side_sell": "Sell",
-        "side_other": "Unclassified",
+        "side_other": "Other types",
+        "kind_exchange": "Exchange",
+        "kind_grant": "Grant",
+        "kind_option": "Option exercise",
+        "kind_tax": "Tax withholding",
+        "kind_gift": "Gift",
+        "kind_conversion": "Conversion",
+        "kind_disposition": "Disposition",
+        "kind_other": "Other",
         "side_buys": "Buys",
         "side_sells": "Sells",
         "ops_short": "trades",
         "people_empty": "No politicians match this search.",
-        "people_more": "Showing the 24 with the most declared capital · {n} more available through the",
+        "people_more": "Showing the 24 with the most declared volume · {n} more available through the",
         "people_more_link": "API",
         # Profile
         "profile_back": "All profiles",
@@ -265,7 +283,7 @@ TRANSLATIONS: dict[str, dict[str, Any]] = {
         "profile_bio_source": "Biography from {source}, licensed CC BY-SA.",
         "profile_bio_other_lang": "Biography available in Spanish only.",
         "profile_photo_credit": "Photo: {author} · {license}",
-        "profile_top_sub": "Declared capital per security · top {n}",
+        "profile_top_sub": "Buy and sell volume per security · top {n}",
         # Wealth (business profiles only)
         "wealth_title": "Equity holdings",
         "wealth_sub": (
