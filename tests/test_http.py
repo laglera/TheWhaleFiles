@@ -64,5 +64,25 @@ class InvalidParameterTests(unittest.TestCase):
         self.assertIn(b"application/json", headers[b"content-type"])
 
 
+class StaticUrlTests(unittest.TestCase):
+    def test_the_version_follows_the_content_not_the_file_date(self):
+        # En Vercel todos los ficheros llevan la misma fecha: con ella como
+        # versión, la URL de la hoja de estilos no cambiaba entre despliegues.
+        import os
+
+        from app.main import STATIC_DIR, _static_fingerprint, static_url
+
+        path = STATIC_DIR / "styles.css"
+        before = static_url("styles.css")
+        stat = path.stat()
+        os.utime(path, (stat.st_atime, 1540000000))
+        try:
+            _static_fingerprint.cache_clear()
+            self.assertEqual(static_url("styles.css"), before)
+        finally:
+            os.utime(path, (stat.st_atime, stat.st_mtime))
+        self.assertNotIn("1540000000", before)
+
+
 if __name__ == "__main__":
     unittest.main()

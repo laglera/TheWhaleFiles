@@ -2,6 +2,9 @@
 {% import "_macros.html" as ui %}
 
 {% block title %}{{ politician.name }} | TheWhaleFiles{% endblock %}
+{# Al compartir la ficha, la tarjeta lleva el nombre de la persona y no el del
+   sitio a secas. #}
+{% block og_title %}{{ politician.name }} | TheWhaleFiles{% endblock %}
 
 {% block nav_action %}
 <a class="btn btn--primary btn--sm" href="/">{{ t.nav_back_index }}</a>

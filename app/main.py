@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
 import os
 from contextlib import asynccontextmanager
+from functools import lru_cache
 from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Any, Optional
@@ -250,16 +252,27 @@ def photo_credit(name: str) -> Optional[str]:
     return f"{author} · {entry['license']}"
 
 
+@lru_cache(maxsize=None)
+def _static_fingerprint(filename: str) -> str:
+    path = STATIC_DIR / filename
+    if not path.exists():
+        return "0"
+    return hashlib.sha256(path.read_bytes()).hexdigest()[:12]
+
+
 def static_url(filename: str) -> str:
-    """Añade la fecha del fichero a la URL.
+    """Añade a la URL una huella del contenido del fichero.
 
     Sin esto el navegador reutiliza la hoja de estilos que ya tenía guardada, y
     una plantilla nueva se dibuja con el CSS viejo: los bloques que aún no
     existen en esa hoja aparecen sin estilo.
+
+    La huella es del contenido, no de la fecha: Vercel despliega todos los
+    ficheros con la misma fecha (octubre de 2018), así que `?v=1540000000` no
+    cambiaba nunca y cada despliegue se veía con el CSS del anterior. Se
+    calcula una vez por proceso, que es lo que dura un despliegue.
     """
-    path = STATIC_DIR / filename
-    stamp = int(path.stat().st_mtime) if path.exists() else 0
-    return f"/static/{filename}?v={stamp}"
+    return f"/static/{filename}?v={_static_fingerprint(filename)}"
 
 
 templates.env.globals["static_url"] = static_url
@@ -401,7 +414,9 @@ def attach_digests(db: Session, people: list[dict[str, Any]], scoped_ids) -> Non
         # vende es un único valor") en vez de necesitar la barra de al lado.
         declared = by_id[politician_id]["volume"]
         for entry in top:
-            entry["share"] = round(entry["volume"] / declared * 100, 1) if declared else 0.0
+            # Sin redondear: la plantilla distingue "<1%" de un 0% de verdad, y
+            # con un decimal un 0,04% ya llegaba como cero.
+            entry["share"] = entry["volume"] / declared * 100 if declared else 0.0
         by_id[politician_id]["positions"] = top
         by_id[politician_id]["other_positions"] = max(len(entries) - len(top), 0)
 
