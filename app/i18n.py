@@ -13,6 +13,7 @@ TRANSLATIONS: dict[str, dict[str, Any]] = {
     "es": {
         "lang_switch": "English",
         "theme_dark": "Modo noche",
+        "theme_light": "Modo día",
         # Navegación
         "nav_trades": "Operaciones",
         "nav_trends": "Tendencias",
@@ -197,6 +198,7 @@ TRANSLATIONS: dict[str, dict[str, Any]] = {
     "en": {
         "lang_switch": "Español",
         "theme_dark": "Night mode",
+        "theme_light": "Day mode",
         # Navigation
         "nav_trades": "Trades",
         "nav_trends": "Trends",

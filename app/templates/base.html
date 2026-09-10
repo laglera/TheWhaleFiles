@@ -18,8 +18,13 @@
 
     <script nonce="{{ csp_nonce }}">
       // Se aplica antes de pintar para que no haya destello blanco en modo noche.
+      // localStorage lanza una excepción si el navegador bloquea el
+      // almacenamiento: sin el try, el script moría y el tema no se aplicaba.
       (() => {
-        const stored = localStorage.getItem('twf:theme');
+        let stored = null;
+        try {
+          stored = localStorage.getItem('twf:theme');
+        } catch (error) {}
         const dark = stored
           ? stored === 'dark'
           : window.matchMedia('(prefers-color-scheme: dark)').matches;
@@ -54,11 +59,16 @@
           <a class="nav__lang" href="{{ lang_switch_url }}" title="{{ t.lang_switch }}">
             {{ other_lang|upper }}
           </a>
+          {# aria-pressed dice si el modo noche está puesto; la etiqueta, qué hace
+             pulsar. El script la actualiza al cambiar de tema. #}
           <button
             class="nav__theme"
             type="button"
             title="{{ t.theme_dark }}"
             aria-label="{{ t.theme_dark }}"
+            aria-pressed="false"
+            data-dark="{{ t.theme_dark }}"
+            data-light="{{ t.theme_light }}"
           >
             <span class="nav__theme-icon" aria-hidden="true"></span>
           </button>
@@ -109,11 +119,23 @@
         const button = document.querySelector('.nav__theme');
         if (!button) return;
 
+        const sync = () => {
+          const dark = document.documentElement.getAttribute('data-theme') === 'dark';
+          const label = dark ? button.dataset.light : button.dataset.dark;
+          button.setAttribute('aria-pressed', dark ? 'true' : 'false');
+          button.setAttribute('aria-label', label);
+          button.setAttribute('title', label);
+        };
+        sync();
+
         button.addEventListener('click', () => {
           const dark = document.documentElement.getAttribute('data-theme') === 'dark';
           const next = dark ? 'light' : 'dark';
           document.documentElement.setAttribute('data-theme', next);
-          localStorage.setItem('twf:theme', next);
+          sync();
+          try {
+            localStorage.setItem('twf:theme', next);
+          } catch (error) {}
         });
       })();
     </script>

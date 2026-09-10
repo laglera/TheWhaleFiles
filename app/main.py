@@ -4,12 +4,14 @@ import json
 import logging
 import os
 from contextlib import asynccontextmanager
-from datetime import timedelta
+from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Any, Optional
 from urllib.parse import parse_qsl, urlencode
 
 from fastapi import Depends, FastAPI, HTTPException, Query, Request, Response
+from fastapi.exception_handlers import request_validation_exception_handler
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -58,9 +60,35 @@ async def lifespan(_app: FastAPI):
     stop_polling_loop()
 
 
+class HeadAsGetMiddleware:
+    """Responde a HEAD como a GET, sin cuerpo.
+
+    FastAPI sólo registra GET en estas rutas y a HEAD contestaba 405. Es lo que
+    usan los monitores de disponibilidad y muchos previsualizadores de enlaces:
+    la portada parecía caída sin estarlo.
+    """
+
+    def __init__(self, app):
+        self.app = app
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] != "http" or scope["method"] != "HEAD":
+            await self.app(scope, receive, send)
+            return
+
+        async def send_without_body(message):
+            if message["type"] == "http.response.body":
+                message = {**message, "body": b""}
+            await send(message)
+
+        await self.app({**scope, "method": "GET"}, receive, send_without_body)
+
+
 app = FastAPI(title="TheWhaleFiles", version="0.1.0", lifespan=lifespan)
 # Cabeceras de seguridad y nonce de CSP para los scripts en línea.
 app.middleware("http")(security_headers_middleware)
+# El último añadido envuelve a todos: la petición llega ya como GET.
+app.add_middleware(HeadAsGetMiddleware)
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 templates = Jinja2Templates(directory=TEMPLATES_DIR)
 
@@ -122,6 +150,17 @@ OPEN_MARKET_VOLUME = func.coalesce(
     func.sum(case((OPEN_MARKET, Trade.amount), else_=0.0)), 0.0
 )
 OPEN_MARKET_COUNT = func.coalesce(func.sum(case((OPEN_MARKET, 1), else_=0)), 0)
+
+
+def published():
+    """Operaciones cuyo filing ya se ha publicado.
+
+    La ingesta descarta los filings fechados en el futuro, pero una base
+    cargada antes de ese filtro los conserva: en producción abría la portada
+    una compra "publicada" el 26/12/2026. Es un error de escritura en el
+    documento original, y no se enseña como lo más reciente.
+    """
+    return Trade.reported_date <= date.today()
 
 
 def compact_money(value: float) -> str:
@@ -444,7 +483,7 @@ def home(
     if category in ("congress", "business"):
         scope_filters.append(Politician.category == category)
 
-    trade_query = select(Trade).join(Trade.politician).join(Trade.ticker)
+    trade_query = select(Trade).join(Trade.politician).join(Trade.ticker).where(published())
     if scope_filters:
         trade_query = trade_query.where(*scope_filters)
     if search_value:
@@ -626,12 +665,13 @@ def get_trades(
     limit: int = Query(API_PAGE_SIZE, ge=1, le=API_MAX_PAGE_SIZE),
     offset: int = Query(0, ge=0),
 ) -> dict[str, Any]:
-    total = db.scalar(select(func.count(Trade.id))) or 0
+    total = db.scalar(select(func.count(Trade.id)).where(published())) or 0
     trades = db.scalars(
         select(Trade)
         # Sin esto, pintar cien operaciones son doscientas consultas más: una
         # por el político y otra por el valor de cada una.
         .options(joinedload(Trade.politician), joinedload(Trade.ticker))
+        .where(published())
         .order_by(Trade.reported_date.desc(), Trade.id.desc())
         .limit(limit)
         .offset(offset)
@@ -710,13 +750,13 @@ def get_politician_detail(
     trades = db.scalars(
         select(Trade)
         .options(joinedload(Trade.ticker))
-        .where(Trade.politician_id == politician_id)
+        .where(Trade.politician_id == politician_id, published())
         .order_by(Trade.reported_date.desc(), Trade.id.desc())
         .limit(limit)
         .offset(offset)
     ).all()
     total = db.scalar(
-        select(func.count(Trade.id)).where(Trade.politician_id == politician_id)
+        select(func.count(Trade.id)).where(Trade.politician_id == politician_id, published())
     ) or 0
 
     return {
@@ -758,8 +798,11 @@ def politician_detail_page(
 
     # El id desempata: un mismo filing trae varias líneas con la misma fecha y,
     # sin él, su orden cambiaba de una visita a otra.
+    today = date.today()
     ordered_trades = sorted(
-        politician.trades, key=lambda trade: (trade.reported_date, trade.id), reverse=True
+        (trade for trade in politician.trades if trade.reported_date <= today),
+        key=lambda trade: (trade.reported_date, trade.id),
+        reverse=True,
     )
 
     # Volumen y valores más operados, sólo con compras y ventas: la misma
@@ -904,14 +947,10 @@ def wants_json(request: Request) -> bool:
     return path.startswith("/api/") or path in {"/health", "/sitemap.xml"}
 
 
-@app.exception_handler(StarletteHTTPException)
-async def http_exception_handler(request: Request, exc: StarletteHTTPException) -> Any:
-    if wants_json(request):
-        return JSONResponse({"detail": exc.detail}, status_code=exc.status_code)
-
+def error_page(request: Request, status_code: int) -> Any:
     lang = resolve_lang(request, None)
     t = get_translations(lang)
-    key = "error_404" if exc.status_code == 404 else "error_generic"
+    key = "error_404" if status_code == 404 else "error_generic"
     return templates.TemplateResponse(
         request,
         "error.html",
@@ -922,11 +961,28 @@ async def http_exception_handler(request: Request, exc: StarletteHTTPException) 
             "lang_switch_url": lang_switch_url(request, "en" if lang == "es" else "es"),
             "t": t,
             "csp_nonce": getattr(request.state, "csp_nonce", ""),
-            "status_code": exc.status_code,
+            "status_code": status_code,
             "message": t[key],
         },
-        status_code=exc.status_code,
+        status_code=status_code,
     )
+
+
+@app.exception_handler(StarletteHTTPException)
+async def http_exception_handler(request: Request, exc: StarletteHTTPException) -> Any:
+    if wants_json(request):
+        return JSONResponse({"detail": exc.detail}, status_code=exc.status_code)
+    return error_page(request, exc.status_code)
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError) -> Any:
+    # En la API, el 422 de siempre: dice qué parámetro sobra o falta. En una
+    # página, "/politicians/abc" es una ficha que no existe, y enseñaba el JSON
+    # del validador en lugar de la página de error.
+    if wants_json(request):
+        return await request_validation_exception_handler(request, exc)
+    return error_page(request, 404)
 
 
 @app.exception_handler(Exception)
@@ -937,24 +993,7 @@ async def unhandled_exception_handler(request: Request, exc: Exception) -> Any:
 
     if wants_json(request):
         return JSONResponse({"detail": "Internal server error"}, status_code=500)
-
-    lang = resolve_lang(request, None)
-    t = get_translations(lang)
-    return templates.TemplateResponse(
-        request,
-        "error.html",
-        {
-            "request": request,
-            "lang": lang,
-            "other_lang": "en" if lang == "es" else "es",
-            "lang_switch_url": lang_switch_url(request, "en" if lang == "es" else "es"),
-            "t": t,
-            "csp_nonce": getattr(request.state, "csp_nonce", ""),
-            "status_code": 500,
-            "message": t["error_generic"],
-        },
-        status_code=500,
-    )
+    return error_page(request, 500)
 
 
 @app.post("/api/poll-sources")
