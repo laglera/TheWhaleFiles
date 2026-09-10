@@ -99,6 +99,45 @@ class DatabaseUrlTests(unittest.TestCase):
             "postgresql://u:c@host/base",
         )
 
+    def test_the_console_command_copied_from_the_panel_still_connects(self):
+        # Neon ofrece la cadena como `psql '…'`, y el .env la trae con su
+        # nombre delante: las dos se pegan enteras en el gestor de secretos.
+        from app.database import resolve_database_url
+
+        expected = "postgresql://u:c@host/base?sslmode=require"
+        for pasted in (
+            "psql 'postgresql://u:c@host/base?sslmode=require'",
+            '"postgresql://u:c@host/base?sslmode=require"',
+            "DATABASE_URL=postgresql://u:c@host/base?sslmode=require",
+            "DATABASE_URL='postgres://u:c@host/base?sslmode=require'\n",
+        ):
+            self.assertEqual(resolve_database_url(pasted), expected, pasted)
+
+    def test_ingestion_writes_to_the_configured_database(self):
+        # Sin URL explícita caía en un SQLite fijo aunque DATABASE_URL
+        # apuntara a Postgres, y producción nunca recibía las operaciones.
+        from unittest import mock
+
+        from sqlalchemy import text
+
+        from app import ingestion
+        from app.database import get_engine
+
+        configured = "sqlite:///:memory:?configured=ingestion"
+        record = {
+            "politician_name": "Robin Vega",
+            "ticker": "ACME",
+            "trade_type": "Purchase",
+            "amount": 8000.0,
+            "reported_date": "2026-03-01",
+        }
+        with mock.patch.object(ingestion, "DATABASE_URL", configured):
+            ingestion.load_trade_records_into_db([record])
+
+        with get_engine(configured).connect() as connection:
+            stored = connection.execute(text("SELECT COUNT(*) FROM trades")).scalar()
+        self.assertEqual(stored, 1)
+
     def test_the_old_postgres_scheme_is_still_translated(self):
         from app.database import resolve_database_url
 

@@ -90,9 +90,14 @@ Postgres externo y la ingesta se lanza desde fuera.
 
 Con el polling apagado en serverless, algo tiene que refrescar la base o el
 sitio envejece solo. De eso se encarga `.github/workflows/data-refresh.yml`,
-que cada seis horas ingiere las operaciones nuevas y refresca las cotizaciones
-contra la base de producción. Requiere dos secretos en el repositorio de
-GitHub: `DATABASE_URL` y, si se usa Finnhub, `FINNHUB_API_KEY`.
+que cada seis horas ingiere las operaciones nuevas —del Congreso y de la SEC—
+y refresca las cotizaciones contra la base de producción. Requiere dos secretos
+en el repositorio de GitHub: `DATABASE_URL` y, si se usa Finnhub,
+`FINNHUB_API_KEY`. El primer paso comprueba la conexión y, si falla, dice qué
+revisar: el secreto tiene que ser la URL sola (`postgresql://…`).
+
+Lanzado a mano (*Run workflow*), acepta la opción **Reparar fechas**, que
+ejecuta `scripts.repair_dates` contra producción antes de la ingesta.
 
 El refresco de precios importa más de lo que parece: en serverless las fichas
 sirven las cotizaciones ya guardadas y no llaman al proveedor, porque Yahoo

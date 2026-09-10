@@ -23,7 +23,7 @@ from sqlalchemy import func, select, text
 
 from app.database import SessionLocal, prepare_database
 from app.models import Trade
-from app.sources import ingest_real_dataset
+from app.sources import fetch_real_dataset, ingest_real_dataset
 
 # Notas con las que se guardaron las operaciones del dataset público del
 # Congreso. La primera es la nota por defecto de la ingesta, que durante un
@@ -77,12 +77,16 @@ def main() -> None:
 
     prepare_database()
 
+    # Se descarga antes de borrar nada: si la fuente no responde, la base se
+    # queda como estaba en lugar de quedarse sin las operaciones del Congreso.
+    raw_json = fetch_real_dataset()
+
     with SessionLocal() as db:
         print("Antes: ", _counts(db))
         borradas = repair_congress(db)
         print(f"Congreso: {borradas} operaciones borradas, reimportando...")
 
-    importadas = ingest_real_dataset()
+    importadas = ingest_real_dataset(raw_json=raw_json)
     print(f"Congreso: {len(importadas)} operaciones reimportadas con sus dos fechas")
 
     if not args.skip_insiders:
