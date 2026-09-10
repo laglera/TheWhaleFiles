@@ -10,6 +10,7 @@ limita a 10 peticiones por segundo.
 from __future__ import annotations
 
 import json
+import re
 import time
 import urllib.error
 import urllib.request
@@ -39,17 +40,29 @@ INSIDERS: list[dict[str, str]] = [
     {"cik": "0000908724", "name": "Michael Dell", "role": "CEO", "org": "Dell Technologies"},
     {"cik": "0001205005", "name": "Safra Catz", "role": "CEO", "org": "Oracle"},
     {"cik": "0001374545", "name": "Andy Jassy", "role": "CEO", "org": "Amazon"},
-    {"cik": "0001227903", "name": "Lisa Su", "role": "CEO", "org": "AMD"},
+    # Lisa T. Su. El CIK anterior (0001227903) era el de otra Lisa Su, con
+    # operaciones de Travelzoo entre 2004 y 2021.
+    {"cik": "0001405109", "name": "Lisa Su", "role": "CEO", "org": "AMD"},
     {"cik": "0001834152", "name": "Brian Chesky", "role": "CEO", "org": "Airbnb"},
     {"cik": "0001294693", "name": "Marc Benioff", "role": "CEO", "org": "Salesforce"},
     {"cik": "0000901999", "name": "Larry Ellison", "role": "Presidente", "org": "Oracle"},
-    {"cik": "0001397814", "name": "David Solomon", "role": "CEO", "org": "Goldman Sachs"},
+    # David M. Solomon. El CIK anterior (0001397814) era el de David F. Solomon,
+    # de Forest Laboratories.
+    {"cik": "0001693709", "name": "David Solomon", "role": "CEO", "org": "Goldman Sachs"},
     {"cik": "0001195071", "name": "Brian Moynihan", "role": "CEO", "org": "Bank of America"},
     {"cik": "0001316331", "name": "Pat Gelsinger", "role": "Ex-CEO", "org": "Intel"},
     {"cik": "0001492154", "name": "Mary Barra", "role": "CEO", "org": "General Motors"},
     {"cik": "0001335782", "name": "Doug McMillon", "role": "CEO", "org": "Walmart"},
     {"cik": "0001184237", "name": "Dara Khosrowshahi", "role": "CEO", "org": "Uber"},
 ]
+
+# Operaciones importadas con un CIK que no era el de la persona. Se retiran en
+# cada importación —no queda nada que retirar después de la primera—, para que
+# el refresco programado limpie también producción.
+MISATTRIBUTED: dict[str, set[str]] = {
+    "Lisa Su": {"TZOO"},
+    "David Solomon": {"FRX"},
+}
 
 # Valores de relleno que aparecen donde debería ir el símbolo cotizado.
 NON_SYMBOLS = {"NONE", "N/A", "NA", "-", "--", "NULL"}
@@ -65,6 +78,16 @@ TRANSACTION_CODES = {
     "D": "Disposition",
     "C": "Conversion",
     "X": "Option exercise",
+    "J": "Other",
+    "W": "Inheritance",
+    "I": "Discretionary",
+    "L": "Small acquisition",
+    "K": "Equity swap",
+    "U": "Tender",
+    "Z": "Voting trust",
+    "E": "Derivative expiration",
+    "H": "Derivative expiration",
+    "O": "Option exercise",
 }
 
 
@@ -75,10 +98,27 @@ def _parse_iso(value: Any) -> Optional[date]:
         return None
 
 
-def _fetch(url: str) -> bytes:
+def _fetch(url: str, attempts: int = 3) -> bytes:
+    """Descarga de EDGAR con reintentos.
+
+    Un timeout de lectura no es un URLError sino un OSError suelto: sin
+    capturarlo, una sola respuesta lenta tumbaba la importación entera a la
+    segunda persona, y el refresco programado con ella.
+    """
     request = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
-    with urllib.request.urlopen(request, timeout=30) as response:
-        return response.read()
+    for attempt in range(attempts):
+        try:
+            with urllib.request.urlopen(request, timeout=30) as response:
+                return response.read()
+        except urllib.error.HTTPError as error:
+            # 404 y compañía no mejoran esperando; 429 y 5xx sí.
+            if error.code not in (429, 500, 502, 503, 504) or attempt == attempts - 1:
+                raise
+        except OSError:
+            if attempt == attempts - 1:
+                raise
+        time.sleep(2.0 * (attempt + 1))
+    raise OSError(f"Sin respuesta de {url}")
 
 
 def list_form4_filings(cik: str, limit: int = 12) -> list[dict[str, str]]:
@@ -101,10 +141,52 @@ def list_form4_filings(cik: str, limit: int = 12) -> list[dict[str, str]]:
     return filings
 
 
+_CLASS_IN_TITLE = re.compile(r"\bclass\s+([a-z])\b", re.IGNORECASE)
+_CLASS_IN_SYMBOL = re.compile(r"^([A-Z]+)\.([A-Z])$")
+
+
+def symbol_for_class(symbol: str, security_title: str) -> str:
+    """Símbolo de la clase de acción que declara la línea, no la del emisor.
+
+    El Form 4 de Berkshire trae "BRK.A" como símbolo del emisor, pero Buffett
+    dona acciones de clase B. Guardadas como clase A, sus 12 millones de
+    títulos B se habrían valorado a unos 700.000 dólares cada uno.
+    """
+    in_symbol = _CLASS_IN_SYMBOL.match(symbol or "")
+    in_title = _CLASS_IN_TITLE.search(security_title or "")
+    if not in_symbol or not in_title:
+        return symbol
+    declared = in_title.group(1).upper()
+    if declared == in_symbol.group(2):
+        return symbol
+    return f"{in_symbol.group(1)}.{declared}"
+
+
+def _ownership_line(node: ET.Element) -> str:
+    """A nombre de quién están los títulos: directos o de qué sociedad o trust.
+
+    Un mismo Form 4 declara por separado lo que la persona tiene a su nombre y
+    lo que tiene a través de cada trust o sociedad. Cada línea lleva su propio
+    saldo, y el total es la suma, no la última que aparezca.
+    """
+    kind = (node.findtext("ownershipNature/directOrIndirectOwnership/value") or "D").strip().upper()
+    nature = node.findtext("ownershipNature/natureOfOwnership/value") or ""
+    return f"{kind}:{' '.join(nature.lower().split())}"
+
+
 def parse_form4(xml_bytes: bytes) -> dict[str, Any]:
-    """Extrae emisor y transacciones no derivadas de un Form 4."""
+    """Extrae emisor, transacciones no derivadas y saldos de un Form 4."""
     root = ET.fromstring(xml_bytes)
+
+    symbol = (root.findtext("issuer/issuerTradingSymbol") or "").strip().upper()
+    # Los Form 4 de empresas sin valor cotizado rellenan el campo con un texto
+    # de relleno; guardarlo crearía un valor "NONE" imposible de cotizar.
+    if symbol in NON_SYMBOLS:
+        symbol = ""
+    period = _parse_iso(root.findtext("periodOfReport"))
+
     transactions = []
+    holdings = []
     for node in root.findall("nonDerivativeTable/nonDerivativeTransaction"):
         code = node.findtext("transactionCoding/transactionCode") or ""
         raw_date = node.findtext("transactionDate/value")
@@ -134,19 +216,37 @@ def parse_form4(xml_bytes: bytes) -> dict[str, Any]:
                 "transaction_date": traded_on,
                 "shares": float(shares),
                 "shares_owned": shares_owned,
+                "symbol": symbol_for_class(symbol, node.findtext("securityTitle/value") or ""),
+                "ownership": _ownership_line(node),
             }
         )
 
-    symbol = (root.findtext("issuer/issuerTradingSymbol") or "").strip().upper()
-    # Los Form 4 de empresas sin valor cotizado rellenan el campo con un texto
-    # de relleno; guardarlo crearía un valor "NONE" imposible de cotizar.
-    if symbol in NON_SYMBOLS:
-        symbol = ""
+    # Las líneas sin operación: títulos que siguen en su poder a través de otra
+    # vía (un trust, una fundación) y que el formulario declara igualmente.
+    # Sin ellas, el saldo de quien vende desde una sociedad se quedaba en lo
+    # que conserva esa sociedad.
+    for node in root.findall("nonDerivativeTable/nonDerivativeHolding"):
+        owned = node.findtext("postTransactionAmounts/sharesOwnedFollowingTransaction/value")
+        try:
+            shares_owned = float(owned) if owned is not None else None
+        except ValueError:
+            shares_owned = None
+        if shares_owned is None or period is None:
+            continue
+        holdings.append(
+            {
+                "symbol": symbol_for_class(symbol, node.findtext("securityTitle/value") or ""),
+                "ownership": _ownership_line(node),
+                "shares_owned": shares_owned,
+                "as_of": period,
+            }
+        )
 
     return {
         "symbol": symbol,
         "issuer": (root.findtext("issuer/issuerName") or "").strip(),
         "transactions": transactions,
+        "holdings": holdings,
     }
 
 
@@ -157,20 +257,30 @@ def _document_url(cik: str, accession: str, document: str) -> str:
     return f"https://www.sec.gov/Archives/edgar/data/{int(cik)}/{accession}/{filename}"
 
 
-def fetch_insider_trades(insider: dict[str, str], filings_limit: int = 12) -> list[dict[str, Any]]:
-    """Descarga y normaliza las operaciones declaradas por una persona."""
-    collected: list[dict[str, Any]] = []
+def fetch_insider_activity(insider: dict[str, str], filings_limit: int = 12) -> dict[str, Any]:
+    """Descarga los Form 4 recientes de una persona: operaciones y saldos.
+
+    Cada saldo lleva un orden (fecha, filing, línea) para poder quedarse con el
+    último de cada vía de propiedad: dentro de un formulario con varias ventas
+    el mismo día, el saldo bueno es el de la última línea, no el de la primera.
+    """
+    # `complete` dice si se leyeron todos los formularios: con alguno perdido
+    # por la red, las posiciones no se reconstruyen para no borrar un saldo
+    # que sólo faltaba por un fallo de conexión.
+    activity: dict[str, Any] = {"trades": [], "positions": [], "complete": True}
     try:
         filings = list_form4_filings(insider["cik"], filings_limit)
-    except (urllib.error.URLError, json.JSONDecodeError, KeyError):
-        return collected
+    except (OSError, json.JSONDecodeError, KeyError):
+        activity["complete"] = False
+        return activity
 
-    for filing in filings:
+    for filing_index, filing in enumerate(filings):
         time.sleep(REQUEST_PAUSE)
         url = _document_url(insider["cik"], filing["accession"], filing["document"])
         try:
             parsed = parse_form4(_fetch(url))
-        except (urllib.error.URLError, ET.ParseError):
+        except (OSError, ET.ParseError):
+            activity["complete"] = False
             continue
         if not parsed["symbol"]:
             continue
@@ -180,22 +290,80 @@ def fetch_insider_trades(insider: dict[str, str], filings_limit: int = 12) -> li
         filed_on = _parse_iso(filing.get("filed"))
         if filed_on is None:
             continue
-        for transaction in parsed["transactions"]:
+        # Los filings llegan del más reciente al más antiguo.
+        recency = len(filings) - filing_index
+
+        for line_index, transaction in enumerate(parsed["transactions"]):
             traded_on = transaction["transaction_date"]
             if traded_on > filed_on:
                 # Imposible: nadie declara antes de operar. El formulario trae
                 # la fecha mal escrita y no se puede adivinar la buena.
                 traded_on = None
-            collected.append(
+            activity["trades"].append(
                 {
                     **transaction,
                     "reported_date": filed_on,
                     "transaction_date": traded_on,
-                    "symbol": parsed["symbol"],
+                    "issuer_symbol": parsed["symbol"],
                     "issuer": parsed["issuer"],
                 }
             )
-    return collected
+            # `as_of` dice a qué día corresponde el saldo, así que sólo sirven
+            # las líneas con fecha de ejecución fiable.
+            if transaction["shares_owned"] is not None and traded_on is not None:
+                activity["positions"].append(
+                    {
+                        "symbol": transaction["symbol"],
+                        "issuer": parsed["issuer"],
+                        "ownership": transaction["ownership"],
+                        "shares_owned": transaction["shares_owned"],
+                        "as_of": traded_on,
+                        "order": (traded_on, recency, line_index),
+                    }
+                )
+
+        offset = len(parsed["transactions"])
+        for line_index, holding in enumerate(parsed["holdings"], start=offset):
+            activity["positions"].append(
+                {
+                    **holding,
+                    "issuer": parsed["issuer"],
+                    "order": (holding["as_of"], recency, line_index),
+                }
+            )
+    return activity
+
+
+def _ticker(db, symbol: str, issuer: str) -> Ticker:
+    ticker = db.query(Ticker).filter(Ticker.symbol == symbol).one_or_none()
+    if ticker is None:
+        ticker = Ticker(symbol=symbol, name=issuer or symbol)
+        db.add(ticker)
+        db.flush()
+    return ticker
+
+
+def purge_misattributed(db, person: Politician) -> int:
+    """Retira lo importado de otra persona con el mismo nombre."""
+    symbols = MISATTRIBUTED.get(person.name)
+    if not symbols:
+        return 0
+    ticker_ids = [
+        ticker_id
+        for (ticker_id,) in db.query(Ticker.id).filter(Ticker.symbol.in_(symbols)).all()
+    ]
+    if not ticker_ids:
+        return 0
+    removed = (
+        db.query(Trade)
+        .filter(Trade.politician_id == person.id, Trade.ticker_id.in_(ticker_ids))
+        .delete(synchronize_session=False)
+    )
+    db.query(Holding).filter(
+        Holding.politician_id == person.id, Holding.ticker_id.in_(ticker_ids)
+    ).delete(synchronize_session=False)
+    db.expire(person)
+    return removed or 0
 
 
 def import_insiders(
@@ -212,13 +380,20 @@ def import_insiders(
 
     with SessionLocal() as db:
         for insider in people:
-            trades = fetch_insider_trades(insider, filings_limit)
-            if not trades:
+            person = db.query(Politician).filter(Politician.name == insider["name"]).one_or_none()
+            if person is not None:
+                removed = purge_misattributed(db, person)
+                if removed and verbose:
+                    print(f"  {insider['name']}: {removed} operaciones de otra persona retiradas")
+                db.commit()
+
+            activity = fetch_insider_activity(insider, filings_limit)
+            trades = activity["trades"]
+            if not trades and not activity["positions"]:
                 if verbose:
                     print(f"  {insider['name']}: sin Form 4 legibles")
                 continue
 
-            person = db.query(Politician).filter(Politician.name == insider["name"]).one_or_none()
             if person is None:
                 person = Politician(
                     name=insider["name"],
@@ -231,6 +406,9 @@ def import_insiders(
                 db.flush()
                 imported_people += 1
 
+            # Mismo redondeo en la clave que en la comparación: sin él falla
+            # con importes de más de dos decimales y el insert choca contra el
+            # índice de unicidad de trades.
             existing = {
                 (
                     trade.ticker.symbol,
@@ -238,45 +416,48 @@ def import_insiders(
                     trade.reported_date,
                     trade.transaction_date,
                     round(trade.amount, 2),
-                )
+                ): trade
                 for trade in person.trades
             }
 
             for item in trades:
-                ticker = db.query(Ticker).filter(Ticker.symbol == item["symbol"]).one_or_none()
-                if ticker is None:
-                    ticker = Ticker(symbol=item["symbol"], name=item["issuer"] or item["symbol"])
-                    db.add(ticker)
-                    db.flush()
-
-                # Mismo redondeo que en `existing`: sin él la comparación falla
-                # con importes de más de dos decimales y el insert choca contra
-                # el índice de unicidad de trades.
-                key = (
-                    item["symbol"],
+                ticker = _ticker(db, item["symbol"], item["issuer"])
+                identity = (
                     item["trade_type"],
                     item["reported_date"],
                     item["transaction_date"],
                     round(item["amount"], 2),
                 )
+                key = (item["symbol"],) + identity
                 if key in existing:
                     continue
-                existing.add(key)
 
-                db.add(
-                    Trade(
-                        politician_id=person.id,
-                        ticker_id=ticker.id,
-                        trade_type=item["trade_type"],
-                        amount=item["amount"],
-                        reported_date=item["reported_date"],
-                        transaction_date=item["transaction_date"],
-                        notes=f"SEC Form 4 · {insider['org']}",
-                    )
+                # Una operación guardada antes con el símbolo del emisor
+                # ("BRK.A") siendo de otra clase ("BRK.B"): se corrige la que
+                # hay en vez de añadir una segunda.
+                mislabelled = existing.pop((item["issuer_symbol"],) + identity, None)
+                if mislabelled is not None and item["issuer_symbol"] != item["symbol"]:
+                    mislabelled.ticker_id = ticker.id
+                    existing[key] = mislabelled
+                    continue
+
+                trade = Trade(
+                    politician_id=person.id,
+                    ticker_id=ticker.id,
+                    trade_type=item["trade_type"],
+                    amount=item["amount"],
+                    reported_date=item["reported_date"],
+                    transaction_date=item["transaction_date"],
+                    notes=f"SEC Form 4 · {insider['org']}",
                 )
+                db.add(trade)
+                existing[key] = trade
                 imported_trades += 1
 
-            imported_holdings += _update_holdings(db, person, trades)
+            if activity["complete"]:
+                imported_holdings += _update_holdings(db, person, activity["positions"])
+            elif verbose:
+                print(f"  {insider['name']}: faltan formularios, posiciones sin tocar")
 
             if verbose:
                 print(f"  {insider['name']:22s} {len(trades):4d} operaciones leídas")
@@ -289,52 +470,64 @@ def import_insiders(
     }
 
 
-def _update_holdings(db, person: Politician, trades: list[dict[str, Any]]) -> int:
-    """Guarda la posición que declara el Form 4 más reciente de cada empresa.
+def aggregate_positions(positions: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
+    """Saldo por valor: el último de cada vía de propiedad, sumados.
 
-    Los filings se recorren del más reciente al más antiguo, así que la primera
-    aparición de cada símbolo es la posición vigente.
+    Un directivo puede tener títulos a su nombre y a través de varios trusts o
+    sociedades, y cada Form 4 declara el saldo de cada vía por separado.
+    Quedarse con una sola línea dejaba, por ejemplo, a Zuckerberg con las
+    acciones de una de sus sociedades en lugar de con todas.
     """
-    latest: dict[str, dict[str, Any]] = {}
-    for item in trades:
-        if item.get("shares_owned") is None:
-            continue
-        # `as_of` dice a qué día corresponde la posición, así que sólo sirven
-        # las operaciones con fecha de ejecución fiable. Sin ella, la posición
-        # se queda con el dato anterior en lugar de fecharse a ojo.
-        if item.get("transaction_date") is None:
-            continue
-        current = latest.get(item["symbol"])
-        if current is None or item["transaction_date"] > current["transaction_date"]:
-            latest[item["symbol"]] = item
+    latest: dict[tuple[str, str], dict[str, Any]] = {}
+    for line in positions:
+        key = (line["symbol"], line["ownership"])
+        current = latest.get(key)
+        if current is None or line["order"] > current["order"]:
+            latest[key] = line
 
-    updated = 0
-    for symbol, item in latest.items():
-        ticker = db.query(Ticker).filter(Ticker.symbol == symbol).one_or_none()
-        if ticker is None:
-            continue
-
-        holding = (
-            db.query(Holding)
-            .filter(Holding.politician_id == person.id, Holding.ticker_id == ticker.id)
-            .one_or_none()
+    totals: dict[str, dict[str, Any]] = {}
+    for (symbol, _ownership), line in latest.items():
+        entry = totals.setdefault(
+            symbol, {"shares": 0.0, "as_of": line["as_of"], "issuer": line.get("issuer", "")}
         )
+        entry["shares"] += line["shares_owned"]
+        entry["as_of"] = max(entry["as_of"], line["as_of"])
+    return totals
+
+
+def _update_holdings(db, person: Politician, positions: list[dict[str, Any]]) -> int:
+    """Rehace las posiciones de la persona con lo que declaran sus Form 4 recientes.
+
+    Se reconstruyen en lugar de parchearse: un saldo guardado con el símbolo
+    equivocado o a partir de una sola línea de propiedad no se corregiría
+    nunca si sólo se sobrescribiera con datos más nuevos.
+    """
+    totals = aggregate_positions(positions)
+    if not totals:
+        return 0
+
+    current = {holding.ticker.symbol: holding for holding in person.holdings}
+    for symbol, holding in current.items():
+        if symbol not in totals:
+            db.delete(holding)
+
+    for symbol, entry in totals.items():
+        ticker = _ticker(db, symbol, entry["issuer"])
+        holding = current.get(symbol)
         if holding is None:
             holding = Holding(politician_id=person.id, ticker_id=ticker.id)
             db.add(holding)
-        elif holding.as_of >= item["transaction_date"]:
-            # Lo que ya hay es igual de reciente o más: no se pisa.
-            continue
-
-        holding.shares = item["shares_owned"]
-        holding.as_of = item["transaction_date"]
+        holding.shares = entry["shares"]
+        holding.as_of = entry["as_of"]
         holding.source = "SEC Form 4"
-        updated += 1
 
-    return updated
+    return len(totals)
 
 
 if __name__ == "__main__":
     print("Importando Form 4 desde SEC EDGAR...")
     result = import_insiders()
-    print(f"\nListo: {result['people']} personas nuevas, {result['trades']} operaciones nuevas")
+    print(
+        f"\nListo: {result['people']} personas nuevas, {result['trades']} operaciones nuevas, "
+        f"{result['holdings']} posiciones recalculadas"
+    )
