@@ -46,15 +46,56 @@ jobs:
           python -m pip install -r requirements.txt
 
       - name: Comprobar la conexión con la base
-        # Falla aquí, con un mensaje que dice qué revisar, en vez de a mitad de
-        # la ingesta con un traceback de SQLAlchemy.
+        # Falla aquí, diciendo qué revisar, en vez de a mitad de la ingesta con
+        # un traceback de SQLAlchemy. Describe la forma del secreto sin
+        # enseñarlo: GitHub sólo oculta el valor entero, no sus trozos.
         run: |
           python - <<'EOF'
+          import os
           import sys
-          from sqlalchemy import text
-          from app.database import DATABASE_URL, engine
+
+          from sqlalchemy.engine import make_url
+          from sqlalchemy.exc import ArgumentError
+
+          raw = os.environ.get("DATABASE_URL", "")
+          if not raw.strip():
+              sys.exit("El secreto DATABASE_URL está vacío o no existe en el repositorio.")
+
+          try:
+              from app.database import DATABASE_URL, engine
+          except ArgumentError as error:
+              hints = []
+              if "://" not in raw:
+                  hints.append(
+                      "no contiene '://': no es una URL (¿sólo la contraseña, o una "
+                      "cadena 'host=… dbname=…'?)"
+                  )
+              else:
+                  scheme = raw.strip().split("://", 1)[0].strip("'\" ")
+                  if scheme.isalpha() and len(scheme) <= 20:
+                      hints.append(f"empieza por el esquema '{scheme}'")
+                  else:
+                      hints.append("lleva algo delante del esquema postgresql://")
+              if any(char.isspace() for char in raw.strip()):
+                  hints.append("contiene espacios o saltos de línea por medio")
+              if "@" not in raw:
+                  hints.append("no contiene '@' entre usuario y host")
+              elif raw.count("@") > 1:
+                  hints.append(
+                      "tiene más de una '@': si la contraseña lleva @, #, / o :, "
+                      "hay que codificarla (%40, %23, %2F, %3A)"
+                  )
+              sys.exit(
+                  f"DATABASE_URL no es una URL válida ({type(error).__name__}). "
+                  f"Pistas: {'; '.join(hints) or 'ninguna'}. "
+                  "Debe ser sólo la URL: postgresql://usuario:clave@host/base?sslmode=require"
+              )
+
           if not DATABASE_URL.startswith("postgresql"):
-              sys.exit("DATABASE_URL no está definida o no es una URL de Postgres (postgresql://…).")
+              sys.exit("DATABASE_URL no apunta a Postgres (postgresql://…).")
+          make_url(DATABASE_URL)
+          from sqlalchemy import text
+
           with engine.connect() as connection:
               connection.execute(text("SELECT 1"))
           print("Conexión con la base: ok")
