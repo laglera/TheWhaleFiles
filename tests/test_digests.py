@@ -95,6 +95,14 @@ class DigestTests(unittest.TestCase):
         self.assertEqual(positions[0]["share"], 75.0)
         self.assertEqual(positions[1]["share"], 25.0)
 
+    def test_a_tiny_share_is_not_rounded_to_zero(self):
+        self.add_trade("BIG", "Purchase", 999_990, date(2026, 1, 1))
+        self.add_trade("TINY", "Purchase", 10, date(2026, 1, 1))
+
+        tiny = self.digest()["positions"][1]
+        self.assertGreater(tiny["share"], 0)
+        self.assertLess(tiny["share"], 1)
+
     def test_uncounted_positions_are_reported_not_hidden(self):
         for index in range(DIGEST_POSITIONS + 3):
             self.add_trade(f"T{index}", "Purchase", 1_000 - index, date(2026, 1, 1))

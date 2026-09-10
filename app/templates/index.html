@@ -98,18 +98,19 @@
     {# El filtro de perfil va en pestañas, no escondido en un desplegable: el
        capital de un directivo y el de un congresista se declaran en escalas
        distintas, y separarlos es lo primero que hace falta para comparar. #}
-    <div class="scope-tabs" role="tablist" aria-label="{{ t.filter_category }}">
+    {# Son enlaces que recargan la página, no pestañas: con role="tab" un
+       lector de pantalla prometía las flechas del teclado y no respondían. #}
+    <nav class="scope-tabs" aria-label="{{ t.filter_category }}">
       {% for value, label in [('', t.cat_all), ('congress', t.cat_congress), ('business', t.cat_business)] %}
       <a
         class="scope-tab {% if active_category == value %}scope-tab--on{% endif %}"
         href="{{ scope_url(value) }}"
-        role="tab"
-        aria-selected="{{ 'true' if active_category == value else 'false' }}"
+        {% if active_category == value %}aria-current="page"{% endif %}
       >
         {{ label }}
       </a>
       {% endfor %}
-    </div>
+    </nav>
 
     <form class="filters" method="get">
       <input type="hidden" name="lang" value="{{ lang }}" />
@@ -198,7 +199,7 @@
             <li>
               <span class="digest__symbol">{{ position.symbol }}</span>
               <span class="bar-track">
-                <span class="bar-fill bar-fill--{{ loop.index }}" style="width: {{ position.share }}%"></span>
+                <span class="bar-fill bar-fill--{{ loop.index }}" style="width: {{ position.share|round(1) }}%"></span>
               </span>
               {# Un valor con el 0,3% del volumen no es un 0%: lo que hay es poco. #}
               <span class="digest__share">
