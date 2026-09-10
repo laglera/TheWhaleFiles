@@ -785,9 +785,15 @@ def politician_detail_page(
 
     # Sólo los insiders corporativos declaran número de acciones (Form 4), así
     # que sólo ellos pueden tener patrimonio calculado.
+    #
+    # Con las cotizaciones que haya en caché, nunca pidiéndolas en la petición:
+    # Yahoo responde 429 a menudo y cada valor sin precio esperaba hasta medio
+    # minuto de reintentos. La ficha de Buffett tardaba tres minutos en abrir.
+    # Las refresca el hilo de polling o `python -m app.prices`, y la ficha dice
+    # siempre de cuándo son.
     wealth = None
     if politician.category == "business" and politician.holdings:
-        wealth = value_holdings(politician.holdings)
+        wealth = value_holdings(politician.holdings, refresh=False)
 
     return render(
         request,

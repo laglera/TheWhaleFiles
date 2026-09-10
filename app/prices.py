@@ -225,8 +225,12 @@ def get_prices(symbols: Iterable[str], refresh: bool = True) -> dict[str, PriceQ
         }
 
 
-def value_holdings(holdings: list, refresh: bool = True) -> dict[str, object]:
-    """Valora una lista de posiciones a precio de mercado."""
+def value_holdings(holdings: list, refresh: bool = False) -> dict[str, object]:
+    """Valora una lista de posiciones a precio de mercado.
+
+    Por defecto sólo con lo cacheado: quien la llama suele ser una petición
+    web, y esperar al proveedor ahí la deja colgada. Para refrescar, `refresh`.
+    """
     symbols = [holding.ticker.symbol for holding in holdings]
     return combine_positions(holdings, get_prices(symbols, refresh=refresh))
 

@@ -45,6 +45,14 @@ def start_polling_loop(interval_seconds: int | None = None) -> None:
                 # Un fallo de red no puede tumbar el hilo: se reintenta al ciclo
                 # siguiente, pero queda registrado.
                 logger.exception("Polling: fallo al consultar las fuentes oficiales")
+            # Las fichas ya no piden cotizaciones al abrirse: las deja listas
+            # este hilo, que puede permitirse esperar al proveedor.
+            try:
+                from app.prices import warm_cache
+
+                warm_cache(verbose=False)
+            except Exception:
+                logger.exception("Polling: fallo al refrescar las cotizaciones")
             _polling_stop.wait(interval)
 
     _polling_stop.clear()
