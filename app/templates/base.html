@@ -14,6 +14,7 @@
     <meta property="og:image" content="{{ request.base_url }}static/logo.png" />
     <meta property="og:url" content="{{ request.url }}" />
     <meta name="twitter:card" content="summary" />
+    <link rel="alternate" type="application/atom+xml" title="TheWhaleFiles" href="/feed.xml" />
     {% block head_extra %}{% endblock %}
 
     <script nonce="{{ csp_nonce }}">
@@ -121,6 +122,8 @@
             <ul>
               <li><a href="/api/trades">{{ t.footer_trades_json }}</a></li>
               <li><a href="/api/politicians">{{ t.footer_people_json }}</a></li>
+              <li><a href="/api/trades.csv">{{ t.footer_trades_csv }}</a></li>
+              <li><a href="/feed.xml">{{ t.footer_feed }}</a></li>
               <li><a href="/health">{{ t.footer_health }}</a></li>
             </ul>
           </div>

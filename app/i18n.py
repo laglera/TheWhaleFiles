@@ -40,6 +40,11 @@ TRANSLATIONS: dict[str, dict[str, Any]] = {
         "stat_capital": "Volumen declarado",
         "stat_capital_sub": "Compras más ventas, sin concesiones ni donaciones",
         "stat_last_sub": "Fecha del filing más reciente",
+        "stat_range": "Por tramos: entre {min} y {max}",
+        "stat_range_open": "Por tramos: más de {min}",
+        "stat_lag": "Declara de media {days} días después de operar",
+        "stat_late": "{n} fuera del plazo de 45 días",
+        "trade_lag": "declarada {days} días después",
         # Los mismos números que antes ocupaban el hero, ahora en una línea de
         # contexto encima de las fichas.
         "facts_people": "perfiles",
@@ -260,6 +265,8 @@ TRANSLATIONS: dict[str, dict[str, Any]] = {
         "footer_data": "Datos",
         "footer_trades_json": "Operaciones (JSON)",
         "footer_people_json": "Políticos (JSON)",
+        "footer_trades_csv": "Operaciones (CSV)",
+        "footer_feed": "Avisos de nuevas operaciones (Atom)",
         "footer_health": "Estado del servicio",
         "footer_note": (
             "Los PTR se publican hasta 45 días después de la operación: esta plataforma reduce "
@@ -314,6 +321,11 @@ TRANSLATIONS: dict[str, dict[str, Any]] = {
         "stat_capital": "Declared volume",
         "stat_capital_sub": "Buys plus sells, excluding grants and gifts",
         "stat_last_sub": "Date of the most recent filing",
+        "stat_range": "By brackets: between {min} and {max}",
+        "stat_range_open": "By brackets: over {min}",
+        "stat_lag": "Discloses {days} days after trading on average",
+        "stat_late": "{n} past the 45-day deadline",
+        "trade_lag": "disclosed {days} days later",
         "facts_people": "profiles",
         "facts_trades": "trades",
         "facts_capital": "in buys and sells",
@@ -528,6 +540,8 @@ TRANSLATIONS: dict[str, dict[str, Any]] = {
         "footer_data": "Data",
         "footer_trades_json": "Trades (JSON)",
         "footer_people_json": "Politicians (JSON)",
+        "footer_trades_csv": "Trades (CSV)",
+        "footer_feed": "New trade alerts (Atom)",
         "footer_health": "Service status",
         "footer_note": (
             "PTRs are published up to 45 days after the trade: this platform reduces the lag "
