@@ -2303,6 +2303,14 @@ img {
   font-variant-numeric: tabular-nums;
 }
 
+/* Operación sin importe en el filing: texto, no una cifra que parezca cero. */
+.amount-missing {
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-style: normal;
+  color: var(--stone);
+}
+
 /* --------------------------------------------------------------------------
    Footer
    -------------------------------------------------------------------------- */

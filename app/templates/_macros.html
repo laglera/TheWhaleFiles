@@ -33,11 +33,12 @@
 {% macro money(value, currency='USD') -%}
 {%- set amount = value|default(0)|float -%}
 {%- set sign = currency_sign(currency) -%}
-{%- if amount >= 1000000000 -%}
+{#- Umbrales tras redondear: $999,96M se escribía "$1,000.0M". -#}
+{%- if amount >= 999950000 -%}
 {{ sign }}{{ '{:,.1f}'.format(amount / 1000000000) }}B
-{%- elif amount >= 1000000 -%}
+{%- elif amount >= 999500 -%}
 {{ sign }}{{ '{:,.1f}'.format(amount / 1000000) }}M
-{%- elif amount >= 1000 -%}
+{%- elif amount >= 999.5 -%}
 {{ sign }}{{ '{:,.0f}'.format(amount / 1000) }}K
 {%- else -%}
 {{ sign }}{{ '{:,.0f}'.format(amount) }}
@@ -46,10 +47,14 @@
 
 {# Importe de una operación. Las del Congreso se declaran por tramos y se
    guardan con su punto medio para poder sumarlas, pero enseñar "$8K" daba por
-   exacta una cifra que el filing sólo sitúa entre $1K y $15K. #}
-{% macro trade_amount(trade) -%}
+   exacta una cifra que el filing sólo sitúa entre $1K y $15K.
+   Sin importe —una donación, una concesión sin precio o una venta mal
+   declarada— no se pinta "$0": se dice que el filing no lo trae. #}
+{% macro trade_amount(trade, t) -%}
 {%- set bracket = (trade.amount|bracket_label) if trade.politician.category == 'congress' else none -%}
-{%- if bracket -%}{{ bracket }}{%- else -%}{{ money(trade.amount) }}{%- endif -%}
+{%- if bracket -%}{{ bracket }}
+{%- elif not trade.amount -%}<em class="amount-missing">{{ t.amount_undeclared }}</em>
+{%- else -%}{{ money(trade.amount) }}{%- endif -%}
 {%- endmacro %}
 
 {# Etiqueta de operación: compra, venta o el tipo concreto (canje, concesión…).
