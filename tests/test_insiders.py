@@ -198,3 +198,115 @@ class IndirectOwnershipTests(unittest.TestCase):
         totals = aggregate_positions(positions_from(parse_form4(FORM4)))
         self.assertEqual(totals["BRK.B"]["shares"], 1662)
         self.assertEqual(totals["BRK.B"]["shares_indirect"], 500)
+
+
+OWNER_FORM4 = b"""<?xml version="1.0"?>
+<ownershipDocument>
+  <reportingOwner>
+    <reportingOwnerId><rptOwnerCik>0001008463</rptOwnerCik><rptOwnerName>Tan Lip-Bu</rptOwnerName></reportingOwnerId>
+    <reportingOwnerRelationship><isDirector>1</isDirector><isOfficer>1</isOfficer>
+      <officerTitle>Chief Executive Officer</officerTitle></reportingOwnerRelationship>
+  </reportingOwner>
+  <reportingOwner>
+    <reportingOwnerId><rptOwnerCik>123</rptOwnerCik><rptOwnerName>DOE JOHN Q</rptOwnerName></reportingOwnerId>
+    <reportingOwnerRelationship><isOfficer>1</isOfficer><officerTitle>Former CEO</officerTitle></reportingOwnerRelationship>
+  </reportingOwner>
+</ownershipDocument>
+"""
+
+
+class DiscoveryTests(unittest.TestCase):
+    def test_the_list_lives_in_a_data_file(self):
+        # Antes eran 23 nombres en el código: añadir uno exigía redesplegar.
+        from app.insiders import load_tracked
+
+        tracked = load_tracked()
+        self.assertGreaterEqual(len(tracked["people"]), 20)
+        self.assertIn("NVDA", tracked["companies"])
+        self.assertTrue(all(person["cik"].isdigit() for person in tracked["people"]))
+
+    def test_reporting_owners_and_their_titles(self):
+        from app.insiders import is_ceo, parse_reporting_owners
+
+        owners = parse_reporting_owners(OWNER_FORM4)
+        self.assertEqual(owners[0]["cik"], "0001008463")
+        self.assertEqual(owners[0]["name"], "Lip-Bu Tan")
+        self.assertTrue(is_ceo(owners[0]))
+        # Quien fue CEO no cuenta como CEO.
+        self.assertFalse(is_ceo(owners[1]))
+        self.assertEqual(owners[1]["name"], "John Doe")
+
+    def test_company_names_lose_their_legal_suffix(self):
+        from app.insiders import organisation_name
+
+        self.assertEqual(organisation_name("NVIDIA CORP"), "Nvidia")
+        self.assertEqual(organisation_name("Apple Inc."), "Apple")
+        self.assertEqual(organisation_name("JPMORGAN CHASE & CO"), "Jpmorgan Chase")
+
+    def test_a_discovered_ceo_is_matched_by_cik_not_by_name(self):
+        # EDGAR llama "Jen Hsun Huang" a quien la lista llama "Jensen Huang".
+        from unittest import mock
+
+        from app import insiders
+
+        discovered = [
+            {"cik": "0001197649", "name": "Jen Hsun Huang", "role": "CEO", "org": "Nvidia"},
+            {"cik": "0001008463", "name": "Lip-Bu Tan", "role": "CEO", "org": "Intel"},
+        ]
+        with mock.patch.object(insiders, "discover_ceos", return_value=discovered):
+            people = insiders.tracked_insiders()
+        names = [person["name"] for person in people]
+        self.assertIn("Jensen Huang", names)
+        self.assertNotIn("Jen Hsun Huang", names)
+        self.assertIn("Lip-Bu Tan", names)
+
+    def test_discovery_reads_the_issuers_own_filings(self):
+        from unittest import mock
+
+        from app import insiders
+
+        def fake_fetch(url, attempts=3):
+            if url.endswith("company_tickers.json"):
+                return b'{"0": {"cik_str": 50863, "ticker": "INTC", "title": "INTEL CORP"}}'
+            return OWNER_FORM4
+
+        filings = [{"accession": "1", "document": "a.xml", "filed": "2026-09-01"}]
+        with mock.patch.object(insiders, "_fetch", side_effect=fake_fetch), mock.patch.object(
+            insiders, "list_form4_filings", return_value=filings
+        ) as listed, mock.patch.object(insiders, "REQUEST_PAUSE", 0):
+            people = insiders.discover_ceos(["INTC"])
+        listed.assert_called_once_with("0000050863", 20)
+        self.assertEqual(people, [
+            {"cik": "0001008463", "name": "Lip-Bu Tan", "role": "CEO", "org": "Intel", "discovered": True}
+        ])
+
+    def test_without_network_discovery_gives_nobody(self):
+        from unittest import mock
+
+        from app import insiders
+
+        with mock.patch.object(insiders, "_fetch", side_effect=OSError("sin red")):
+            self.assertEqual(insiders.discover_ceos(["INTC"]), [])
+
+
+class DormantProfileTests(unittest.TestCase):
+    def test_a_year_without_filings_is_said_on_the_profile(self):
+        from datetime import timedelta
+
+        from app import main
+        from app.models import Politician, Ticker, Trade
+        from tests.support import memory_session
+        from tests.test_public_pages import make_request
+
+        db = memory_session()
+        person = Politician(name="Pat Gelsinger", chamber="Ex-CEO", state="Intel", category="business")
+        ticker = Ticker(symbol="INTC", name="Intel")
+        db.add_all([person, ticker])
+        db.flush()
+        db.add(Trade(politician_id=person.id, ticker_id=ticker.id, trade_type="Sale", amount=10,
+                     reported_date=date.today() - timedelta(days=500)))
+        db.flush()
+        response = main.politician_detail_page(make_request(f"/politicians/{person.id}"), person.id, db)
+        db.close()
+        self.assertIsNotNone(response.context["dormant_since"])
+        self.assertIn("Sin Formularios 4 desde", response.body.decode())

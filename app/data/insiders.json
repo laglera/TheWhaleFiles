@@ -1,0 +1,185 @@
+{
+  "_doc": "Personas que se siguen siempre (con su CIK personal de EDGAR) y empresas cuyos CEO se descubren solos en cada refresco a partir de sus Form 4. Editar este fichero basta: el refresco programado lo lee del repositorio, sin redesplegar la web.",
+  "people": [
+    {
+      "cik": "0001494730",
+      "name": "Elon Musk",
+      "role": "CEO",
+      "org": "Tesla"
+    },
+    {
+      "cik": "0001043298",
+      "name": "Jeff Bezos",
+      "role": "Fundador",
+      "org": "Amazon"
+    },
+    {
+      "cik": "0001214156",
+      "name": "Tim Cook",
+      "role": "CEO",
+      "org": "Apple"
+    },
+    {
+      "cik": "0000315090",
+      "name": "Warren Buffett",
+      "role": "CEO",
+      "org": "Berkshire Hathaway"
+    },
+    {
+      "cik": "0001548760",
+      "name": "Mark Zuckerberg",
+      "role": "CEO",
+      "org": "Meta"
+    },
+    {
+      "cik": "0001197649",
+      "name": "Jensen Huang",
+      "role": "CEO",
+      "org": "NVIDIA"
+    },
+    {
+      "cik": "0001513142",
+      "name": "Satya Nadella",
+      "role": "CEO",
+      "org": "Microsoft"
+    },
+    {
+      "cik": "0001534753",
+      "name": "Sundar Pichai",
+      "role": "CEO",
+      "org": "Alphabet"
+    },
+    {
+      "cik": "0001195345",
+      "name": "Jamie Dimon",
+      "role": "CEO",
+      "org": "JPMorgan Chase"
+    },
+    {
+      "cik": "0001059245",
+      "name": "Larry Fink",
+      "role": "CEO",
+      "org": "BlackRock"
+    },
+    {
+      "cik": "0001033331",
+      "name": "Reed Hastings",
+      "role": "Presidente",
+      "org": "Netflix"
+    },
+    {
+      "cik": "0000908724",
+      "name": "Michael Dell",
+      "role": "CEO",
+      "org": "Dell Technologies"
+    },
+    {
+      "cik": "0001205005",
+      "name": "Safra Catz",
+      "role": "CEO",
+      "org": "Oracle"
+    },
+    {
+      "cik": "0001374545",
+      "name": "Andy Jassy",
+      "role": "CEO",
+      "org": "Amazon"
+    },
+    {
+      "cik": "0001405109",
+      "name": "Lisa Su",
+      "role": "CEO",
+      "org": "AMD",
+      "note": "Lisa T. Su. El CIK anterior (0001227903) era el de otra Lisa Su, con operaciones de Travelzoo entre 2004 y 2021."
+    },
+    {
+      "cik": "0001834152",
+      "name": "Brian Chesky",
+      "role": "CEO",
+      "org": "Airbnb"
+    },
+    {
+      "cik": "0001294693",
+      "name": "Marc Benioff",
+      "role": "CEO",
+      "org": "Salesforce"
+    },
+    {
+      "cik": "0000901999",
+      "name": "Larry Ellison",
+      "role": "Presidente",
+      "org": "Oracle"
+    },
+    {
+      "cik": "0001693709",
+      "name": "David Solomon",
+      "role": "CEO",
+      "org": "Goldman Sachs",
+      "note": "David M. Solomon. El CIK anterior (0001397814) era el de David F. Solomon, de Forest Laboratories."
+    },
+    {
+      "cik": "0001195071",
+      "name": "Brian Moynihan",
+      "role": "CEO",
+      "org": "Bank of America"
+    },
+    {
+      "cik": "0001316331",
+      "name": "Pat Gelsinger",
+      "role": "Ex-CEO",
+      "org": "Intel"
+    },
+    {
+      "cik": "0001492154",
+      "name": "Mary Barra",
+      "role": "CEO",
+      "org": "General Motors"
+    },
+    {
+      "cik": "0001335782",
+      "name": "Doug McMillon",
+      "role": "CEO",
+      "org": "Walmart"
+    },
+    {
+      "cik": "0001184237",
+      "name": "Dara Khosrowshahi",
+      "role": "CEO",
+      "org": "Uber"
+    }
+  ],
+  "companies": [
+    "TSLA",
+    "AMZN",
+    "AAPL",
+    "BRK-B",
+    "META",
+    "NVDA",
+    "MSFT",
+    "GOOGL",
+    "JPM",
+    "BLK",
+    "NFLX",
+    "DELL",
+    "ORCL",
+    "AMD",
+    "ABNB",
+    "CRM",
+    "GS",
+    "BAC",
+    "INTC",
+    "GM",
+    "WMT",
+    "UBER",
+    "AVGO",
+    "LLY",
+    "V",
+    "MA",
+    "UNH",
+    "XOM",
+    "COST",
+    "HD",
+    "JNJ",
+    "PG"
+  ]
+}

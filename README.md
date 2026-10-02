@@ -232,7 +232,11 @@ valiendo. Contra producción, con `DATABASE_URL` delante.
 
 - **Congreso**: declaraciones bajo la STOCK Act. Sólo tramos de importe, sin
   número de acciones, así que no permiten calcular patrimonio.
-- **Directivos**: Formulario 4 de la SEC, que sí declara títulos poseídos.
+- **Directivos**: Formulario 4 de la SEC, que sí declara títulos poseídos. Se
+  sigue a las personas de `app/data/insiders.json` y, además, al CEO de cada
+  empresa de su lista `companies`, descubierto en cada refresco en los últimos
+  Form 4 del emisor: un CEO nuevo aparece solo, sin tocar el código. Quien deja
+  el cargo conserva su ficha, que avisa tras un año sin declarar.
 - **Partido**: registro público `unitedstates/congress-legislators` (dominio
   público), cruzado por el identificador del Congreso de cada retrato o por
   nombre y estado.

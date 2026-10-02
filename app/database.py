@@ -126,6 +126,7 @@ ADDED_COLUMNS = {
     ],
     "politicians": [
         ("category", "VARCHAR(20) NOT NULL DEFAULT 'congress'"),
+        ("cik", "VARCHAR(10)"),
         ("bio_es", "TEXT"),
         ("bio_en", "TEXT"),
         ("bio_headline_es", "VARCHAR(255)"),
