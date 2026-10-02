@@ -235,6 +235,25 @@ Borra lo importado y lo reingiere con las dos fechas separadas. Conserva los
 identificadores de las personas, así que los enlaces `/politicians/{id}` siguen
 valiendo. Contra producción, con `DATABASE_URL` delante.
 
+## Rentabilidad y riesgo de copiar a cada persona
+
+`python -m app.performance` (último paso del refresco) simula una cartera que
+copia las compras y ventas de cada persona de los últimos tres años **sólo
+cuando ya eran públicas**: entra al cierre de la sesión siguiente a la
+publicación, sale tras la venta publicada o a las 126 sesiones, a pesos
+iguales y con 10 puntos básicos de coste por operación. Con los cierres
+ajustados de `app.history` y frente al SPY en las mismas sesiones calcula
+rentabilidad total y anualizada, volatilidad, Sharpe, Sortino, peor caída,
+beta, alfa, correlación, tracking error, information ratio, porcentaje de
+operaciones que baten al índice, ganancia y pérdida medias, ratio de pago y
+coeficiente de información a 21 sesiones. Con menos de cinco operaciones
+copiadas o tres meses de sesiones no publica nada. Se ajusta con
+`BACKTEST_HOLD_SESSIONS`, `BACKTEST_COST_BPS`, `RISK_FREE_RATE`,
+`BENCHMARK_SYMBOL` y `HISTORY_YEARS`.
+
+La ficha lo enseña en «¿Y si le hubieras copiado?» y la API, en el campo
+`performance` de `/api/politicians/{id}`.
+
 ## Origen de los datos
 
 - **Congreso**: declaraciones bajo la STOCK Act. Sólo tramos de importe, sin

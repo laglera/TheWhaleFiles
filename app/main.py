@@ -28,6 +28,7 @@ from app.i18n import DEFAULT_LANG, get_translations, normalise_lang
 from app.ingestion import load_filing_into_db
 from app.models import Politician, Ticker, Trade
 from app.prices import provider_name as price_source
+from app.performance import load_performance
 from app.prices import value_derivatives, value_holdings
 from app.runtime import is_serverless, utcnow
 from app.scheduler import polling_enabled, start_polling_loop, stop_polling_loop
@@ -773,6 +774,16 @@ def get_politicians(
     }
 
 
+def performance_for_api(performance: Optional[dict[str, Any]]) -> Optional[dict[str, Any]]:
+    if performance is None:
+        return None
+    computed_at = performance.get("computed_at")
+    return {
+        **performance,
+        "computed_at": computed_at.isoformat() if computed_at else None,
+    }
+
+
 @app.get("/api/politicians/{politician_id}")
 def get_politician_detail(
     politician_id: int,
@@ -803,6 +814,9 @@ def get_politician_detail(
         "state": politician.state,
         "party": politician.party,
         "total_trades": total,
+        # Rentabilidad de copiar sus operaciones frente al índice, si hay datos
+        # para calcularla: la misma que enseña la ficha.
+        "performance": performance_for_api(load_performance(db, politician_id)),
         "limit": limit,
         "offset": offset,
         "trades": [
@@ -897,6 +911,8 @@ def politician_detail_page(
         if (today - last_filing).days > DORMANT_AFTER_DAYS:
             dormant_since = last_filing
 
+    performance = load_performance(db, politician.id)
+
     wealth = None
     derivatives = None
     if politician.category == "business" and politician.holdings:
@@ -921,6 +937,7 @@ def politician_detail_page(
             "wealth": wealth,
             "derivatives": derivatives,
             "dormant_since": dormant_since,
+            "performance": performance,
             "price_source": price_source(),
         },
         resolved_lang,

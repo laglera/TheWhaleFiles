@@ -184,6 +184,43 @@ TRANSLATIONS: dict[str, dict[str, Any]] = {
             "de acciones ni posiciones, así que no es posible calcular su patrimonio. "
             "Cada importe es el tramo declarado; el volumen suma el punto medio de cada uno."
         ),
+        # Rentabilidad de copiar
+        "perf_title": "¿Y si le hubieras copiado?",
+        "perf_sub": (
+            "Una cartera que compra cada valor al cierre de la sesión siguiente a la "
+            "publicación de su compra y lo vende tras su venta publicada o a las {hold} "
+            "sesiones, a pesos iguales, con {cost} puntos básicos de coste por operación. "
+            "Comparada con {benchmark} en las mismas sesiones."
+        ),
+        "perf_total": "Rentabilidad total",
+        "perf_vs_benchmark": "{benchmark} en el mismo periodo: {value}",
+        "perf_alpha": "Alfa anual",
+        "perf_alpha_sub": "Frente al índice, ajustada por beta ({beta})",
+        "perf_sharpe_sub": "Rentabilidad por unidad de riesgo; tipo sin riesgo {rf}",
+        "perf_drawdown": "Peor caída",
+        "perf_drawdown_sub": "{benchmark}: {value}",
+        "perf_cagr": "Rentabilidad anualizada",
+        "perf_volatility": "Volatilidad anual",
+        "perf_correlation": "Correlación con el índice",
+        "perf_tracking": "Tracking error",
+        "perf_ir": "Information ratio",
+        "perf_win_rate": "Operaciones que baten al índice",
+        "perf_avg_win_loss": "Exceso medio al ganar / al perder",
+        "perf_payoff": "Ratio de pago",
+        "perf_ic": "Coeficiente de información (21 sesiones)",
+        "perf_sample": "Muestra",
+        "perf_sample_value": "{trades} operaciones copiadas, {sessions} sesiones ({start} a {end})",
+        "perf_unavailable": (
+            "No hay datos suficientes para medirlo: {signals} compras y ventas en el "
+            "periodo, {priced} con histórico de precios y {trades} operaciones copiables. "
+            "Hacen falta al menos cinco y tres meses de sesiones."
+        ),
+        "perf_disclaimer": (
+            "Simulación retrospectiva con datos públicos, no una recomendación. Rentabilidad "
+            "total con dividendos, antes de impuestos. Con pocas operaciones las métricas "
+            "son muy inestables, y rentabilidades pasadas no garantizan las futuras."
+        ),
+        "perf_computed": "Calculado el {when}",
         "history_title": "Últimas inversiones",
         "history_sub": "Ordenadas por fecha de publicación del filing, de más reciente a más antigua.",
         "history_type": "Tipo",
@@ -419,6 +456,43 @@ TRANSLATIONS: dict[str, dict[str, Any]] = {
             "or positions, so their holdings cannot be calculated. Each amount is the "
             "declared bracket; volume adds up the midpoint of each one."
         ),
+        # Copy performance
+        "perf_title": "What if you had copied them?",
+        "perf_sub": (
+            "A portfolio that buys each security at the close of the session after its "
+            "purchase is published and sells it after a published sale or after {hold} "
+            "sessions, equally weighted, with {cost} basis points of cost per trade. "
+            "Compared with {benchmark} over the same sessions."
+        ),
+        "perf_total": "Total return",
+        "perf_vs_benchmark": "{benchmark} over the same period: {value}",
+        "perf_alpha": "Annual alpha",
+        "perf_alpha_sub": "Versus the index, beta-adjusted ({beta})",
+        "perf_sharpe_sub": "Return per unit of risk; risk-free rate {rf}",
+        "perf_drawdown": "Max drawdown",
+        "perf_drawdown_sub": "{benchmark}: {value}",
+        "perf_cagr": "Annualised return",
+        "perf_volatility": "Annual volatility",
+        "perf_correlation": "Correlation with the index",
+        "perf_tracking": "Tracking error",
+        "perf_ir": "Information ratio",
+        "perf_win_rate": "Trades that beat the index",
+        "perf_avg_win_loss": "Average excess when winning / losing",
+        "perf_payoff": "Payoff ratio",
+        "perf_ic": "Information coefficient (21 sessions)",
+        "perf_sample": "Sample",
+        "perf_sample_value": "{trades} copied trades, {sessions} sessions ({start} to {end})",
+        "perf_unavailable": (
+            "Not enough data to measure it: {signals} buys and sells in the period, {priced} "
+            "with price history and {trades} copyable trades. At least five and three months "
+            "of sessions are needed."
+        ),
+        "perf_disclaimer": (
+            "Backward-looking simulation on public data, not a recommendation. Total return "
+            "with dividends, before taxes. With few trades the metrics are very unstable, and "
+            "past returns do not guarantee future ones."
+        ),
+        "perf_computed": "Computed {when}",
         "history_title": "Latest investments",
         "history_sub": "Sorted by filing publication date, most recent first.",
         "history_type": "Type",
