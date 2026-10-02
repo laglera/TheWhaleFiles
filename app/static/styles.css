@@ -2205,6 +2205,26 @@ img {
   font-size: 13px;
 }
 
+/* Dividendos de una posición, debajo de su valor. */
+.ledger__dividends {
+  display: block;
+  font-family: var(--font-body);
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 400;
+  color: var(--mute);
+}
+
+/* Total y filas valoradas con una cotización vieja: aproximados, no de hoy. */
+.wealth-total strong.wealth-total--stale {
+  color: var(--stone);
+}
+
+.ledger__row--stale .ledger__amount,
+.ledger__row--stale .ledger__price {
+  color: var(--stone);
+}
+
 /* Variación diaria de la cotización */
 .delta {
   display: inline-block;

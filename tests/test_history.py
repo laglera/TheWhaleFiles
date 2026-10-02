@@ -92,6 +92,9 @@ class AdjustmentTests(unittest.TestCase):
         self.assertEqual(result["dividends"], 500)
         self.assertEqual(result["split_adjusted"], 1)
         self.assertEqual(result["positions"][0]["shares_now"], 1000)
+        # Cada fila dice de dónde salen sus dividendos: cuántos pagos y el último.
+        self.assertEqual(result["positions"][0]["dividend_payments"], 1)
+        self.assertEqual(result["positions"][0]["last_dividend"], date(2024, 9, 1))
 
 
 class StorageTests(unittest.TestCase):

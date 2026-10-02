@@ -418,6 +418,13 @@ def combine_positions(
 
         value = None
         dividends = None
+        # De dónde sale cada dividendo: cuántos pagos y el último. Sin eso, un
+        # "+X $" no distingue un yield sostenido de un reparto extraordinario.
+        payouts = [
+            action
+            for action in symbol_actions
+            if action.kind == "dividend" and action.day > holding.as_of and action.amount
+        ]
         if quote is not None and rate:
             value = shares_now * to_decimal(quote.price) * rate
             total += value
@@ -442,6 +449,10 @@ def combine_positions(
                 "shares_now": shares_now,
                 "split_factor": factor,
                 "dividends": dividends,
+                "dividend_payments": len(payouts) if dividends else 0,
+                "last_dividend": max((action.day for action in payouts), default=None) if dividends else None,
+                # Precio de una cotización vieja: la fila se pinta apagada.
+                "stale": bool(quote and quote.fetched_at and now - quote.fetched_at > STALE_AFTER),
                 "shares_indirect": (getattr(holding, "shares_indirect", None) or ZERO) * factor,
                 "as_of": holding.as_of,
                 "price": quote.price if quote else None,
