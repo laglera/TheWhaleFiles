@@ -108,6 +108,12 @@ revisar: el secreto tiene que ser la URL sola (`postgresql://…`).
 Lanzado a mano (*Run workflow*), acepta la opción **Reparar fechas**, que
 ejecuta `scripts.repair_dates` contra producción antes de la ingesta.
 
+Cada cotización guarda la divisa que da el proveedor. Las posiciones que no
+cotizan en la divisa base (`WEALTH_CURRENCY`, dólares por defecto) se convierten
+al tipo de cambio del día, que se refresca con las cotizaciones; sin tipo de
+cambio quedan fuera del total y la ficha dice por qué. Si la cotización más
+vieja de una ficha supera `PRICE_STALE_HOURS` (24 h), la ficha lo avisa.
+
 El refresco de precios importa más de lo que parece: en serverless las fichas
 sirven las cotizaciones ya guardadas y no llaman al proveedor, porque Yahoo
 devuelve 429 con frecuencia y sus reintentos esperan hasta medio minuto por

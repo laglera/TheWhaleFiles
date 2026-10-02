@@ -134,7 +134,7 @@
       <div class="wealth-total">
         <span>{{ t.wealth_total }}</span>
         {% if wealth.valued %}
-        <strong>{{ ui.money(wealth.total) }}</strong>
+        <strong>{{ ui.money(wealth.total, wealth.currency) }}</strong>
         <small>
           {{ t.wealth_positions }}: {{ wealth.valued }}{% if wealth.missing %} · {{ t.wealth_missing_short.format(n=wealth.missing) }}{% endif %}
         </small>
@@ -144,6 +144,14 @@
         {% endif %}
       </div>
     </div>
+
+    {# Si el refresco programado falla, la ficha sigue sirviendo la caché: que
+       se vea que esos precios ya no son los del mercado. #}
+    {% if wealth.stale %}
+    <p class="stale-note" role="status">
+      {{ t.wealth_stale.format(hours=wealth.stale_hours) }}
+    </p>
+    {% endif %}
 
     <div class="ledger ledger--wealth">
       <div class="ledger__head">
@@ -171,7 +179,11 @@
         <span class="ledger__date" data-label="{{ t.wealth_shares }}">{{ '{:,.0f}'.format(position.shares) }}</span>
         <span class="ledger__date" data-label="{{ t.wealth_price }}">
           {%- if position.price -%}
+          {%- if position.currency == 'USD' -%}
           ${{ '{:,.2f}'.format(position.price) }}
+          {%- else -%}
+          {{ '{:,.2f}'.format(position.price) }} {{ position.currency }}
+          {%- endif -%}
           {%- if position.change_pct is not none %}
           <i class="delta delta--{{ 'up' if position.change_pct >= 0 else 'down' }}">
             {{ '{:+.2f}'.format(position.change_pct) }}%
@@ -183,7 +195,9 @@
         </span>
         <span class="ledger__date" data-label="{{ t.wealth_as_of }}">{{ position.as_of.strftime('%d/%m/%Y') }}</span>
         <span class="ledger__amount" data-label="{{ t.wealth_value }}">
-          {%- if position.value is not none -%}{{ ui.money(position.value) }}{%- else -%}—{%- endif -%}
+          {%- if position.value is not none -%}{{ ui.money(position.value, wealth.currency) }}
+          {%- elif position.missing_reason == 'fx' -%}<em>{{ t.wealth_no_fx }}</em>
+          {%- else -%}—{%- endif -%}
         </span>
       </div>
       {% endfor %}
@@ -192,6 +206,7 @@
     <p class="more-note more-note--left">
       {{ t.wealth_disclaimer }}
       {% if wealth.missing %} {{ t.wealth_missing.format(n=wealth.missing) }}{% endif %}
+      {% if wealth.converted %} {{ t.wealth_converted.format(n=wealth.converted, currency=wealth.currency) }}{% endif %}
       {% if wealth.fetched_at %}
       · {{ t.wealth_updated.format(when=wealth.fetched_at.strftime('%d/%m/%Y %H:%M UTC'), source=price_source) }}
       {% endif %}
