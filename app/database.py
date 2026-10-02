@@ -137,6 +137,41 @@ ADDED_COLUMNS = {
 }
 
 
+# Columnas que nacieron como coma flotante y ahora son NUMERIC (app/money.py).
+# Sólo cambian en Postgres: SQLite no tiene tipo decimal y allí siguen siendo
+# REAL, redondeadas a su escala al leer y al escribir.
+NUMERIC_COLUMNS = {
+    "trades": [("amount", "NUMERIC(19,4)")],
+    "holdings": [("shares", "NUMERIC(24,6)")],
+    "price_quotes": [("price", "NUMERIC(19,6)"), ("previous_close", "NUMERIC(19,6)")],
+}
+
+
+def numeric_migrations(inspector, dialect_name: str) -> list[str]:
+    """ALTER TABLE que faltan para pasar las columnas de dinero a NUMERIC."""
+    from sqlalchemy.types import Float, Numeric
+
+    if dialect_name != "postgresql":
+        return []
+    table_names = set(inspector.get_table_names())
+    statements = []
+    for table, columns in NUMERIC_COLUMNS.items():
+        if table not in table_names:
+            continue
+        current = {column["name"]: column["type"] for column in inspector.get_columns(table)}
+        for name, ddl in columns:
+            column_type = current.get(name)
+            # Float hereda de Numeric en SQLAlchemy: hay que descartarlo aparte.
+            if column_type is None or (
+                isinstance(column_type, Numeric) and not isinstance(column_type, Float)
+            ):
+                continue
+            statements.append(
+                f"ALTER TABLE {table} ALTER COLUMN {name} TYPE {ddl} USING {name}::{ddl}"
+            )
+    return statements
+
+
 def _identity_of(inspector, table: str, name: str) -> list[str] | None:
     """Columnas que indexa una restricción de unicidad, esté como esté creada."""
     for constraint in inspector.get_unique_constraints(table):
@@ -151,6 +186,7 @@ def _identity_of(inspector, table: str, name: str) -> list[str] | None:
 def ensure_schema(target_engine=None) -> None:
     """Migraciones mínimas para bases creadas por versiones anteriores."""
     from sqlalchemy import inspect, text
+    from sqlalchemy.exc import SQLAlchemyError
 
     target_engine = target_engine or engine
     inspector = inspect(target_engine)
@@ -165,6 +201,20 @@ def ensure_schema(target_engine=None) -> None:
             with target_engine.begin() as connection:
                 for name, ddl in missing:
                     connection.execute(text(f"ALTER TABLE {table} ADD COLUMN {name} {ddl}"))
+
+    statements = numeric_migrations(inspector, target_engine.dialect.name)
+    if statements:
+        # Si falla —una fila que al redondear chocara con otra en el índice de
+        # unicidad, por ejemplo— la web sigue sirviendo con las columnas
+        # viejas: todo el código convierte a Decimal al leer. Mejor eso que
+        # tumbar cada petición en el arranque.
+        try:
+            with target_engine.begin() as connection:
+                for statement in statements:
+                    connection.execute(text(statement))
+            LOGGER.info("Columnas de importes migradas a NUMERIC: %s", len(statements))
+        except SQLAlchemyError:
+            LOGGER.exception("No se pudieron migrar las columnas de importes a NUMERIC")
 
     if "trades" in table_names:
         # `get_indexes` no ve las restricciones UNIQUE declaradas en el CREATE
