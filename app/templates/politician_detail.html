@@ -26,7 +26,8 @@
         <div class="portrait">
           {% if portrait %}
           <figure class="portrait__frame">
-            <img src="{{ portrait }}" alt="{{ politician.name }}" width="450" height="562" />
+            <img src="{{ portrait }}" alt="{{ politician.name }}" width="450" height="562"
+                 data-fallback="{{ ui.initials(politician.name) }}" data-slot="{{ politician.name|accent_slot }}" />
           </figure>
           {% if politician.photo_license %}
           <p class="portrait__credit">
@@ -214,8 +215,11 @@
           </div>
         </div>
         {# data-label alimenta el encabezado de cada dato en móvil, donde la
-           cabecera de la tabla no cabe y las cifras quedarían sin nombre. #}
-        <span class="ledger__date" data-label="{{ t.wealth_shares }}">
+           cabecera de la tabla no cabe y las cifras quedarían sin nombre. El
+           valor va envuelto en un solo bloque: suelto, cada nota (<em>) era
+           otro hueco de la fila y la cifra quedaba partida entre la etiqueta
+           y sus notas. #}
+        <span class="ledger__date" data-label="{{ t.wealth_shares }}"><span class="ledger__value">
           {{ '{:,.0f}'.format(position.shares_now) }}
           {% if position.split_factor != 1 %}
           <em>{{ t.wealth_split.format(declared='{:,.0f}'.format(position.shares), factor='{:g}'.format(position.split_factor)) }}</em>
@@ -223,8 +227,8 @@
           {% if position.shares_indirect %}
           <em>{{ t.wealth_indirect.format(n='{:,.0f}'.format(position.shares_indirect)) }}</em>
           {% endif %}
-        </span>
-        <span class="ledger__date ledger__price" data-label="{{ t.wealth_price }}">
+        </span></span>
+        <span class="ledger__date ledger__price" data-label="{{ t.wealth_price }}"><span class="ledger__value">
           {%- if position.price -%}
           {%- if position.currency == 'USD' -%}
           ${{ '{:,.2f}'.format(position.price) }}
@@ -239,16 +243,16 @@
           {%- else -%}
           <em>{{ t.wealth_no_price }}</em>
           {%- endif -%}
-        </span>
+        </span></span>
         <span class="ledger__date" data-label="{{ t.wealth_as_of }}">{{ position.as_of.strftime('%d/%m/%Y') }}</span>
-        <span class="ledger__amount" data-label="{{ t.wealth_value }}">
+        <span class="ledger__amount" data-label="{{ t.wealth_value }}"><span class="ledger__value">
           {%- if position.value is not none -%}{{ ui.money(position.value, wealth.currency) }}
           {%- elif position.missing_reason == 'fx' -%}<em>{{ t.wealth_no_fx }}</em>
           {%- else -%}—{%- endif -%}
           {%- if position.dividends %}
           <em class="ledger__dividends">{{ t.wealth_position_dividends.format(amount=ui.money(position.dividends, wealth.currency), n=position.dividend_payments, date=position.last_dividend.strftime('%d/%m/%Y')) }}</em>
           {%- endif -%}
-        </span>
+        </span></span>
       </div>
       {% endfor %}
     </div>

@@ -17,6 +17,7 @@
 {%- if src -%}
 <img class="avatar avatar--photo {{ modifier }}" src="{{ src }}" alt=""
      {% if credit %}title="{{ credit }}"{% endif %}
+     data-fallback="{{ initials(name) }}" data-slot="{{ name|accent_slot }}"
      loading="lazy" width="115" height="140" />
 {%- else -%}
 <span class="avatar {{ modifier }}" data-slot="{{ name|accent_slot }}">{{ initials(name) }}</span>

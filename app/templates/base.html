@@ -159,6 +159,32 @@
       })();
     </script>
 
+    <script nonce="{{ csp_nonce }}">
+      // Una foto remota que no carga (Commons la mueve, o la red la corta)
+      // dejaba un recuadro gris: se cambia por las iniciales, como quien no
+      // tiene foto. El error de una imagen no burbujea, de ahí la captura; y
+      // las que ya fallaron antes de llegar aquí se repasan al cargar.
+      (() => {
+        const swap = (img) => {
+          if (!img.dataset || !img.dataset.fallback || img.dataset.swapped) return;
+          img.dataset.swapped = '1';
+          const frame = img.closest('.portrait__frame');
+          const avatar = document.createElement('span');
+          avatar.className = frame ? 'avatar' : img.className.replace('avatar--photo', '').trim();
+          avatar.dataset.slot = img.dataset.slot || '0';
+          avatar.textContent = img.dataset.fallback;
+          if (frame) frame.classList.add('portrait__frame--empty');
+          img.replaceWith(avatar);
+        };
+        document.addEventListener('error', (event) => {
+          if (event.target instanceof HTMLImageElement) swap(event.target);
+        }, true);
+        document.querySelectorAll('img[data-fallback]').forEach((img) => {
+          if (img.complete && img.naturalWidth === 0) swap(img);
+        });
+      })();
+    </script>
+
     {% block scripts %}{% endblock %}
   </body>
 </html>

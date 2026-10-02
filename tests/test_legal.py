@@ -30,11 +30,14 @@ class LegalPageTests(unittest.TestCase):
             self.assertIn(anchor, body)
         self.assertIn("Sesgo de supervivencia".encode(), body)
         self.assertIn("brutos".encode(), body)
+        # La latencia es el punto más delicado: nadie tiene los datos en tiempo real.
+        self.assertIn("Nadie tiene estos datos en tiempo real".encode(), body)
 
     def test_english_version(self):
         _status, _headers, body = call("GET", "/legal", b"lang=en")
         self.assertIn(b"Terms of use", body)
         self.assertIn(b"Survivorship", body)
+        self.assertIn(b"Nobody has this data in real time", body)
 
     def test_the_footer_links_it(self):
         _status, _headers, body = call("GET", "/")

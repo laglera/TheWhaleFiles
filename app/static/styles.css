@@ -3016,6 +3016,16 @@ img {
     text-transform: uppercase;
   }
 
+  .ledger--wealth .ledger__value {
+    display: block;
+    min-width: 0;
+    text-align: right;
+  }
+
+  .ledger--wealth .ledger__value em {
+    display: block;
+  }
+
   .ledger--wealth .ledger__symbol {
     order: 1;
     padding-bottom: 4px;
