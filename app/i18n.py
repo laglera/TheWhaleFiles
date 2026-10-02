@@ -155,6 +155,11 @@ TRANSLATIONS: dict[str, dict[str, Any]] = {
             "propia: cada fila dice cuánta es."
         ),
         "wealth_indirect": "{n} indirectas",
+        "wealth_split": "declaradas {declared}, ajustadas por split ×{factor}",
+        "wealth_dividends": (
+            "Desde la fecha de cada saldo han repartido unos {amount} en dividendos, que no "
+            "se suman al total: no consta si se reinvirtieron."
+        ),
         "derivatives_title": "Opciones y convertibles",
         "derivatives_sub": (
             "Derechos sobre acciones que declara en la tabla II de sus Formularios 4: "
@@ -385,6 +390,11 @@ TRANSLATIONS: dict[str, dict[str, Any]] = {
             "investment: each row says how much it is."
         ),
         "wealth_indirect": "{n} indirect",
+        "wealth_split": "{declared} declared, split-adjusted ×{factor}",
+        "wealth_dividends": (
+            "Since the date of each balance they have paid out about {amount} in dividends, "
+            "not added to the total: it is unknown whether they were reinvested."
+        ),
         "derivatives_title": "Options and convertibles",
         "derivatives_sub": (
             "Rights over shares declared in table II of their Form 4 filings: options, "

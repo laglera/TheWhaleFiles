@@ -122,7 +122,8 @@ class RateLimited(Exception):
     """El proveedor ha rechazado la petición por exceso de ráfaga."""
 
 
-def fetch_from_yahoo(symbol: str) -> Optional[dict[str, object]]:
+def yahoo_chart(symbol: str, query: str = "interval=1d&range=1d") -> Optional[dict]:
+    """Respuesta cruda del endpoint `chart` de Yahoo, con reintentos."""
     quoted = urllib.parse.quote(normalise_symbol(symbol))
     payload = None
     # Se alternan los dos hosts y, si ambos rechazan, se espera cada vez más:
@@ -132,12 +133,17 @@ def fetch_from_yahoo(symbol: str) -> Optional[dict[str, object]]:
             time.sleep(wait)
         for host in YAHOO_HOSTS:
             try:
-                payload = _get_json(f"{host}{quoted}?interval=1d&range=1d", BROWSER_UA)
+                payload = _get_json(f"{host}{quoted}?{query}", BROWSER_UA)
             except RateLimited:
                 continue
             break
         if payload is not None:
             break
+    return payload or None
+
+
+def fetch_from_yahoo(symbol: str) -> Optional[dict[str, object]]:
+    payload = yahoo_chart(symbol)
     if not payload:
         return None
 
@@ -272,9 +278,16 @@ def value_holdings(holdings: list, refresh: bool = False) -> dict[str, object]:
     Por defecto sólo con lo cacheado: quien la llama suele ser una petición
     web, y esperar al proveedor ahí la deja colgada. Para refrescar, `refresh`.
     """
+    # Importado aquí: app.history usa este módulo para hablar con Yahoo.
+    from app.history import load_actions
+
     symbols = [holding.ticker.symbol for holding in holdings]
     quotes = get_prices(symbols, refresh=refresh)
-    return combine_positions(holdings, quotes, exchange_rates(quotes.values(), refresh=refresh))
+    with SessionLocal() as db:
+        actions = load_actions(db, symbols)
+    return combine_positions(
+        holdings, quotes, exchange_rates(quotes.values(), refresh=refresh), actions=actions
+    )
 
 
 def value_derivatives(derivatives: list, refresh: bool = False) -> dict[str, object]:
@@ -358,24 +371,37 @@ def combine_positions(
     quotes: dict,
     rates: Optional[dict] = None,
     now=None,
+    actions: Optional[dict] = None,
 ) -> dict[str, object]:
-    """Cruza posiciones con cotizaciones y tipos de cambio.
+    """Cruza posiciones con cotizaciones, tipos de cambio y splits.
 
     Las posiciones sin precio —o en una divisa sin tipo de cambio— se marcan y
     quedan fuera del total: valorarlas a cero rebajaría el patrimonio, y
     omitirlas sin avisar lo daría por completo.
+
+    Un split posterior a la fecha del saldo multiplica los títulos: el Form 4
+    de antes del 10 por 1 de NVIDIA, contado tal cual, valía la décima parte.
+    Los dividendos repartidos desde esa fecha se estiman aparte y no se suman
+    al total: no se sabe si se reinvirtieron, se gastaron o tributaron.
     """
+    from app.history import dividends_since, split_factor
+
     rates = rates or {}
+    actions = actions or {}
     now = now or utcnow()
     positions = []
     # Títulos por precio en Decimal: con millones de acciones, el error de
     # redondeo de la coma flotante dejaba de ser despreciable.
     total = ZERO
+    dividends_total = ZERO
     valued = 0
     used_quotes = []
     for holding in holdings:
         symbol = holding.ticker.symbol
         quote = quotes.get(symbol)
+        symbol_actions = actions.get(symbol, [])
+        factor = split_factor(symbol_actions, holding.as_of)
+        shares_now = to_decimal(holding.shares) * factor
         currency = (quote.currency or "USD") if quote else None
         rate = None
         if quote is not None:
@@ -387,10 +413,15 @@ def combine_positions(
                 used_quotes.append(rates[currency])
 
         value = None
+        dividends = None
         if quote is not None and rate:
-            value = to_decimal(holding.shares) * to_decimal(quote.price) * rate
+            value = shares_now * to_decimal(quote.price) * rate
             total += value
             valued += 1
+            per_share = dividends_since(symbol_actions, holding.as_of)
+            if per_share:
+                dividends = shares_now * per_share * rate
+                dividends_total += dividends
         change = None
         if quote and quote.previous_close:
             change = float(
@@ -404,7 +435,10 @@ def combine_positions(
                 "symbol": symbol,
                 "name": holding.ticker.name,
                 "shares": holding.shares,
-                "shares_indirect": getattr(holding, "shares_indirect", None) or ZERO,
+                "shares_now": shares_now,
+                "split_factor": factor,
+                "dividends": dividends,
+                "shares_indirect": (getattr(holding, "shares_indirect", None) or ZERO) * factor,
                 "as_of": holding.as_of,
                 "price": quote.price if quote else None,
                 "currency": currency,
@@ -424,6 +458,8 @@ def combine_positions(
         "positions": positions,
         "total": total,
         "currency": BASE_CURRENCY,
+        "dividends": dividends_total,
+        "split_adjusted": sum(1 for item in positions if item["split_factor"] != 1),
         "valued": valued,
         "missing": len(positions) - valued,
         "missing_fx": sum(1 for item in positions if item["missing_reason"] == "fx"),

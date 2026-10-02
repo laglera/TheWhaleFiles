@@ -174,3 +174,51 @@ class PriceQuote(Base):
     currency: Mapped[str] = mapped_column(String(10), default="USD")
     previous_close: Mapped[Decimal] = mapped_column(Price, default=ZERO)
     fetched_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+
+
+class PriceHistory(Base):
+    """Cierres diarios ajustados de un valor, en una sola fila.
+
+    Ajustados por splits y dividendos: la rentabilidad que se calcula con
+    ellos es la total, la de quien hubiera cobrado y reinvertido. Se guardan
+    comprimidos en JSON —una fila por valor y no una por día— porque son
+    cientos de valores y años de sesiones: como filas sueltas serían cerca de
+    un millón en un Postgres gratuito.
+    """
+
+    __tablename__ = "price_history"
+
+    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    symbol: Mapped[str] = mapped_column(String(20), unique=True, nullable=False)
+    currency: Mapped[str] = mapped_column(String(10), default="USD")
+    # {"d": ["2024-01-02", …], "c": ["187.15", …]}: fechas y cierres en texto,
+    # para no pasar por coma flotante.
+    closes: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    first_day: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
+    last_day: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
+    # Cuándo se intentó por última vez, haya habido datos o no: los símbolos que
+    # Yahoo no conoce no se reintentan antes que los demás.
+    fetched_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+
+
+class CorporateAction(Base):
+    """Splits y dividendos de un valor, según Yahoo Finance.
+
+    Sirven para que una posición declarada antes de un split no se valore con
+    los títulos de antes —tras el 10 por 1 de NVIDIA, un saldo de 2023 contado
+    sin ajustar valía la décima parte— y para estimar los dividendos cobrados
+    desde la fecha del saldo.
+    """
+
+    __tablename__ = "corporate_actions"
+    __table_args__ = (UniqueConstraint("symbol", "day", "kind", name="uq_corporate_action"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    symbol: Mapped[str] = mapped_column(String(20), nullable=False, index=True)
+    day: Mapped[date] = mapped_column(Date, nullable=False)
+    # "split" o "dividend".
+    kind: Mapped[str] = mapped_column(String(10), nullable=False)
+    # Títulos nuevos por cada título viejo (10 en un 10 por 1).
+    ratio: Mapped[Optional[Decimal]] = mapped_column(Price, nullable=True)
+    # Dividendo por acción, en la divisa de cotización.
+    amount: Mapped[Optional[Decimal]] = mapped_column(Price, nullable=True)
