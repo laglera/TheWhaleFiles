@@ -24,16 +24,23 @@
 {%- endmacro %}
 
 {# Importe compacto: $164.5B / $91.4M / $320K / $8,000 #}
-{% macro money(value) -%}
+{# Los filings declaran en dólares; el patrimonio se valora en la divisa base
+   (WEALTH_CURRENCY), que puede ser otra. #}
+{% macro currency_sign(currency='USD') -%}
+{{- {'USD': '$', 'EUR': '€', 'GBP': '£', 'JPY': '¥'}.get(currency, currency ~ ' ') -}}
+{%- endmacro %}
+
+{% macro money(value, currency='USD') -%}
 {%- set amount = value|default(0)|float -%}
+{%- set sign = currency_sign(currency) -%}
 {%- if amount >= 1000000000 -%}
-${{ '{:,.1f}'.format(amount / 1000000000) }}B
+{{ sign }}{{ '{:,.1f}'.format(amount / 1000000000) }}B
 {%- elif amount >= 1000000 -%}
-${{ '{:,.1f}'.format(amount / 1000000) }}M
+{{ sign }}{{ '{:,.1f}'.format(amount / 1000000) }}M
 {%- elif amount >= 1000 -%}
-${{ '{:,.0f}'.format(amount / 1000) }}K
+{{ sign }}{{ '{:,.0f}'.format(amount / 1000) }}K
 {%- else -%}
-${{ '{:,.0f}'.format(amount) }}
+{{ sign }}{{ '{:,.0f}'.format(amount) }}
 {%- endif -%}
 {%- endmacro %}
 

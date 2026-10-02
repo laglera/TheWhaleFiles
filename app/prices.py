@@ -60,6 +60,36 @@ def provider_name() -> str:
     return "Finnhub" if api_key() else "Yahoo Finance"
 
 
+# Divisa en la que se valora el patrimonio. Las posiciones que cotizan en otra
+# se convierten al tipo de cambio del día; antes se sumaban como si todo
+# fueran dólares.
+BASE_CURRENCY = (os.getenv("WEALTH_CURRENCY") or "USD").strip().upper()
+
+# Yahoo da algunas bolsas en la unidad menor: Londres en peniques ("GBp"),
+# Johannesburgo en céntimos. Sin dividir, una acción de 4 libras valía 400.
+MINOR_UNITS = {"GBP": ("GBP", 1), "GBp": ("GBP", 100), "GBX": ("GBP", 100),
+               "ZAc": ("ZAR", 100), "ZAC": ("ZAR", 100), "ILA": ("ILS", 100)}
+
+# Una cotización más vieja que esto se marca en la ficha: el refresco corre cada
+# seis horas, así que pasado un día es que ha fallado y el valor ya no es el
+# del mercado.
+STALE_AFTER = timedelta(hours=float(os.getenv("PRICE_STALE_HOURS", "24")))
+
+
+def normalise_currency(raw: Optional[str]) -> tuple[str, Decimal]:
+    """Divisa ISO y divisor para pasar el precio a su unidad principal."""
+    code = (raw or "USD").strip()
+    if code in MINOR_UNITS:
+        currency, divisor = MINOR_UNITS[code]
+        return currency, Decimal(divisor)
+    return code.upper(), Decimal(1)
+
+
+def fx_symbol(currency: str, base: str = BASE_CURRENCY) -> str:
+    """Par de divisas en la notación de Yahoo: EURUSD=X."""
+    return f"{currency}{base}=X"
+
+
 def normalise_symbol(symbol: str) -> str:
     """Adapta el símbolo del filing a la notación del proveedor.
 
@@ -119,10 +149,14 @@ def fetch_from_yahoo(symbol: str) -> Optional[dict[str, object]]:
     price = meta.get("regularMarketPrice")
     if not price:
         return None
+    currency, divisor = normalise_currency(meta.get("currency"))
     return {
-        "price": to_decimal(price),
-        "previous_close": to_decimal(meta.get("chartPreviousClose") or meta.get("previousClose") or 0),
-        "currency": meta.get("currency") or "USD",
+        "price": to_decimal(price) / divisor,
+        "previous_close": to_decimal(
+            meta.get("chartPreviousClose") or meta.get("previousClose") or 0
+        )
+        / divisor,
+        "currency": currency,
         "name": meta.get("longName") or meta.get("shortName"),
     }
 
@@ -150,6 +184,9 @@ def fetch_from_finnhub(symbol: str) -> Optional[dict[str, object]]:
     return {
         "price": to_decimal(price),
         "previous_close": to_decimal(payload.get("pc") or 0),
+        # El endpoint /quote no dice la divisa y en la cuota gratuita sólo
+        # cubre la bolsa estadounidense. Un símbolo extranjero no llega aquí:
+        # Finnhub responde c=0 y se cae a Yahoo, que sí la trae.
         "currency": "USD",
         "name": None,
     }
@@ -230,31 +267,67 @@ def get_prices(symbols: Iterable[str], refresh: bool = True) -> dict[str, PriceQ
 
 
 def value_holdings(holdings: list, refresh: bool = False) -> dict[str, object]:
-    """Valora una lista de posiciones a precio de mercado.
+    """Valora una lista de posiciones a precio de mercado, en la divisa base.
 
     Por defecto sólo con lo cacheado: quien la llama suele ser una petición
     web, y esperar al proveedor ahí la deja colgada. Para refrescar, `refresh`.
     """
     symbols = [holding.ticker.symbol for holding in holdings]
-    return combine_positions(holdings, get_prices(symbols, refresh=refresh))
+    quotes = get_prices(symbols, refresh=refresh)
+    return combine_positions(holdings, quotes, exchange_rates(quotes.values(), refresh=refresh))
 
 
-def combine_positions(holdings: list, quotes: dict) -> dict[str, object]:
-    """Cruza posiciones con cotizaciones.
+def exchange_rates(quotes: Iterable, refresh: bool = False) -> dict[str, PriceQuote]:
+    """Tipo de cambio a la divisa base de cada divisa que aparece en `quotes`."""
+    currencies = sorted(
+        {quote.currency for quote in quotes if quote.currency and quote.currency != BASE_CURRENCY}
+    )
+    if not currencies:
+        return {}
+    pairs = get_prices([fx_symbol(currency) for currency in currencies], refresh=refresh)
+    return {
+        currency: pairs[fx_symbol(currency)]
+        for currency in currencies
+        if fx_symbol(currency) in pairs
+    }
 
-    Las posiciones sin precio se marcan y quedan fuera del total: valorarlas a
-    cero rebajaría el patrimonio, y omitirlas sin avisar lo daría por completo.
+
+def combine_positions(
+    holdings: list,
+    quotes: dict,
+    rates: Optional[dict] = None,
+    now=None,
+) -> dict[str, object]:
+    """Cruza posiciones con cotizaciones y tipos de cambio.
+
+    Las posiciones sin precio —o en una divisa sin tipo de cambio— se marcan y
+    quedan fuera del total: valorarlas a cero rebajaría el patrimonio, y
+    omitirlas sin avisar lo daría por completo.
     """
+    rates = rates or {}
+    now = now or utcnow()
     positions = []
     # Títulos por precio en Decimal: con millones de acciones, el error de
     # redondeo de la coma flotante dejaba de ser despreciable.
     total = ZERO
     valued = 0
+    used_quotes = []
     for holding in holdings:
         symbol = holding.ticker.symbol
         quote = quotes.get(symbol)
-        value = to_decimal(holding.shares) * to_decimal(quote.price) if quote else None
-        if value is not None:
+        currency = (quote.currency or "USD") if quote else None
+        rate = None
+        if quote is not None:
+            used_quotes.append(quote)
+            if currency == BASE_CURRENCY:
+                rate = Decimal(1)
+            elif currency in rates:
+                rate = to_decimal(rates[currency].price)
+                used_quotes.append(rates[currency])
+
+        value = None
+        if quote is not None and rate:
+            value = to_decimal(holding.shares) * to_decimal(quote.price) * rate
             total += value
             valued += 1
         change = None
@@ -272,18 +345,32 @@ def combine_positions(holdings: list, quotes: dict) -> dict[str, object]:
                 "shares": holding.shares,
                 "as_of": holding.as_of,
                 "price": quote.price if quote else None,
+                "currency": currency,
+                # Sin precio, o con precio pero sin tipo de cambio: son dos
+                # huecos distintos y la ficha los explica por separado.
+                "missing_reason": None if value is not None else ("fx" if quote else "quote"),
                 "change_pct": change,
                 "value": value,
             }
         )
 
     positions.sort(key=lambda item: (item["value"] is None, -(item["value"] or 0)))
+    # La fecha que se enseña es la de la cotización más vieja que entra en la
+    # cuenta: la más nueva daba por fresco un total hecho con precios de días.
+    oldest = min((quote.fetched_at for quote in used_quotes), default=None)
     return {
         "positions": positions,
         "total": total,
+        "currency": BASE_CURRENCY,
         "valued": valued,
         "missing": len(positions) - valued,
-        "fetched_at": max((quote.fetched_at for quote in quotes.values()), default=None),
+        "missing_fx": sum(1 for item in positions if item["missing_reason"] == "fx"),
+        "converted": sum(
+            1 for item in positions if item["value"] is not None and item["currency"] != BASE_CURRENCY
+        ),
+        "fetched_at": oldest,
+        "stale": oldest is not None and now - oldest > STALE_AFTER,
+        "stale_hours": int((now - oldest).total_seconds() // 3600) if oldest else None,
     }
 
 
@@ -303,7 +390,29 @@ def warm_cache(verbose: bool = True) -> dict[str, int]:
             ).all()
         ]
 
+
     stats = {"symbols": len(symbols), "priced": 0, "failed": 0}
+    _warm(symbols, stats, verbose)
+
+    # Después, el tipo de cambio de cada divisa en la que cotiza algo de lo
+    # anterior: sin él esas posiciones quedan fuera del total.
+    with SessionLocal() as db:
+        currencies = sorted(
+            {
+                row[0]
+                for row in db.execute(
+                    select(PriceQuote.currency).where(PriceQuote.symbol.in_(symbols)).distinct()
+                ).all()
+                if row[0] and row[0] != BASE_CURRENCY
+            }
+        )
+    pairs = [fx_symbol(currency) for currency in currencies]
+    stats["symbols"] += len(pairs)
+    _warm(pairs, stats, verbose)
+    return stats
+
+
+def _warm(symbols: list[str], stats: dict[str, int], verbose: bool) -> None:
     failures = 0
     for symbol in symbols:
         # Tras varios rechazos seguidos se afloja el ritmo: seguir insistiendo
@@ -323,7 +432,6 @@ def warm_cache(verbose: bool = True) -> dict[str, int]:
             failures += 1
             if verbose:
                 print(f"  -- {symbol:10s} sin cotización", flush=True)
-    return stats
 
 
 def refresh_ticker_names(symbols: Optional[list[str]] = None) -> int:

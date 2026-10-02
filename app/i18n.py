@@ -129,7 +129,16 @@ TRANSLATIONS: dict[str, dict[str, Any]] = {
         "wealth_price": "Precio",
         "wealth_value": "Valor",
         "wealth_as_of": "Declarado",
-        "wealth_updated": "Cotizaciones de {source}, actualizadas el {when}",
+        "wealth_updated": "Cotizaciones de {source}; la más antigua, del {when}",
+        "wealth_stale": (
+            "Atención: hay cotizaciones de hace {hours} horas. El refresco automático "
+            "no ha podido actualizarlas y el valor puede no ser el del mercado."
+        ),
+        "wealth_no_fx": "Sin tipo de cambio",
+        "wealth_converted": (
+            "{n} posiciones cotizan en otra divisa y se convierten a {currency} al tipo "
+            "de cambio del día."
+        ),
         "wealth_no_price": "Sin cotización",
         "wealth_missing": "{n} sin cotización, fuera del total.",
         "wealth_missing_short": "{n} sin cotizar",
@@ -325,7 +334,16 @@ TRANSLATIONS: dict[str, dict[str, Any]] = {
         "wealth_price": "Price",
         "wealth_value": "Value",
         "wealth_as_of": "Declared",
-        "wealth_updated": "Quotes from {source}, updated {when}",
+        "wealth_updated": "Quotes from {source}; the oldest from {when}",
+        "wealth_stale": (
+            "Warning: some quotes are {hours} hours old. The automatic refresh could not "
+            "update them and the value may not match the market."
+        ),
+        "wealth_no_fx": "No exchange rate",
+        "wealth_converted": (
+            "{n} positions trade in another currency and are converted to {currency} at "
+            "the day's exchange rate."
+        ),
         "wealth_no_price": "No quote",
         "wealth_missing": "{n} without a quote, excluded from the total.",
         "wealth_missing_short": "{n} unpriced",
