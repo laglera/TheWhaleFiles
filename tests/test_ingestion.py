@@ -117,6 +117,65 @@ class TradeDateTests(unittest.TestCase):
 
         self.assertEqual(len(self._stored_dates()), 2)
 
+    def test_an_amended_filing_does_not_duplicate_the_trade(self):
+        # El PTR original y su enmienda declaran la misma operación: cuenta
+        # una vez, con la fecha en que se supo por primera vez.
+        self._load(reported_date="2026-07-20")
+        self.assertEqual(self._load(reported_date="2026-08-12"), [])
+        self.assertEqual(self._stored_dates(), [("2026-07-20", "2026-07-17")])
+
+    def test_a_raw_form4_code_is_stored_with_its_name(self):
+        saved = self._load(trade_type="J")
+        self.assertEqual(saved[0]["trade_type"], "Other")
+
+
+class ReconcileTests(unittest.TestCase):
+    """Lo que dejaron en la base versiones anteriores de la ingesta."""
+
+    def setUp(self):
+        self.engine = get_engine(f"sqlite:///:memory:?reconcile={self.id()}")
+        Base.metadata.create_all(bind=self.engine)
+        with self.engine.begin() as conn:
+            conn.execute(text("INSERT INTO politicians (id, name, chamber, state, party, category) "
+                              "VALUES (1, 'Pete Sessions', 'House', 'TX', 'Republican', 'congress')"))
+            conn.execute(text("INSERT INTO tickers (id, symbol, name) VALUES (1, 'NVDA', 'NVDA')"))
+
+    def add(self, trade_type, reported, traded="2021-05-04", amount=8000.0):
+        with self.engine.begin() as conn:
+            conn.execute(
+                text("INSERT INTO trades (politician_id, ticker_id, trade_type, amount, "
+                     "reported_date, transaction_date, notes) VALUES (1, 1, :k, :a, :r, :d, '')"),
+                {"k": trade_type, "a": amount, "r": reported, "d": traded},
+            )
+
+    def stored(self):
+        with self.engine.begin() as conn:
+            return conn.execute(
+                text("SELECT trade_type, reported_date FROM trades ORDER BY id")
+            ).all()
+
+    def test_amendments_keep_the_first_publication(self):
+        from app.database import reconcile_trades
+
+        self.add("Purchase", "2021-07-07")
+        self.add("Purchase", "2021-05-06")
+        # Otra operación del mismo día pero de otro importe no se toca.
+        self.add("Purchase", "2021-07-07", amount=32500.0)
+
+        self.assertEqual(reconcile_trades(self.engine)["amendments"], 1)
+        self.assertEqual(self.stored(), [("Purchase", "2021-05-06"), ("Purchase", "2021-07-07")])
+
+    def test_raw_codes_are_renamed_or_merged_with_their_named_twin(self):
+        from app.database import reconcile_trades
+
+        self.add("J", "2026-06-17", traded="2026-04-02", amount=0)
+        self.add("Other", "2026-06-17", traded="2026-04-02", amount=0)
+        self.add("G", "2026-06-17", traded="2026-04-03", amount=0)
+
+        stats = reconcile_trades(self.engine)
+        self.assertEqual((stats["merged_codes"], stats["renamed"]), (1, 1))
+        self.assertEqual(sorted(kind for kind, _ in self.stored()), ["Gift", "Other"])
+
 
 if __name__ == "__main__":
     unittest.main()

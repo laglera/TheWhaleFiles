@@ -9,6 +9,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import sessionmaker
 
 from app.database import DATABASE_URL, get_engine, prepare_database
+from app.insiders import TRANSACTION_CODES
 from app.models import Politician, Ticker, Trade
 from app.money import money
 from app.names import clean_person_name
@@ -145,6 +146,9 @@ def load_trade_records_into_db(
                 )
             ).all()
         }
+        # La misma operación sin la fecha de publicación: si vuelve en otro
+        # filing es su enmienda, y contarla otra vez duplicaría la compra.
+        known_executions = {identity[:4] + identity[5:] for identity in known_trades if identity[5]}
 
         saved_records: list[dict[str, object]] = []
         pending: list[tuple[dict[str, Any], dict[str, object]]] = []
@@ -184,6 +188,8 @@ def load_trade_records_into_db(
                 tickers[ticker_symbol] = ticker
 
             trade_type = str(record.get("trade_type") or "Unknown")
+            # Un código del Form 4 sin traducir ("J") no le dice nada a nadie.
+            trade_type = TRANSACTION_CODES.get(trade_type, trade_type)
             # Al céntimo y en Decimal, como sale de la base: así la identidad
             # se compara con lo guardado sin diferencias de coma flotante.
             amount = money(record.get("amount"))
@@ -197,7 +203,12 @@ def load_trade_records_into_db(
             )
             if identity in known_trades:
                 continue
+            execution = identity[:4] + identity[5:]
+            if transaction_date is not None and execution in known_executions:
+                continue
             known_trades.add(identity)
+            if transaction_date is not None:
+                known_executions.add(execution)
 
             trade_fields = {
                 "politician_id": politician.id,
