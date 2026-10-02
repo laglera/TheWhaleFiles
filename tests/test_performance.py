@@ -144,3 +144,38 @@ class ProfileTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class SchedulerTests(unittest.TestCase):
+    """El hilo de polling tiene que dejar calculada la rentabilidad: si no, la
+    sección no aparecía en ninguna ficha fuera del refresco de producción."""
+
+    def setUp(self):
+        import app.scheduler as scheduler
+
+        self.scheduler = scheduler
+        scheduler._last_performance = None
+
+    def run_with(self, people, now):
+        from unittest import mock
+
+        with mock.patch("app.history.refresh_history", return_value={}) as history, mock.patch(
+            "app.performance.compute_all", return_value={"people": people}
+        ) as compute:
+            result = self.scheduler.refresh_analytics(now)
+        return result, history.call_count, compute.call_count
+
+    def test_downloads_history_and_computes_once_a_day(self):
+        from datetime import datetime
+
+        start = datetime(2026, 10, 1, 8)
+        self.assertEqual(self.run_with(10, start), (True, 1, 1))
+        self.assertEqual(self.run_with(10, start + timedelta(hours=1)), (False, 1, 0))
+        self.assertEqual(self.run_with(10, start + timedelta(hours=25)), (True, 1, 1))
+
+    def test_without_the_index_it_retries_on_the_next_pass(self):
+        from datetime import datetime
+
+        start = datetime(2026, 10, 1, 8)
+        self.assertEqual(self.run_with(0, start), (False, 1, 1))
+        self.assertEqual(self.run_with(10, start + timedelta(minutes=15)), (True, 1, 1))
