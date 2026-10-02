@@ -10,6 +10,7 @@ from sqlalchemy.orm import sessionmaker
 
 from app.database import DATABASE_URL, get_engine, prepare_database
 from app.models import Politician, Ticker, Trade
+from app.money import money
 from app.names import clean_person_name
 from app.scraper import parse_senate_filing
 
@@ -131,8 +132,9 @@ def load_trade_records_into_db(
     with SessionLocal() as db:
         politicians = {person.name: person for person in db.scalars(select(Politician)).all()}
         tickers = {ticker.symbol: ticker for ticker in db.scalars(select(Ticker)).all()}
-        known_trades = set(
-            db.execute(
+        known_trades = {
+            (politician_id, ticker_id, trade_type, money(amount), reported, traded)
+            for politician_id, ticker_id, trade_type, amount, reported, traded in db.execute(
                 select(
                     Trade.politician_id,
                     Trade.ticker_id,
@@ -142,7 +144,7 @@ def load_trade_records_into_db(
                     Trade.transaction_date,
                 )
             ).all()
-        )
+        }
 
         saved_records: list[dict[str, object]] = []
         pending: list[tuple[dict[str, Any], dict[str, object]]] = []
@@ -182,7 +184,9 @@ def load_trade_records_into_db(
                 tickers[ticker_symbol] = ticker
 
             trade_type = str(record.get("trade_type") or "Unknown")
-            amount = float(record.get("amount") or 0.0)
+            # Al céntimo y en Decimal, como sale de la base: así la identidad
+            # se compara con lo guardado sin diferencias de coma flotante.
+            amount = money(record.get("amount"))
             identity = (
                 politician.id,
                 ticker.id,
@@ -210,7 +214,7 @@ def load_trade_records_into_db(
                 "politician": politician_name,
                 "ticker": ticker_symbol,
                 "trade_type": trade_type,
-                "amount": amount,
+                "amount": float(amount),
                 "reported_date": reported_date.isoformat(),
                 "transaction_date": transaction_date.isoformat() if transaction_date else None,
             }

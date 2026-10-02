@@ -62,6 +62,15 @@ Ejecutar las pruebas:
 python -m pytest -q
 ```
 
+## Precisión de los importes
+
+Importes, títulos y precios se guardan en NUMERIC —`NUMERIC(19,4)` el dinero,
+`NUMERIC(24,6)` los títulos y `NUMERIC(19,6)` los precios— y en Python se opera
+con `Decimal` (ver `app/money.py`). Una base de Postgres creada con las
+columnas en coma flotante se migra sola al arrancar. En SQLite, que sólo se
+usa en local, siguen siendo REAL redondeadas a la misma escala, porque SQLite
+no tiene tipo decimal.
+
 ## Despliegue en Vercel
 
 Vercel ejecuta funciones que nacen y mueren con cada petición: no hay disco

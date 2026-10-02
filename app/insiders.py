@@ -20,6 +20,7 @@ from typing import Any, Optional
 
 from app.database import SessionLocal, prepare_database
 from app.models import Holding, Politician, Ticker, Trade
+from app.money import ZERO, money, to_decimal
 
 USER_AGENT = "TheWhaleFiles/0.1 (contacto: alejandro.web00@gmail.com)"
 REQUEST_PAUSE = 0.2  # ~5 peticiones por segundo, por debajo del límite de la SEC
@@ -196,25 +197,25 @@ def parse_form4(xml_bytes: bytes) -> dict[str, Any]:
         # quedan al declarante después de la operación. El PTR del Congreso no
         # tiene equivalente, por eso los políticos no tienen posiciones.
         owned = node.findtext("postTransactionAmounts/sharesOwnedFollowingTransaction/value")
+        # Con Decimal desde el texto del XML: el importe es títulos por precio
+        # y en coma flotante arrastraba el error de los dos factores.
+        shares_value = to_decimal(shares)
+        price_value = to_decimal(price)
         try:
             traded_on = datetime.strptime(raw_date, "%Y-%m-%d").date() if raw_date else None
-            amount = float(shares) * float(price)
         except (TypeError, ValueError):
             continue
-        if not traded_on:
+        if not traded_on or shares_value is None or price_value is None:
             continue
-        try:
-            shares_owned = float(owned) if owned is not None else None
-        except ValueError:
-            shares_owned = None
+        shares_owned = to_decimal(owned)
         transactions.append(
             {
                 "trade_type": TRANSACTION_CODES.get(code, code or "Unknown"),
-                "amount": round(amount, 2),
+                "amount": money(shares_value * price_value),
                 # La fecha de publicación la pone el filing, no la transacción:
                 # la añade `fetch_insider_trades` con el filingDate de EDGAR.
                 "transaction_date": traded_on,
-                "shares": float(shares),
+                "shares": shares_value,
                 "shares_owned": shares_owned,
                 "symbol": symbol_for_class(symbol, node.findtext("securityTitle/value") or ""),
                 "ownership": _ownership_line(node),
@@ -227,10 +228,7 @@ def parse_form4(xml_bytes: bytes) -> dict[str, Any]:
     # que conserva esa sociedad.
     for node in root.findall("nonDerivativeTable/nonDerivativeHolding"):
         owned = node.findtext("postTransactionAmounts/sharesOwnedFollowingTransaction/value")
-        try:
-            shares_owned = float(owned) if owned is not None else None
-        except ValueError:
-            shares_owned = None
+        shares_owned = to_decimal(owned)
         if shares_owned is None or period is None:
             continue
         holdings.append(
@@ -415,7 +413,7 @@ def import_insiders(
                     trade.trade_type,
                     trade.reported_date,
                     trade.transaction_date,
-                    round(trade.amount, 2),
+                    money(trade.amount),
                 ): trade
                 for trade in person.trades
             }
@@ -426,7 +424,7 @@ def import_insiders(
                     item["trade_type"],
                     item["reported_date"],
                     item["transaction_date"],
-                    round(item["amount"], 2),
+                    money(item["amount"]),
                 )
                 key = (item["symbol"],) + identity
                 if key in existing:
@@ -488,9 +486,9 @@ def aggregate_positions(positions: list[dict[str, Any]]) -> dict[str, dict[str, 
     totals: dict[str, dict[str, Any]] = {}
     for (symbol, _ownership), line in latest.items():
         entry = totals.setdefault(
-            symbol, {"shares": 0.0, "as_of": line["as_of"], "issuer": line.get("issuer", "")}
+            symbol, {"shares": ZERO, "as_of": line["as_of"], "issuer": line.get("issuer", "")}
         )
-        entry["shares"] += line["shares_owned"]
+        entry["shares"] += to_decimal(line["shares_owned"])
         entry["as_of"] = max(entry["as_of"], line["as_of"])
     return totals
 

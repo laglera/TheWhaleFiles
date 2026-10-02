@@ -18,12 +18,14 @@ import urllib.error
 import urllib.parse
 import urllib.request
 from datetime import timedelta
+from decimal import Decimal
 from typing import Iterable, Optional
 
 from sqlalchemy import select
 
 from app.database import SessionLocal
 from app.models import PriceQuote
+from app.money import ZERO, PRICE_SCALE, to_decimal
 from app.runtime import is_serverless, utcnow
 
 logger = logging.getLogger(__name__)
@@ -75,7 +77,9 @@ def _get_json(url: str, user_agent: str) -> Optional[dict]:
     request = urllib.request.Request(url, headers={"User-Agent": user_agent})
     try:
         with urllib.request.urlopen(request, timeout=15) as response:
-            return json.loads(response.read())
+            # Los precios llegan como texto decimal y así se quedan: pasar por
+            # float los convertiría en su aproximación binaria.
+            return json.loads(response.read(), parse_float=Decimal)
     except urllib.error.HTTPError as error:
         if error.code == 429:
             raise RateLimited(url) from error
@@ -116,8 +120,8 @@ def fetch_from_yahoo(symbol: str) -> Optional[dict[str, object]]:
     if not price:
         return None
     return {
-        "price": float(price),
-        "previous_close": float(meta.get("chartPreviousClose") or meta.get("previousClose") or 0.0),
+        "price": to_decimal(price),
+        "previous_close": to_decimal(meta.get("chartPreviousClose") or meta.get("previousClose") or 0),
         "currency": meta.get("currency") or "USD",
         "name": meta.get("longName") or meta.get("shortName"),
     }
@@ -144,8 +148,8 @@ def fetch_from_finnhub(symbol: str) -> Optional[dict[str, object]]:
     if not price:
         return None
     return {
-        "price": float(price),
-        "previous_close": float(payload.get("pc") or 0.0),
+        "price": to_decimal(price),
+        "previous_close": to_decimal(payload.get("pc") or 0),
         "currency": "USD",
         "name": None,
     }
@@ -204,8 +208,8 @@ def get_prices(symbols: Iterable[str], refresh: bool = True) -> dict[str, PriceQ
             if quote is None:
                 quote = PriceQuote(symbol=symbol)
                 db.add(quote)
-            quote.price = float(data["price"])
-            quote.previous_close = float(data["previous_close"])
+            quote.price = to_decimal(data["price"], PRICE_SCALE)
+            quote.previous_close = to_decimal(data["previous_close"], PRICE_SCALE) or ZERO
             quote.currency = str(data.get("currency") or "USD")
             quote.fetched_at = now
             quotes[symbol] = quote
@@ -242,18 +246,24 @@ def combine_positions(holdings: list, quotes: dict) -> dict[str, object]:
     cero rebajaría el patrimonio, y omitirlas sin avisar lo daría por completo.
     """
     positions = []
-    total = 0.0
+    # Títulos por precio en Decimal: con millones de acciones, el error de
+    # redondeo de la coma flotante dejaba de ser despreciable.
+    total = ZERO
     valued = 0
     for holding in holdings:
         symbol = holding.ticker.symbol
         quote = quotes.get(symbol)
-        value = holding.shares * quote.price if quote else None
+        value = to_decimal(holding.shares) * to_decimal(quote.price) if quote else None
         if value is not None:
             total += value
             valued += 1
         change = None
         if quote and quote.previous_close:
-            change = (quote.price - quote.previous_close) / quote.previous_close * 100
+            change = float(
+                (to_decimal(quote.price) - to_decimal(quote.previous_close))
+                / to_decimal(quote.previous_close)
+                * 100
+            )
 
         positions.append(
             {

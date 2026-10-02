@@ -1,8 +1,11 @@
 from datetime import date, datetime
+from decimal import Decimal
 from typing import Optional
 
-from sqlalchemy import Date, DateTime, Float, ForeignKey, String, Text, UniqueConstraint
+from sqlalchemy import Date, DateTime, ForeignKey, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, DeclarativeBase, mapped_column, relationship
+
+from app.money import ZERO, Money, Price, Shares
 
 
 class Base(DeclarativeBase):
@@ -81,7 +84,8 @@ class Trade(Base):
     politician_id: Mapped[int] = mapped_column(ForeignKey("politicians.id"), nullable=False)
     ticker_id: Mapped[int] = mapped_column(ForeignKey("tickers.id"), nullable=False)
     trade_type: Mapped[str] = mapped_column(String(30), nullable=False)
-    amount: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
+    # NUMERIC(19,4) en Postgres y `Decimal` en Python: ver app/money.py.
+    amount: Mapped[Decimal] = mapped_column(Money, nullable=False, default=ZERO)
     # Fecha en que el filing se hizo público. Es la que ordena la web: lo que
     # esta plataforma mide es cuándo se pudo saber, no cuándo se operó.
     reported_date: Mapped[date] = mapped_column(Date, nullable=False)
@@ -112,7 +116,7 @@ class Holding(Base):
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
     politician_id: Mapped[int] = mapped_column(ForeignKey("politicians.id"), nullable=False)
     ticker_id: Mapped[int] = mapped_column(ForeignKey("tickers.id"), nullable=False)
-    shares: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
+    shares: Mapped[Decimal] = mapped_column(Shares, nullable=False, default=ZERO)
     # Fecha de la operación que dejó esta posición: mide cómo de viejo es el dato.
     as_of: Mapped[date] = mapped_column(Date, nullable=False)
     source: Mapped[str] = mapped_column(String(120), default="SEC Form 4")
@@ -128,7 +132,7 @@ class PriceQuote(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
     symbol: Mapped[str] = mapped_column(String(20), unique=True, nullable=False)
-    price: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
+    price: Mapped[Decimal] = mapped_column(Price, nullable=False, default=ZERO)
     currency: Mapped[str] = mapped_column(String(10), default="USD")
-    previous_close: Mapped[float] = mapped_column(Float, default=0.0)
+    previous_close: Mapped[Decimal] = mapped_column(Price, default=ZERO)
     fetched_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
