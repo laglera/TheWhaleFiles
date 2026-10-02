@@ -35,8 +35,9 @@ def require_admin(request: Request) -> None:
 
 # --- Cabeceras -------------------------------------------------------------
 
-# La hoja de estilos y las fuentes vienen de Google Fonts; los scripts, todos
-# de la casa y en línea, así que se firman con un nonce por respuesta en vez de
+# Hoja de estilos y tipografías se sirven desde el propio dominio: ya no se
+# carga nada de Google Fonts, que recibía la IP de cada visitante. Los scripts,
+# todos de la casa y en línea, se firman con un nonce por respuesta en vez de
 # abrir 'unsafe-inline'. Los estilos sí lo necesitan: hay atributos style= en
 # las plantillas para las barras de porcentaje.
 def content_security_policy(nonce: str) -> str:
@@ -44,8 +45,8 @@ def content_security_policy(nonce: str) -> str:
         (
             "default-src 'self'",
             f"script-src 'self' 'nonce-{nonce}'",
-            "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-            "font-src 'self' https://fonts.gstatic.com",
+            "style-src 'self' 'unsafe-inline'",
+            "font-src 'self'",
             # Los retratos de Wikimedia se sirven desde su dominio.
             "img-src 'self' data: https:",
             "connect-src 'self'",

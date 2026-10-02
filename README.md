@@ -112,6 +112,17 @@ DATABASE_URL="postgresql://..." python -m app.insiders   # nuevas operaciones
 DATABASE_URL="postgresql://..." python -m app.prices     # refresca cotizaciones
 ```
 
+## Aviso legal y privacidad
+
+Todas las páginas llevan, encima de la navegación, el aviso de que nada de esto
+es asesoramiento financiero y de que los datos llegan tarde y pueden tener
+errores. `/legal` reúne el aviso completo (retrasos, tramos, importes brutos,
+sesgo de supervivencia), los términos de uso y la política de privacidad.
+
+La web no carga nada de terceros salvo los retratos de Wikimedia: las
+tipografías (Inter e Inter Tight, licencia OFL) se sirven desde `app/static/fonts`
+en lugar de Google Fonts, que recibía la IP de cada visitante.
+
 ## Seguridad
 
 La web es de sólo lectura: no hay cuentas, ni sesiones, ni formularios que

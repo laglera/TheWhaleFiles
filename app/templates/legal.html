@@ -1,0 +1,243 @@
+{% extends "base.html" %}
+
+{% block title %}{{ t.legal_title }} | TheWhaleFiles{% endblock %}
+{% block og_title %}{{ t.legal_title }} | TheWhaleFiles{% endblock %}
+
+{% block nav_action %}
+<a class="btn btn--primary btn--sm" href="/?lang={{ lang }}">{{ t.nav_back_index }}</a>
+{% endblock %}
+
+{# El texto legal va entero en la plantilla y no en i18n.py: son párrafos
+   largos que se leen y se revisan juntos, no cadenas sueltas de interfaz. #}
+{% block body %}
+<section class="band band--light band--tight">
+  <div class="inner">
+    <article class="legal">
+      {% if lang == 'en' %}
+      <h1>{{ t.legal_title }}</h1>
+      <p class="legal__updated">Last updated: 2 October 2026.</p>
+
+      <h2 id="aviso">Not financial advice</h2>
+      <p>
+        TheWhaleFiles is a free, informational and educational project. Nothing on
+        this site is investment, financial, legal or tax advice, nor a recommendation
+        to buy or sell any security. Do not make investment decisions based on it
+        without checking the official filing and, where appropriate, consulting a
+        licensed professional.
+      </p>
+      <p>What you should know about the data before reading it:</p>
+      <ul>
+        <li>
+          <strong>It is late by design.</strong> Members of Congress have up to 45 days
+          to disclose a trade under the STOCK Act; corporate insiders, two business
+          days under SEC Form 4. Whatever you read here already happened, and any
+          “signal” is retrospective.
+        </li>
+        <li>
+          <strong>It may be incomplete or wrong.</strong> It is copied from public
+          filings and third-party datasets that carry their own typos, late amendments
+          and gaps. We fix what we can detect (impossible dates, misattributed people)
+          but we do not audit every filing.
+        </li>
+        <li>
+          <strong>Congressional amounts are brackets, not figures.</strong> The law only
+          asks for a range ($1,001–$15,000…). Volumes add up the midpoint of each range
+          and may over- or understate the real amount.
+        </li>
+        <li>
+          <strong>Amounts are gross.</strong> Filings declare price times shares: no
+          commissions, taxes or fees are subtracted.
+        </li>
+        <li>
+          <strong>Holdings are not net worth.</strong> They only include what a person
+          must declare to the SEC about specific companies. Private companies, cash,
+          real estate and anything outside those filings are not counted.
+        </li>
+        <li>
+          <strong>Survivorship.</strong> Only a selection of insiders is followed, and
+          people who leave their post stop filing: their latest figures can be old.
+          Rankings and statistics only describe the people listed here.
+        </li>
+        <li>
+          <strong>Prices are delayed.</strong> Market quotes come from free providers
+          (Yahoo Finance or Finnhub) with at least fifteen minutes of delay, and are
+          refreshed in batches every few hours. Each profile states when they were
+          last updated.
+        </li>
+        <li>
+          <strong>Dates.</strong> Filing dates are the ones the official source
+          publishes (US Eastern time); refresh times are shown in UTC.
+        </li>
+      </ul>
+      <p>
+        We show what was declared and do not suggest that anyone acted improperly.
+      </p>
+
+      <h2 id="terminos">Terms of use</h2>
+      <ul>
+        <li>
+          The site is provided “as is”, without warranties of accuracy, completeness or
+          availability. To the extent permitted by law, we accept no liability for
+          losses arising from its use.
+        </li>
+        <li>
+          The underlying filings are public documents of the US government. Biographies
+          and some portraits come from Wikipedia and Wikimedia Commons under CC BY-SA,
+          credited on each profile. The source code is MIT-licensed.
+        </li>
+        <li>
+          You may reuse the data and the public API, citing the original source. Please
+          respect the pagination and request limits: automated abuse can be blocked.
+        </li>
+        <li>
+          Errors or removal requests can be reported through the
+          <a href="https://github.com/laglera/TheWhaleFiles/issues" rel="noopener">project issues</a>.
+        </li>
+      </ul>
+
+      <h2 id="privacidad">Privacy</h2>
+      <ul>
+        <li>
+          There are no accounts, forms, analytics or advertising. We do not collect
+          personal data from visitors.
+        </li>
+        <li>
+          Two preferences are stored on your own device: the language, in a functional
+          cookie (<code>twf_lang</code>, one year), and the theme, in
+          <code>localStorage</code>. Neither is shared nor used to track you, so no
+          consent banner is needed.
+        </li>
+        <li>
+          Fonts are served from this site. Some portraits are loaded from Wikimedia
+          Commons (upload.wikimedia.org), which receives your IP address like any web
+          server you visit; see the
+          <a href="https://foundation.wikimedia.org/wiki/Policy:Privacy_policy" rel="noopener">Wikimedia privacy policy</a>.
+        </li>
+        <li>
+          The hosting provider (Vercel) keeps technical access logs, including IP
+          addresses, for security and operation, under its own policy. A per-IP request
+          limit is applied in memory and is not stored.
+        </li>
+        <li>
+          The people in the database appear because of the public disclosures their
+          office requires. To report an error in their data, use the project issues.
+        </li>
+      </ul>
+      {% else %}
+      <h1>{{ t.legal_title }}</h1>
+      <p class="legal__updated">Última actualización: 2 de octubre de 2026.</p>
+
+      <h2 id="aviso">No es asesoramiento financiero</h2>
+      <p>
+        TheWhaleFiles es un proyecto gratuito, informativo y divulgativo. Nada de lo que
+        aparece en esta web es asesoramiento de inversión, financiero, jurídico ni
+        fiscal, ni una recomendación de comprar o vender ningún valor. No tomes
+        decisiones de inversión a partir de ella sin comprobar el documento oficial y,
+        cuando proceda, consultar a un profesional habilitado.
+      </p>
+      <p>Lo que conviene saber de los datos antes de leerlos:</p>
+      <ul>
+        <li>
+          <strong>Llegan tarde por diseño.</strong> La STOCK Act da a los congresistas
+          hasta 45 días para declarar una operación; el Formulario 4 de la SEC, dos días
+          hábiles a los directivos. Lo que lees aquí ya ocurrió, y cualquier “señal” es
+          retrospectiva.
+        </li>
+        <li>
+          <strong>Pueden estar incompletos o tener errores.</strong> Se copian de
+          declaraciones públicas y de conjuntos de datos de terceros, con sus propias
+          erratas, rectificaciones tardías y huecos. Corregimos lo que se puede detectar
+          (fechas imposibles, personas mal atribuidas), pero no auditamos cada filing.
+        </li>
+        <li>
+          <strong>Los importes del Congreso son tramos, no cifras.</strong> La ley sólo
+          pide el rango ($1.001–$15.000…). Los volúmenes suman el punto medio de cada
+          tramo y pueden quedarse por encima o por debajo del importe real.
+        </li>
+        <li>
+          <strong>Los importes son brutos.</strong> Los filings declaran precio por
+          número de títulos: no se descuentan comisiones, impuestos ni gastos.
+        </li>
+        <li>
+          <strong>Las posiciones no son el patrimonio.</strong> Sólo incluyen lo que una
+          persona está obligada a declarar a la SEC sobre empresas concretas. Empresas no
+          cotizadas, liquidez, inmuebles y todo lo que quede fuera de esos formularios no
+          se cuenta.
+        </li>
+        <li>
+          <strong>Sesgo de supervivencia.</strong> Sólo se sigue a una selección de
+          directivos, y quien deja su cargo deja de declarar: sus últimas cifras pueden
+          ser antiguas. Las clasificaciones y estadísticas describen sólo a las personas
+          que aparecen aquí.
+        </li>
+        <li>
+          <strong>Las cotizaciones van retrasadas.</strong> Salen de proveedores
+          gratuitos (Yahoo Finance o Finnhub), con al menos quince minutos de retraso, y
+          se refrescan por lotes cada pocas horas. Cada ficha dice cuándo se
+          actualizaron.
+        </li>
+        <li>
+          <strong>Fechas.</strong> Las de los filings son las que publica la fuente
+          oficial (hora del este de EE. UU.); las de actualización se muestran en UTC.
+        </li>
+      </ul>
+      <p>
+        Mostramos lo declarado y no insinuamos que nadie haya actuado de forma indebida.
+      </p>
+
+      <h2 id="terminos">Términos de uso</h2>
+      <ul>
+        <li>
+          La web se ofrece “tal cual”, sin garantía de exactitud, integridad ni
+          disponibilidad. En la medida en que la ley lo permita, no respondemos de
+          pérdidas derivadas de su uso.
+        </li>
+        <li>
+          Los filings son documentos públicos del gobierno de Estados Unidos. Las
+          biografías y parte de los retratos vienen de Wikipedia y Wikimedia Commons bajo
+          CC BY-SA, con la atribución en cada ficha. El código está bajo licencia MIT.
+        </li>
+        <li>
+          Puedes reutilizar los datos y la API pública citando la fuente original.
+          Respeta la paginación y los límites de peticiones: el uso automatizado abusivo
+          puede bloquearse.
+        </li>
+        <li>
+          Los errores o solicitudes de retirada se comunican en las
+          <a href="https://github.com/laglera/TheWhaleFiles/issues" rel="noopener">incidencias del proyecto</a>.
+        </li>
+      </ul>
+
+      <h2 id="privacidad">Privacidad</h2>
+      <ul>
+        <li>
+          No hay cuentas, formularios, analítica ni publicidad. No recogemos datos
+          personales de quien visita la web.
+        </li>
+        <li>
+          Se guardan dos preferencias en tu propio dispositivo: el idioma, en una cookie
+          técnica (<code>twf_lang</code>, un año), y el tema, en <code>localStorage</code>.
+          Ninguna se comparte ni sirve para seguirte, por eso no hace falta pedir
+          consentimiento.
+        </li>
+        <li>
+          Las tipografías se sirven desde esta web. Algunos retratos se cargan de
+          Wikimedia Commons (upload.wikimedia.org), que recibe tu dirección IP como
+          cualquier servidor que visitas; ver la
+          <a href="https://foundation.wikimedia.org/wiki/Policy:Privacy_policy" rel="noopener">política de privacidad de Wikimedia</a>.
+        </li>
+        <li>
+          El proveedor de alojamiento (Vercel) conserva registros técnicos de acceso,
+          con direcciones IP, por seguridad y operación, según su propia política. El
+          límite de peticiones por IP se aplica en memoria y no se guarda.
+        </li>
+        <li>
+          Las personas de la base aparecen por las declaraciones públicas que exige su
+          cargo. Para señalar un error en sus datos, usa las incidencias del proyecto.
+        </li>
+      </ul>
+      {% endif %}
+    </article>
+  </div>
+</section>
+{% endblock %}

@@ -159,6 +159,19 @@ TRANSLATIONS: dict[str, dict[str, Any]] = {
         "trade_date_missing": "sin fecha en el filing",
         "history_more": "Mostrando las 60 más recientes · {n} operaciones más disponibles vía",
         "history_empty": "Este político aún no tiene operaciones registradas.",
+        # Aviso permanente, encima de la navegación en todas las páginas.
+        "disclaimer_bar_lead": "No es asesoramiento financiero.",
+        "disclaimer_bar_body": (
+            "Datos declarados con hasta 45 días de retraso, que pueden estar "
+            "incompletos o contener errores de la fuente. Compruébalos en la fuente "
+            "oficial y con un profesional antes de invertir."
+        ),
+        "disclaimer_bar_link": "Aviso legal",
+        "footer_legal": "Legal",
+        "footer_disclaimer": "Aviso legal",
+        "footer_terms": "Términos de uso",
+        "footer_privacy": "Privacidad",
+        "legal_title": "Aviso legal, términos y privacidad",
         # Footer
         "footer_about": (
             "Datos públicos extraídos de las declaraciones de la Cámara de Representantes "
@@ -339,6 +352,19 @@ TRANSLATIONS: dict[str, dict[str, Any]] = {
         "trade_date_missing": "not stated in the filing",
         "history_more": "Showing the 60 most recent · {n} more trades available through the",
         "history_empty": "This politician has no recorded trades yet.",
+        # Permanent notice, above the navigation on every page.
+        "disclaimer_bar_lead": "Not financial advice.",
+        "disclaimer_bar_body": (
+            "Declared data, up to 45 days late, which may be incomplete or carry "
+            "errors from the source. Check it against the official source and with a "
+            "professional before investing."
+        ),
+        "disclaimer_bar_link": "Legal notice",
+        "footer_legal": "Legal",
+        "footer_disclaimer": "Legal notice",
+        "footer_terms": "Terms of use",
+        "footer_privacy": "Privacy",
+        "legal_title": "Legal notice, terms and privacy",
         # Footer
         "footer_about": (
             "Public data extracted from House of Representatives disclosures (STOCK Act) "
