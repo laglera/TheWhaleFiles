@@ -144,10 +144,31 @@ TRANSLATIONS: dict[str, dict[str, Any]] = {
         "wealth_missing_short": "{n} sin cotizar",
         "wealth_unavailable": "No disponible",
         "wealth_disclaimer": (
-            "No es su patrimonio total: sólo cuenta acciones ordinarias de empresas donde "
-            "está obligado a declarar ante la SEC, y deja fuera las convertibles y otros "
-            "derivados (como la clase B de Meta o la clase A de Berkshire). La propiedad "
-            "indirecta puede incluir participaciones de sociedades que controla."
+            "No es su patrimonio total: sólo cuenta acciones de empresas donde está "
+            "obligado a declarar ante la SEC. Las opciones, warrants y convertibles van "
+            "aparte. La propiedad indirecta —trusts, sociedades, fundaciones— se suma "
+            "porque el Form 4 la declara como suya, pero puede ser control y no inversión "
+            "propia: cada fila dice cuánta es."
+        ),
+        "wealth_indirect": "{n} indirectas",
+        "derivatives_title": "Opciones y convertibles",
+        "derivatives_sub": (
+            "Derechos sobre acciones que declara en la tabla II de sus Formularios 4: "
+            "opciones, warrants, unidades restringidas y acciones convertibles."
+        ),
+        "derivatives_total": "Valor intrínseco",
+        "derivatives_security": "Derecho",
+        "derivatives_underlying": "Acciones",
+        "derivatives_strike": "Ejercicio",
+        "derivatives_expiration": "Vence",
+        "derivatives_value": "Intrínseco",
+        "derivatives_no_strike": "Sin coste",
+        "derivatives_out_of_money": "Fuera de dinero",
+        "derivatives_disclaimer": (
+            "Valor intrínseco: lo que daría ejercer hoy (precio menos precio de ejercicio, "
+            "por acciones), sin el valor temporal que les da el mercado ni impuestos. No se "
+            "suma al valor de las acciones: ejercer cuesta dinero y muchas aún no se pueden "
+            "ejercer. Las vencidas no aparecen."
         ),
         "wealth_congress_note": (
             "Los congresistas declaran sus operaciones en tramos de importe, sin número "
@@ -349,10 +370,31 @@ TRANSLATIONS: dict[str, dict[str, Any]] = {
         "wealth_missing_short": "{n} unpriced",
         "wealth_unavailable": "Unavailable",
         "wealth_disclaimer": (
-            "This is not their total net worth: it only counts common shares in companies "
-            "where they must report to the SEC, and leaves out convertible shares and other "
-            "derivatives (such as Meta's class B or Berkshire's class A). Indirect ownership "
-            "may include stakes held by companies they control."
+            "This is not their total net worth: it only counts shares in companies where "
+            "they must report to the SEC. Options, warrants and convertibles are listed "
+            "separately. Indirect ownership —trusts, companies, foundations— is added because "
+            "Form 4 declares it as theirs, but it may be control rather than their own "
+            "investment: each row says how much it is."
+        ),
+        "wealth_indirect": "{n} indirect",
+        "derivatives_title": "Options and convertibles",
+        "derivatives_sub": (
+            "Rights over shares declared in table II of their Form 4 filings: options, "
+            "warrants, restricted units and convertible shares."
+        ),
+        "derivatives_total": "Intrinsic value",
+        "derivatives_security": "Right",
+        "derivatives_underlying": "Shares",
+        "derivatives_strike": "Exercise",
+        "derivatives_expiration": "Expires",
+        "derivatives_value": "Intrinsic",
+        "derivatives_no_strike": "No cost",
+        "derivatives_out_of_money": "Out of the money",
+        "derivatives_disclaimer": (
+            "Intrinsic value: what exercising today would yield (price minus exercise price, "
+            "times shares), without the time value the market gives them or taxes. It is "
+            "not added to the value of the shares: exercising costs money and many cannot "
+            "be exercised yet. Expired ones are not shown."
         ),
         "wealth_congress_note": (
             "Members of Congress declare trades in amount brackets, without share counts "

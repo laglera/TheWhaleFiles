@@ -28,7 +28,7 @@ from app.i18n import DEFAULT_LANG, get_translations, normalise_lang
 from app.ingestion import load_filing_into_db
 from app.models import Politician, Ticker, Trade
 from app.prices import provider_name as price_source
-from app.prices import value_holdings
+from app.prices import value_derivatives, value_holdings
 from app.runtime import is_serverless, utcnow
 from app.scheduler import polling_enabled, start_polling_loop, stop_polling_loop
 from app.security import rate_limit_middleware, require_admin, security_headers_middleware
@@ -886,8 +886,11 @@ def politician_detail_page(
     # Las refresca el hilo de polling o `python -m app.prices`, y la ficha dice
     # siempre de cuándo son.
     wealth = None
+    derivatives = None
     if politician.category == "business" and politician.holdings:
         wealth = value_holdings(politician.holdings, refresh=False)
+    if politician.category == "business" and politician.derivatives:
+        derivatives = value_derivatives(politician.derivatives, refresh=False)
 
     return render(
         request,
@@ -904,6 +907,7 @@ def politician_detail_page(
             "bio_is_fallback": bio_is_fallback,
             "bio_headline": headline,
             "wealth": wealth,
+            "derivatives": derivatives,
             "price_source": price_source(),
         },
         resolved_lang,

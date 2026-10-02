@@ -16,10 +16,11 @@ import urllib.error
 import urllib.request
 import xml.etree.ElementTree as ET
 from datetime import date, datetime
+from decimal import Decimal
 from typing import Any, Optional
 
 from app.database import SessionLocal, prepare_database
-from app.models import Holding, Politician, Ticker, Trade
+from app.models import DerivativeHolding, Holding, Politician, Ticker, Trade
 from app.money import ZERO, money, to_decimal
 
 USER_AGENT = "TheWhaleFiles/0.1 (contacto: alejandro.web00@gmail.com)"
@@ -245,7 +246,56 @@ def parse_form4(xml_bytes: bytes) -> dict[str, Any]:
         "issuer": (root.findtext("issuer/issuerName") or "").strip(),
         "transactions": transactions,
         "holdings": holdings,
+        "derivatives": parse_derivatives(root, symbol, period),
     }
+
+
+def parse_derivatives(root: ET.Element, symbol: str, period: Optional[date]) -> list[dict[str, Any]]:
+    """Saldos de la tabla II: opciones, warrants, convertibles.
+
+    Cada línea dice cuántos derechos quedan tras la operación
+    (`sharesOwnedFollowingTransaction`) y en cuántas acciones del subyacente
+    se traducen los de esa línea (`underlyingSecurityShares`). La proporción
+    entre los dos da las acciones por derecho, que no siempre es uno.
+    """
+    lines = []
+    nodes = [(node, True) for node in root.findall("derivativeTable/derivativeTransaction")]
+    nodes += [(node, False) for node in root.findall("derivativeTable/derivativeHolding")]
+    for node, is_transaction in nodes:
+        title = " ".join((node.findtext("securityTitle/value") or "").split())
+        owned = to_decimal(node.findtext("postTransactionAmounts/sharesOwnedFollowingTransaction/value"))
+        underlying = to_decimal(node.findtext("underlyingSecurity/underlyingSecurityShares/value"))
+        if not title or owned is None:
+            continue
+
+        # Acciones del subyacente por cada derecho. En una operación se mide
+        # contra lo operado; en un saldo sin operación, contra lo que se tiene.
+        reference = (
+            to_decimal(node.findtext("transactionAmounts/transactionShares/value"))
+            if is_transaction
+            else owned
+        )
+        ratio = underlying / reference if underlying and reference else Decimal(1)
+
+        as_of = _parse_iso(node.findtext("transactionDate/value")) if is_transaction else period
+        if as_of is None:
+            continue
+        underlying_title = node.findtext("underlyingSecurity/underlyingSecurityTitle/value") or ""
+        lines.append(
+            {
+                # El subyacente decide qué cotización vale: la clase B de Meta
+                # se convierte en clase A, que es lo que cotiza como META.
+                "symbol": symbol_for_class(symbol, underlying_title),
+                "title": title,
+                "exercise_price": to_decimal(node.findtext("conversionOrExercisePrice/value")),
+                "expiration": _parse_iso(node.findtext("expirationDate/value")),
+                "ownership": _ownership_line(node),
+                "units_owned": owned,
+                "ratio": ratio,
+                "as_of": as_of,
+            }
+        )
+    return lines
 
 
 def _document_url(cik: str, accession: str, document: str) -> str:
@@ -265,7 +315,7 @@ def fetch_insider_activity(insider: dict[str, str], filings_limit: int = 12) -> 
     # `complete` dice si se leyeron todos los formularios: con alguno perdido
     # por la red, las posiciones no se reconstruyen para no borrar un saldo
     # que sólo faltaba por un fallo de conexión.
-    activity: dict[str, Any] = {"trades": [], "positions": [], "complete": True}
+    activity: dict[str, Any] = {"trades": [], "positions": [], "derivatives": [], "complete": True}
     try:
         filings = list_form4_filings(insider["cik"], filings_limit)
     except (OSError, json.JSONDecodeError, KeyError):
@@ -327,6 +377,17 @@ def fetch_insider_activity(insider: dict[str, str], filings_limit: int = 12) -> 
                     **holding,
                     "issuer": parsed["issuer"],
                     "order": (holding["as_of"], recency, line_index),
+                }
+            )
+
+        for line_index, derivative in enumerate(parsed["derivatives"]):
+            if derivative["as_of"] > filed_on:
+                continue
+            activity["derivatives"].append(
+                {
+                    **derivative,
+                    "issuer": parsed["issuer"],
+                    "order": (derivative["as_of"], recency, line_index),
                 }
             )
     return activity
@@ -454,6 +515,7 @@ def import_insiders(
 
             if activity["complete"]:
                 imported_holdings += _update_holdings(db, person, activity["positions"])
+                _update_derivatives(db, person, activity["derivatives"])
             elif verbose:
                 print(f"  {insider['name']}: faltan formularios, posiciones sin tocar")
 
@@ -486,9 +548,18 @@ def aggregate_positions(positions: list[dict[str, Any]]) -> dict[str, dict[str, 
     totals: dict[str, dict[str, Any]] = {}
     for (symbol, _ownership), line in latest.items():
         entry = totals.setdefault(
-            symbol, {"shares": ZERO, "as_of": line["as_of"], "issuer": line.get("issuer", "")}
+            symbol,
+            {
+                "shares": ZERO,
+                "shares_indirect": ZERO,
+                "as_of": line["as_of"],
+                "issuer": line.get("issuer", ""),
+            },
         )
-        entry["shares"] += to_decimal(line["shares_owned"])
+        shares = to_decimal(line["shares_owned"])
+        entry["shares"] += shares
+        if line["ownership"].startswith("I:"):
+            entry["shares_indirect"] += shares
         entry["as_of"] = max(entry["as_of"], line["as_of"])
     return totals
 
@@ -516,10 +587,74 @@ def _update_holdings(db, person: Politician, positions: list[dict[str, Any]]) ->
             holding = Holding(politician_id=person.id, ticker_id=ticker.id)
             db.add(holding)
         holding.shares = entry["shares"]
+        holding.shares_indirect = entry["shares_indirect"]
         holding.as_of = entry["as_of"]
         holding.source = "SEC Form 4"
 
     return len(totals)
+
+
+def aggregate_derivatives(
+    lines: list[dict[str, Any]], today: Optional[date] = None
+) -> list[dict[str, Any]]:
+    """Derechos vivos: el último saldo de cada serie y vía de propiedad, sumados.
+
+    Una serie es un mismo derecho —título, precio de ejercicio, vencimiento—:
+    opciones con precios distintos no se pueden sumar porque no valen lo mismo.
+    Las vencidas y las que quedaron a cero se descartan.
+    """
+    today = today or date.today()
+    latest: dict[tuple, dict[str, Any]] = {}
+    for line in lines:
+        key = (line["symbol"], line["title"], line["exercise_price"], line["expiration"], line["ownership"])
+        current = latest.get(key)
+        if current is None or line["order"] > current["order"]:
+            latest[key] = line
+
+    series: dict[tuple, dict[str, Any]] = {}
+    for (symbol, title, exercise_price, expiration, _ownership), line in latest.items():
+        if expiration is not None and expiration < today:
+            continue
+        underlying = to_decimal(line["units_owned"]) * to_decimal(line["ratio"])
+        if not underlying:
+            continue
+        entry = series.setdefault(
+            (symbol, title, exercise_price, expiration),
+            {
+                "symbol": symbol,
+                "title": title,
+                "exercise_price": exercise_price,
+                "expiration": expiration,
+                "underlying_shares": ZERO,
+                "as_of": line["as_of"],
+                "issuer": line.get("issuer", ""),
+            },
+        )
+        entry["underlying_shares"] += underlying
+        entry["as_of"] = max(entry["as_of"], line["as_of"])
+    return sorted(series.values(), key=lambda item: (item["symbol"], item["title"], item["expiration"] or date.max))
+
+
+def _update_derivatives(db, person: Politician, lines: list[dict[str, Any]]) -> int:
+    """Rehace los derechos de la persona; como las posiciones, no se parchean."""
+    for derivative in list(person.derivatives):
+        db.delete(derivative)
+    db.flush()
+    series = aggregate_derivatives(lines)
+    for entry in series:
+        ticker = _ticker(db, entry["symbol"], entry["issuer"])
+        db.add(
+            DerivativeHolding(
+                politician_id=person.id,
+                ticker_id=ticker.id,
+                title=entry["title"][:255],
+                underlying_shares=entry["underlying_shares"],
+                exercise_price=entry["exercise_price"],
+                expiration=entry["expiration"],
+                as_of=entry["as_of"],
+            )
+        )
+    return len(series)
 
 
 if __name__ == "__main__":

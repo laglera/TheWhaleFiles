@@ -195,7 +195,10 @@ entero.
 - Fichas-resumen por persona, tendencias, filtros y perfiles individuales, en
   español e inglés.
 - Biografías y retratos de Wikipedia/Wikimedia Commons, con su atribución.
-- Patrimonio en acciones de los directivos, valorado a precio de mercado.
+- Patrimonio en acciones de los directivos, valorado a precio de mercado, con
+  la parte en propiedad indirecta (trusts, sociedades) a la vista.
+- Opciones, warrants y convertibles de la tabla II del Form 4, valorados aparte
+  por su valor intrínseco (sin valor temporal); las vencidas se descartan.
 - Polling periódico de las fuentes, con deduplicación por operación.
 - `robots.txt` y `sitemap.xml`.
 
