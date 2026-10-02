@@ -135,6 +135,10 @@ en su propio navegador.
 - **Rutas de administración** (`/api/poll-sources`, `/api/load-sample-filing`):
   escriben en la base o salen a la red, así que exigen la cabecera
   `X-Admin-Token`. Sin `ADMIN_TOKEN` configurado responden 404.
+- **Límite de peticiones por IP**: la API pública admite 120 por minuto
+  (`RATE_LIMIT_API`) y las rutas de administración 5 cada diez minutos
+  (`RATE_LIMIT_ADMIN`), contadas antes de comprobar el token. Pasado el cupo
+  responden 429 con `Retry-After`. La cuenta vive en memoria de cada instancia.
 
 ## API pública
 
