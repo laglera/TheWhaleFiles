@@ -22,6 +22,9 @@ class Politician(Base):
     state: Mapped[str] = mapped_column(String(80), nullable=False)
     party: Mapped[str] = mapped_column(String(60), nullable=False, default="")
     category: Mapped[str] = mapped_column(String(20), nullable=False, default="congress")
+    # CIK personal en EDGAR, sólo para los directivos. Identifica a la persona
+    # mejor que el nombre, que EDGAR escribe a su manera ("Jen Hsun Huang").
+    cik: Mapped[Optional[str]] = mapped_column(String(10), nullable=True, index=True)
 
     # Perfil biográfico traído de Wikipedia. Se guarda en los dos idiomas de la
     # interfaz y con la URL de origen, que la licencia CC BY-SA obliga a citar.

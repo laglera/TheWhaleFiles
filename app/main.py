@@ -822,6 +822,9 @@ def get_politician_detail(
     }
 
 
+DORMANT_AFTER_DAYS = 365
+
+
 @app.get("/politicians/{politician_id}", response_class=HTMLResponse)
 def politician_detail_page(
     request: Request,
@@ -885,6 +888,15 @@ def politician_detail_page(
     # minuto de reintentos. La ficha de Buffett tardaba tres minutos en abrir.
     # Las refresca el hilo de polling o `python -m app.prices`, y la ficha dice
     # siempre de cuándo son.
+    # Un directivo que deja el cargo deja de presentar Form 4, y su ficha se
+    # quedaría con cifras viejas presentadas como actuales. Pasado un año sin
+    # declarar, la ficha lo dice.
+    dormant_since = None
+    if politician.category == "business" and ordered_trades:
+        last_filing = ordered_trades[0].reported_date
+        if (today - last_filing).days > DORMANT_AFTER_DAYS:
+            dormant_since = last_filing
+
     wealth = None
     derivatives = None
     if politician.category == "business" and politician.holdings:
@@ -908,6 +920,7 @@ def politician_detail_page(
             "bio_headline": headline,
             "wealth": wealth,
             "derivatives": derivatives,
+            "dormant_since": dormant_since,
             "price_source": price_source(),
         },
         resolved_lang,

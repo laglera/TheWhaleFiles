@@ -17,46 +17,32 @@ import urllib.request
 import xml.etree.ElementTree as ET
 from datetime import date, datetime
 from decimal import Decimal
+from pathlib import Path
 from typing import Any, Optional
 
 from app.database import SessionLocal, prepare_database
 from app.models import DerivativeHolding, Holding, Politician, Ticker, Trade
 from app.money import ZERO, money, to_decimal
+from app.names import clean_person_name
 
 USER_AGENT = "TheWhaleFiles/0.1 (contacto: alejandro.web00@gmail.com)"
 REQUEST_PAUSE = 0.2  # ~5 peticiones por segundo, por debajo del límite de la SEC
 
-# Figuras influyentes de la economía estadounidense, con su CIK personal en EDGAR.
-INSIDERS: list[dict[str, str]] = [
-    {"cik": "0001494730", "name": "Elon Musk", "role": "CEO", "org": "Tesla"},
-    {"cik": "0001043298", "name": "Jeff Bezos", "role": "Fundador", "org": "Amazon"},
-    {"cik": "0001214156", "name": "Tim Cook", "role": "CEO", "org": "Apple"},
-    {"cik": "0000315090", "name": "Warren Buffett", "role": "CEO", "org": "Berkshire Hathaway"},
-    {"cik": "0001548760", "name": "Mark Zuckerberg", "role": "CEO", "org": "Meta"},
-    {"cik": "0001197649", "name": "Jensen Huang", "role": "CEO", "org": "NVIDIA"},
-    {"cik": "0001513142", "name": "Satya Nadella", "role": "CEO", "org": "Microsoft"},
-    {"cik": "0001534753", "name": "Sundar Pichai", "role": "CEO", "org": "Alphabet"},
-    {"cik": "0001195345", "name": "Jamie Dimon", "role": "CEO", "org": "JPMorgan Chase"},
-    {"cik": "0001059245", "name": "Larry Fink", "role": "CEO", "org": "BlackRock"},
-    {"cik": "0001033331", "name": "Reed Hastings", "role": "Presidente", "org": "Netflix"},
-    {"cik": "0000908724", "name": "Michael Dell", "role": "CEO", "org": "Dell Technologies"},
-    {"cik": "0001205005", "name": "Safra Catz", "role": "CEO", "org": "Oracle"},
-    {"cik": "0001374545", "name": "Andy Jassy", "role": "CEO", "org": "Amazon"},
-    # Lisa T. Su. El CIK anterior (0001227903) era el de otra Lisa Su, con
-    # operaciones de Travelzoo entre 2004 y 2021.
-    {"cik": "0001405109", "name": "Lisa Su", "role": "CEO", "org": "AMD"},
-    {"cik": "0001834152", "name": "Brian Chesky", "role": "CEO", "org": "Airbnb"},
-    {"cik": "0001294693", "name": "Marc Benioff", "role": "CEO", "org": "Salesforce"},
-    {"cik": "0000901999", "name": "Larry Ellison", "role": "Presidente", "org": "Oracle"},
-    # David M. Solomon. El CIK anterior (0001397814) era el de David F. Solomon,
-    # de Forest Laboratories.
-    {"cik": "0001693709", "name": "David Solomon", "role": "CEO", "org": "Goldman Sachs"},
-    {"cik": "0001195071", "name": "Brian Moynihan", "role": "CEO", "org": "Bank of America"},
-    {"cik": "0001316331", "name": "Pat Gelsinger", "role": "Ex-CEO", "org": "Intel"},
-    {"cik": "0001492154", "name": "Mary Barra", "role": "CEO", "org": "General Motors"},
-    {"cik": "0001335782", "name": "Doug McMillon", "role": "CEO", "org": "Walmart"},
-    {"cik": "0001184237", "name": "Dara Khosrowshahi", "role": "CEO", "org": "Uber"},
-]
+# Quién se sigue vive en un fichero de datos, no en el código: el refresco
+# programado lo lee del repositorio, así que añadir a alguien no exige
+# redesplegar la web. Además de las personas fijas, cada empresa de la lista
+# aporta su CEO en cada pasada, descubierto en sus propios Form 4: cuando una
+# empresa cambia de CEO, el nuevo aparece en el siguiente refresco.
+TRACKED_FILE = Path(__file__).resolve().parent / "data" / "insiders.json"
+
+
+def load_tracked(path: Path = TRACKED_FILE) -> dict[str, Any]:
+    with path.open(encoding="utf-8") as handle:
+        data = json.load(handle)
+    return {"people": data.get("people", []), "companies": data.get("companies", [])}
+
+
+INSIDERS: list[dict[str, str]] = load_tracked()["people"]
 
 # Operaciones importadas con un CIK que no era el de la persona. Se retiran en
 # cada importación —no queda nada que retirar después de la primera—, para que
@@ -298,6 +284,146 @@ def parse_derivatives(root: ET.Element, symbol: str, period: Optional[date]) -> 
     return lines
 
 
+# --- Descubrimiento de CEO -------------------------------------------------
+
+_CEO_TITLE = re.compile(r"\b(chief executive|ceo)\b", re.IGNORECASE)
+_FORMER_TITLE = re.compile(r"\b(former|ex-|retired)\b", re.IGNORECASE)
+
+
+def owner_name(raw: str) -> str:
+    """"HUANG JEN HSUN" → "Jen Hsun Huang".
+
+    EDGAR escribe al declarante como apellido y nombres, en mayúsculas.
+    """
+    parts = [part for part in re.sub(r"[,.]", " ", raw or "").split() if part]
+    if len(parts) < 2:
+        return " ".join(part.capitalize() for part in parts)
+    ordered = parts[1:] + parts[:1]
+    # Sin iniciales intermedias, como el resto de nombres de la web.
+    return clean_person_name(
+        " ".join("-".join(piece.capitalize() for piece in part.split("-")) for part in ordered)
+    )
+
+
+def parse_reporting_owners(xml_bytes: bytes) -> list[dict[str, Any]]:
+    """Declarantes de un Form 4 con su relación con el emisor."""
+    root = ET.fromstring(xml_bytes)
+    owners = []
+    for node in root.findall("reportingOwner"):
+        cik = (node.findtext("reportingOwnerId/rptOwnerCik") or "").strip()
+        if not cik:
+            continue
+        title = node.findtext("reportingOwnerRelationship/officerTitle") or ""
+        is_officer = node.findtext("reportingOwnerRelationship/isOfficer") or ""
+        owners.append(
+            {
+                "cik": cik.zfill(10),
+                "name": owner_name(node.findtext("reportingOwnerId/rptOwnerName") or ""),
+                "title": " ".join(title.split()),
+                "is_officer": is_officer.strip().lower() in {"1", "true"},
+            }
+        )
+    return owners
+
+
+def is_ceo(owner: dict[str, Any]) -> bool:
+    title = owner.get("title") or ""
+    return bool(_CEO_TITLE.search(title)) and not _FORMER_TITLE.search(title)
+
+
+def company_ciks(tickers: list[str]) -> dict[str, dict[str, str]]:
+    """CIK y nombre de cada empresa, del índice público de la SEC."""
+    payload = json.loads(_fetch("https://www.sec.gov/files/company_tickers.json"))
+    index = {
+        str(row.get("ticker", "")).upper(): {
+            "cik": str(row.get("cik_str", "")).zfill(10),
+            "title": str(row.get("title", "")),
+        }
+        for row in payload.values()
+    }
+    return {ticker: index[ticker.upper()] for ticker in tickers if ticker.upper() in index}
+
+
+def discover_ceos(
+    tickers: list[str], filings_per_company: int = 20, verbose: bool = False
+) -> list[dict[str, str]]:
+    """CEO actuales de cada empresa, según sus Form 4 más recientes.
+
+    Se recorren los últimos formularios del emisor hasta dar con quien firma
+    como "Chief Executive Officer". Una empresa sin respuesta se salta: el
+    resto del refresco no depende de ella.
+    """
+    try:
+        companies = company_ciks(tickers)
+    except (OSError, json.JSONDecodeError, AttributeError):
+        return []
+
+    found: dict[str, dict[str, str]] = {}
+    for ticker, company in companies.items():
+        try:
+            filings = list_form4_filings(company["cik"], filings_per_company)
+        except (OSError, json.JSONDecodeError, KeyError):
+            continue
+        company_ceos = 0
+        for filing in filings:
+            time.sleep(REQUEST_PAUSE)
+            url = _document_url(company["cik"], filing["accession"], filing["document"])
+            try:
+                owners = parse_reporting_owners(_fetch(url))
+            except (OSError, ET.ParseError):
+                continue
+            for owner in owners:
+                if is_ceo(owner) and owner["cik"] not in found:
+                    found[owner["cik"]] = {
+                        "cik": owner["cik"],
+                        "name": owner["name"],
+                        "role": "CEO",
+                        "org": organisation_name(company["title"]),
+                        "discovered": True,
+                    }
+                    company_ceos += 1
+            # Con un CEO encontrado basta mirar unos pocos más, por si la
+            # empresa tiene dos (co-CEO).
+            if company_ceos and filings.index(filing) >= 4:
+                break
+        if verbose:
+            print(f"  {ticker:6s} {company_ceos} CEO")
+    return list(found.values())
+
+
+_CORPORATE_SUFFIX = re.compile(r"[,.]?\s+(inc|corp|corporation|co|company|ltd|plc|holdings?|group)\.?$", re.IGNORECASE)
+
+
+def organisation_name(title: str) -> str:
+    """"NVIDIA CORP" → "Nvidia"; "Apple Inc." → "Apple"."""
+    name = (title or "").strip()
+    while True:
+        trimmed = _CORPORATE_SUFFIX.sub("", name).strip().rstrip(" &,")
+        if trimmed == name:
+            break
+        name = trimmed
+    if name.isupper():
+        name = " ".join(word.capitalize() if len(word) > 3 else word for word in name.split())
+    return name
+
+
+def tracked_insiders(discover: bool = True, verbose: bool = False) -> list[dict[str, str]]:
+    """Las personas fijas más los CEO descubiertos, sin repetir a nadie.
+
+    Se identifica por CIK, no por nombre: EDGAR llama "Jen Hsun Huang" a quien
+    la lista fija llama "Jensen Huang", y es la misma persona.
+    """
+    tracked = load_tracked()
+    people = [dict(person) for person in tracked["people"]]
+    seen = {person["cik"] for person in people}
+    if discover and tracked["companies"]:
+        for person in discover_ceos(tracked["companies"], verbose=verbose):
+            if person["cik"] not in seen:
+                people.append(person)
+                seen.add(person["cik"])
+    return people
+
+
 def _document_url(cik: str, accession: str, document: str) -> str:
     # El primaryDocument apunta a la versión renderizada (xslF345X0*/); el XML
     # crudo vive en la misma carpeta sin ese prefijo.
@@ -429,17 +555,42 @@ def import_insiders(
     limit_people: Optional[int] = None,
     filings_limit: int = 12,
     verbose: bool = True,
+    discover: bool = True,
 ) -> dict[str, int]:
-    """Vuelca en la base las operaciones declaradas por los insiders de la lista."""
-    people = INSIDERS[:limit_people] if limit_people else INSIDERS
+    """Vuelca en la base las operaciones de los insiders que se siguen.
+
+    Son tres grupos: la lista fija, los CEO descubiertos en esta pasada y
+    quien ya está en la base con su CIK —un CEO descubierto antes que ya no
+    lo es sigue declarando un tiempo, y su ficha no se congela de golpe—.
+    """
+    people = tracked_insiders(discover=discover, verbose=verbose)
     imported_people = 0
     imported_trades = 0
     imported_holdings = 0
     prepare_database()
 
     with SessionLocal() as db:
+        known = {person["cik"] for person in people}
+        for stored in db.query(Politician).filter(
+            Politician.category == "business", Politician.cik.is_not(None)
+        ):
+            if stored.cik not in known:
+                people.append(
+                    {"cik": stored.cik, "name": stored.name, "role": stored.chamber, "org": stored.state}
+                )
+                known.add(stored.cik)
+        if limit_people:
+            people = people[:limit_people]
+
         for insider in people:
-            person = db.query(Politician).filter(Politician.name == insider["name"]).one_or_none()
+            person = (
+                db.query(Politician).filter(Politician.cik == insider["cik"]).one_or_none()
+                or db.query(Politician)
+                .filter(Politician.name == insider["name"], Politician.category == "business")
+                .one_or_none()
+            )
+            if person is not None and not person.cik:
+                person.cik = insider["cik"]
             if person is not None:
                 removed = purge_misattributed(db, person)
                 if removed and verbose:
@@ -460,6 +611,7 @@ def import_insiders(
                     state=insider["org"],
                     party="Business",
                     category="business",
+                    cik=insider["cik"],
                 )
                 db.add(person)
                 db.flush()

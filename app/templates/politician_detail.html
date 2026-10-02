@@ -59,6 +59,9 @@
                 {%- endif %}
               </p>
               <h1>{{ politician.name }}</h1>
+              {% if dormant_since %}
+              <p class="stale-note">{{ t.profile_dormant.format(date=dormant_since.strftime('%d/%m/%Y')) }}</p>
+              {% endif %}
               {% if bio_headline %}
               <p class="identity__headline">{{ bio_headline }}</p>
               {% endif %}

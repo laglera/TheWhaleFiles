@@ -117,6 +117,10 @@ TRANSLATIONS: dict[str, dict[str, Any]] = {
         "profile_bio_other_lang": "Biografía disponible sólo en inglés.",
         "profile_photo_credit": "Foto: {author} · {license}",
         "profile_top_sub": "Volumen de compras y ventas por valor · top {n}",
+        "profile_dormant": (
+            "Sin Formularios 4 desde el {date}: puede haber dejado el cargo, y sus cifras "
+            "son las de entonces."
+        ),
         # Patrimonio (sólo perfiles empresariales)
         "wealth_title": "Acciones declaradas",
         "wealth_sub": (
@@ -343,6 +347,10 @@ TRANSLATIONS: dict[str, dict[str, Any]] = {
         "profile_bio_other_lang": "Biography available in Spanish only.",
         "profile_photo_credit": "Photo: {author} · {license}",
         "profile_top_sub": "Buy and sell volume per security · top {n}",
+        "profile_dormant": (
+            "No Form 4 filings since {date}: they may have left the post, and their figures "
+            "date from then."
+        ),
         # Wealth (business profiles only)
         "wealth_title": "Declared holdings",
         "wealth_sub": (
