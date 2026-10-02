@@ -4,7 +4,7 @@ import logging
 import os
 from collections.abc import Generator
 
-from sqlalchemy import create_engine, event
+from sqlalchemy import bindparam, create_engine, event
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import NullPool, StaticPool
 
@@ -265,11 +265,88 @@ def ensure_schema(target_engine=None) -> None:
                 )
 
 
+# La misma operación publicada dos veces: en el filing original y en su
+# enmienda (PTR o Form 4/A), con todo igual salvo la fecha de publicación. Se
+# queda la primera, que es cuando se supo; la otra duplicaba compras en los
+# volúmenes y en la rentabilidad.
+AMENDMENT_DUPLICATES = """
+DELETE FROM trades
+WHERE transaction_date IS NOT NULL
+  AND EXISTS (
+    SELECT 1 FROM trades AS earlier
+    WHERE earlier.politician_id = trades.politician_id
+      AND earlier.ticker_id = trades.ticker_id
+      AND earlier.trade_type = trades.trade_type
+      AND earlier.amount = trades.amount
+      AND earlier.transaction_date = trades.transaction_date
+      AND earlier.reported_date < trades.reported_date
+  )
+"""
+
+
+def reconcile_trades(target_engine=None) -> dict[str, int]:
+    """Limpia lo que versiones anteriores de la ingesta dejaron en la base.
+
+    - Códigos crudos del Form 4 ("J", "M"…) guardados antes de traducirlos:
+      se renombran, o se borran si la versión con nombre ya está guardada.
+    - Operaciones repetidas por una enmienda: ver AMENDMENT_DUPLICATES.
+    """
+    from sqlalchemy import inspect, text
+
+    from app.insiders import TRANSACTION_CODES
+
+    target_engine = target_engine or engine
+    if "trades" not in inspect(target_engine).get_table_names():
+        return {"renamed": 0, "merged_codes": 0, "amendments": 0}
+
+    stats = {"renamed": 0, "merged_codes": 0, "amendments": 0}
+    with target_engine.begin() as connection:
+        rows = connection.execute(
+            text(
+                "SELECT id, politician_id, ticker_id, trade_type, amount, reported_date, "
+                "transaction_date FROM trades WHERE trade_type IN :codes"
+            ).bindparams(bindparam("codes", expanding=True)),
+            {"codes": list(TRANSACTION_CODES)},
+        ).all()
+        for row in rows:
+            name = TRANSACTION_CODES[row.trade_type]
+            twin = connection.execute(
+                text(
+                    "SELECT 1 FROM trades WHERE politician_id = :p AND ticker_id = :t "
+                    "AND trade_type = :name AND amount = :a AND reported_date = :r "
+                    "AND (transaction_date = :d OR (transaction_date IS NULL AND :d IS NULL))"
+                ),
+                {
+                    "p": row.politician_id,
+                    "t": row.ticker_id,
+                    "name": name,
+                    "a": row.amount,
+                    "r": row.reported_date,
+                    "d": row.transaction_date,
+                },
+            ).first()
+            if twin:
+                connection.execute(text("DELETE FROM trades WHERE id = :id"), {"id": row.id})
+                stats["merged_codes"] += 1
+            else:
+                connection.execute(
+                    text("UPDATE trades SET trade_type = :name WHERE id = :id"),
+                    {"name": name, "id": row.id},
+                )
+                stats["renamed"] += 1
+        stats["amendments"] = connection.execute(text(AMENDMENT_DUPLICATES)).rowcount or 0
+
+    if any(stats.values()):
+        LOGGER.info("Operaciones reconciliadas: %s", stats)
+    return stats
+
+
 def prepare_database(target_engine=None) -> None:
     """Crea lo que falte y migra lo que exista. Todo punto de entrada la llama."""
     target_engine = target_engine or engine
     Base.metadata.create_all(bind=target_engine)
     ensure_schema(target_engine)
+    reconcile_trades(target_engine)
 
 
 def seed_from_network() -> bool:
