@@ -31,16 +31,24 @@
         document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
       })();
     </script>
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600&family=Inter:wght@400;600;700&display=swap"
-      rel="stylesheet"
-    />
+    {# Tipografías servidas desde aquí: con Google Fonts, cada visita le
+       entregaba la IP del visitante a Google. Se precargan las del alfabeto
+       latino básico, que son las que pinta la primera pantalla. #}
+    <link rel="preload" href="/static/fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="/static/fonts/inter-tight-latin.woff2" as="font" type="font/woff2" crossorigin />
     <link rel="stylesheet" href="{{ static_url('styles.css') }}" />
     <link rel="icon" type="image/png" href="{{ static_url('logo.png') }}" />
   </head>
   <body>
+    {# Fijo en todas las páginas y antes que nada: quien llega a una ficha desde
+       un buscador no pasa por la portada ni lee el pie. #}
+    <aside class="disclaimer-bar" role="note">
+      <p>
+        <strong>{{ t.disclaimer_bar_lead }}</strong>
+        {{ t.disclaimer_bar_body }}
+        <a href="/legal?lang={{ lang }}#aviso">{{ t.disclaimer_bar_link }}</a>
+      </p>
+    </aside>
     <nav class="nav">
       <div class="nav__inner">
         {# El nombre va en su propio span para poder retirarlo en móvil, donde
@@ -98,6 +106,14 @@
                 <a href="https://disclosures-clerk.house.gov" rel="noopener">{{ t.footer_house }}</a>
               </li>
               <li><a href="https://www.sec.gov/edgar/search/" rel="noopener">{{ t.footer_sec }}</a></li>
+            </ul>
+          </div>
+          <div>
+            <h4>{{ t.footer_legal }}</h4>
+            <ul>
+              <li><a href="/legal?lang={{ lang }}#aviso">{{ t.footer_disclaimer }}</a></li>
+              <li><a href="/legal?lang={{ lang }}#terminos">{{ t.footer_terms }}</a></li>
+              <li><a href="/legal?lang={{ lang }}#privacidad">{{ t.footer_privacy }}</a></li>
             </ul>
           </div>
           <div>

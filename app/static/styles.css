@@ -4,6 +4,43 @@
    con un uso más amplio de la paleta de acentos.
    ========================================================================== */
 
+/* Tipografías servidas desde el propio dominio. Cargarlas de Google Fonts
+   entregaba a Google la IP de cada visitante, y en la UE eso exige un aviso
+   que esta web no tiene por qué pedir. Son fuentes variables: un fichero cubre
+   todos los pesos, partido en latin y latin-ext como lo sirve Google. */
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url('fonts/inter-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url('fonts/inter-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Inter Tight';
+  font-style: normal;
+  font-weight: 400 600;
+  font-display: swap;
+  src: url('fonts/inter-tight-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: 'Inter Tight';
+  font-style: normal;
+  font-weight: 400 600;
+  font-display: swap;
+  src: url('fonts/inter-tight-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
 :root {
   /* Marca */
   --primary: #494fdf;
@@ -363,6 +400,40 @@ img {
 
 .band--brand .band-head p {
   color: rgba(255, 255, 255, 0.85);
+}
+
+/* --------------------------------------------------------------------------
+   Aviso permanente
+   --------------------------------------------------------------------------
+   Va en el flujo, encima del nav: el nav flota sobre lo que viene después y
+   el aviso no debe quedar tapado ni competir con él.
+   -------------------------------------------------------------------------- */
+
+.disclaimer-bar {
+  background: var(--canvas-dark);
+  color: var(--on-dark-mute);
+  border-bottom: 1px solid var(--hairline-dark);
+  padding: 10px 24px;
+  font-size: 13px;
+  line-height: 1.45;
+  text-align: center;
+}
+
+.disclaimer-bar p {
+  margin: 0 auto;
+  max-width: var(--container);
+}
+
+.disclaimer-bar strong {
+  color: var(--on-dark);
+  font-weight: 600;
+}
+
+.disclaimer-bar a {
+  color: var(--on-dark);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  white-space: nowrap;
 }
 
 /* --------------------------------------------------------------------------
@@ -2170,7 +2241,7 @@ img {
 
 .footer__grid {
   display: grid;
-  grid-template-columns: 1.6fr 1fr 1fr;
+  grid-template-columns: 1.6fr 1fr 1fr 1fr;
   gap: 40px;
   padding-bottom: 48px;
   border-bottom: 1px solid var(--divider-soft);
@@ -2211,6 +2282,44 @@ img {
   margin-top: 32px;
   color: var(--on-dark-faint);
   font-size: 13px;
+}
+
+/* --------------------------------------------------------------------------
+   Página legal
+   -------------------------------------------------------------------------- */
+
+.legal {
+  max-width: 76ch;
+}
+
+.legal h1 {
+  font-size: 48px;
+  line-height: 1.15;
+  margin-bottom: 16px;
+}
+
+.legal h2 {
+  font-size: 28px;
+  margin: 56px 0 16px;
+  scroll-margin-top: 112px;
+}
+
+.legal p,
+.legal li {
+  font-size: 16px;
+  line-height: 1.65;
+  color: var(--body);
+}
+
+.legal ul {
+  padding-left: 20px;
+  display: grid;
+  gap: 8px;
+}
+
+.legal__updated {
+  color: var(--mute);
+  font-size: 14px;
 }
 
 /* --------------------------------------------------------------------------

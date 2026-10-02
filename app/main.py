@@ -911,6 +911,12 @@ def load_sample_filing(request: Request) -> dict[str, Any]:
     }
 
 
+@app.get("/legal", response_class=HTMLResponse)
+def legal_page(request: Request, lang: Optional[str] = None) -> Any:
+    """Aviso legal, términos de uso y privacidad, en una sola página."""
+    return render(request, "legal.html", {}, resolve_lang(request, lang))
+
+
 @app.get("/health")
 def health_check() -> dict[str, str]:
     return {"status": "ok", "service": "TheWhaleFiles"}
@@ -948,7 +954,9 @@ def sitemap(request: Request, db: Session = Depends(get_db)) -> Any:
         .order_by(Politician.id)
     ).all()
 
-    urls = [f"{base}/"] + [f"{base}/politicians/{person_id}" for person_id in ids]
+    urls = [f"{base}/", f"{base}/legal"] + [
+        f"{base}/politicians/{person_id}" for person_id in ids
+    ]
     body = "".join(f"<url><loc>{url}</loc></url>" for url in urls)
     xml = f'<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">{body}</urlset>'
     return Response(content=xml, media_type="application/xml")
