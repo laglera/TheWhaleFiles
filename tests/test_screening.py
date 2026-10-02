@@ -58,12 +58,32 @@ class ScreeningTests(unittest.TestCase):
         self.assertEqual(row["disclosure_lag_days"], 20)
         self.assertEqual(row["side"], "buy")
 
+    def csv_lines(self, **values):
+        import asyncio
+
+        response = main.export_trades_csv(self.db, **values)
+
+        async def collect():
+            return "".join([chunk async for chunk in response.body_iterator])
+
+        self.assertIn("text/csv", response.media_type)
+        return asyncio.run(collect()).strip().splitlines()
+
     def test_csv_has_the_same_rows_and_the_bracket(self):
-        response = main.export_trades_csv(self.db, limit=100, filters=filters(category="congress"))
-        lines = response.body.decode().strip().splitlines()
+        self.db.commit()
+        lines = self.csv_lines(limit=100, offset=0, filters=filters(category="congress"))
         self.assertTrue(lines[0].startswith("id,reported_date"))
         self.assertEqual(len(lines), 3)
-        self.assertIn("text/csv", response.media_type)
+
+    def test_csv_exports_everything_in_batches(self):
+        # Con 1.000 filas por defecto y 5.000 como tope, el CSV dejaba fuera
+        # la mayor parte de la base.
+        from unittest import mock
+
+        self.db.commit()
+        with mock.patch.object(main, "CSV_BATCH_ROWS", 1):
+            self.assertEqual(len(self.csv_lines(limit=None, offset=0, filters=filters())), 5)
+            self.assertEqual(len(self.csv_lines(limit=2, offset=1, filters=filters())), 3)
 
     def test_the_feed_is_atom_with_one_entry_per_trade(self):
         response = main.trades_feed(make_request("/feed.xml"), self.db, filters=filters(side="buy"))

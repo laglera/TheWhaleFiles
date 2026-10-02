@@ -288,7 +288,7 @@ TRANSLATIONS: dict[str, dict[str, Any]] = {
         "footer_data": "Datos",
         "footer_trades_json": "Operaciones (JSON)",
         "footer_people_json": "Políticos (JSON)",
-        "footer_trades_csv": "Operaciones (CSV)",
+        "footer_trades_csv": "Todas las operaciones (CSV)",
         "footer_feed": "Avisos de nuevas operaciones (Atom)",
         "footer_health": "Estado del servicio",
         "footer_note": (
@@ -586,7 +586,7 @@ TRANSLATIONS: dict[str, dict[str, Any]] = {
         "footer_data": "Data",
         "footer_trades_json": "Trades (JSON)",
         "footer_people_json": "Politicians (JSON)",
-        "footer_trades_csv": "Trades (CSV)",
+        "footer_trades_csv": "All trades (CSV)",
         "footer_feed": "New trade alerts (Atom)",
         "footer_health": "Service status",
         "footer_note": (
