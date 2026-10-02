@@ -176,7 +176,12 @@
         </div>
         {# data-label alimenta el encabezado de cada dato en móvil, donde la
            cabecera de la tabla no cabe y las cifras quedarían sin nombre. #}
-        <span class="ledger__date" data-label="{{ t.wealth_shares }}">{{ '{:,.0f}'.format(position.shares) }}</span>
+        <span class="ledger__date" data-label="{{ t.wealth_shares }}">
+          {{ '{:,.0f}'.format(position.shares) }}
+          {% if position.shares_indirect %}
+          <em>{{ t.wealth_indirect.format(n='{:,.0f}'.format(position.shares_indirect)) }}</em>
+          {% endif %}
+        </span>
         <span class="ledger__date" data-label="{{ t.wealth_price }}">
           {%- if position.price -%}
           {%- if position.currency == 'USD' -%}
@@ -211,6 +216,65 @@
       · {{ t.wealth_updated.format(when=wealth.fetched_at.strftime('%d/%m/%Y %H:%M UTC'), source=price_source) }}
       {% endif %}
     </p>
+  </div>
+</section>
+{% endif %}
+
+{% if derivatives and derivatives.positions %}
+<section class="band band--soft band--profile" id="derivados">
+  <div class="inner">
+    <div class="band-head">
+      <div>
+        <h2>{{ t.derivatives_title }}</h2>
+        <p>{{ t.derivatives_sub }}</p>
+      </div>
+      <div class="wealth-total">
+        <span>{{ t.derivatives_total }}</span>
+        {% if derivatives.valued %}
+        <strong>{{ ui.money(derivatives.total, derivatives.currency) }}</strong>
+        {% else %}
+        <strong class="wealth-total--empty">{{ t.wealth_unavailable }}</strong>
+        {% endif %}
+        <small>{{ t.wealth_positions }}: {{ derivatives.positions|length }}</small>
+      </div>
+    </div>
+
+    <div class="ledger ledger--wealth">
+      <div class="ledger__head">
+        <span>{{ t.derivatives_security }}</span>
+        <span>{{ t.derivatives_underlying }}</span>
+        <span>{{ t.derivatives_strike }}</span>
+        <span>{{ t.derivatives_expiration }}</span>
+        <span class="ledger__amount-head">{{ t.derivatives_value }}</span>
+      </div>
+      {% for item in derivatives.positions %}
+      <div class="ledger__row">
+        <div class="ledger__symbol">
+          <span class="avatar avatar--sm" data-slot="{{ item.symbol|accent_slot }}">
+            {{ ui.initials(item.symbol) }}
+          </span>
+          <div>
+            <b>{{ item.symbol }}</b>
+            <small>{{ item.title }}</small>
+          </div>
+        </div>
+        <span class="ledger__date" data-label="{{ t.derivatives_underlying }}">{{ '{:,.0f}'.format(item.underlying_shares) }}</span>
+        <span class="ledger__date" data-label="{{ t.derivatives_strike }}">
+          {%- if item.exercise_price -%}${{ '{:,.2f}'.format(item.exercise_price) }}{%- else -%}<em>{{ t.derivatives_no_strike }}</em>{%- endif -%}
+        </span>
+        <span class="ledger__date" data-label="{{ t.derivatives_expiration }}">
+          {%- if item.expiration -%}{{ item.expiration.strftime('%d/%m/%Y') }}{%- else -%}—{%- endif -%}
+        </span>
+        <span class="ledger__amount" data-label="{{ t.derivatives_value }}">
+          {%- if item.value is none -%}<em>{{ t.wealth_no_price }}</em>
+          {%- elif item.in_the_money -%}{{ ui.money(item.value, derivatives.currency) }}
+          {%- else -%}<em>{{ t.derivatives_out_of_money }}</em>{%- endif -%}
+        </span>
+      </div>
+      {% endfor %}
+    </div>
+
+    <p class="more-note more-note--left">{{ t.derivatives_disclaimer }}</p>
   </div>
 </section>
 {% endif %}

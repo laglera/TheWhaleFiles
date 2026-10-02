@@ -43,6 +43,9 @@ class Politician(Base):
     holdings: Mapped[list["Holding"]] = relationship(
         back_populates="politician", cascade="all, delete-orphan"
     )
+    derivatives: Mapped[list["DerivativeHolding"]] = relationship(
+        back_populates="politician", cascade="all, delete-orphan"
+    )
 
 
 class Ticker(Base):
@@ -117,12 +120,44 @@ class Holding(Base):
     politician_id: Mapped[int] = mapped_column(ForeignKey("politicians.id"), nullable=False)
     ticker_id: Mapped[int] = mapped_column(ForeignKey("tickers.id"), nullable=False)
     shares: Mapped[Decimal] = mapped_column(Shares, nullable=False, default=ZERO)
+    # La parte de `shares` que no está a su nombre sino en trusts, sociedades o
+    # fundaciones. Se suma en el total —el Form 4 la declara como suya—, pero
+    # la ficha la enseña aparte: no es lo mismo controlar que poseer.
+    shares_indirect: Mapped[Decimal] = mapped_column(Shares, nullable=False, default=ZERO)
     # Fecha de la operación que dejó esta posición: mide cómo de viejo es el dato.
     as_of: Mapped[date] = mapped_column(Date, nullable=False)
     source: Mapped[str] = mapped_column(String(120), default="SEC Form 4")
 
     politician: Mapped[Politician] = relationship(back_populates="holdings")
     ticker: Mapped[Ticker] = relationship(back_populates="holdings")
+
+
+class DerivativeHolding(Base):
+    """Opciones, warrants, convertibles y demás derechos sobre acciones.
+
+    La tabla II del Form 4. Sin ella, un directivo con un millón de opciones
+    dentro del dinero —o Zuckerberg, cuya clase B convertible está toda aquí—
+    aparecía muy por debajo de lo que de verdad tiene. Se guarda en cuántas
+    acciones del subyacente se traduce cada línea y a qué precio, para
+    valorarla por su valor intrínseco.
+    """
+
+    __tablename__ = "derivative_holdings"
+
+    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    politician_id: Mapped[int] = mapped_column(ForeignKey("politicians.id"), nullable=False)
+    # El valor subyacente: lo que se recibe al ejercer o convertir.
+    ticker_id: Mapped[int] = mapped_column(ForeignKey("tickers.id"), nullable=False)
+    title: Mapped[str] = mapped_column(String(255), nullable=False)
+    underlying_shares: Mapped[Decimal] = mapped_column(Shares, nullable=False, default=ZERO)
+    # Nulo en las convertibles sin precio de conversión: se reciben gratis.
+    exercise_price: Mapped[Optional[Decimal]] = mapped_column(Price, nullable=True)
+    expiration: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
+    as_of: Mapped[date] = mapped_column(Date, nullable=False)
+    source: Mapped[str] = mapped_column(String(120), default="SEC Form 4")
+
+    politician: Mapped[Politician] = relationship(back_populates="derivatives")
+    ticker: Mapped[Ticker] = relationship()
 
 
 class PriceQuote(Base):

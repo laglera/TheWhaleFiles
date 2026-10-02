@@ -277,6 +277,67 @@ def value_holdings(holdings: list, refresh: bool = False) -> dict[str, object]:
     return combine_positions(holdings, quotes, exchange_rates(quotes.values(), refresh=refresh))
 
 
+def value_derivatives(derivatives: list, refresh: bool = False) -> dict[str, object]:
+    """Valora opciones, warrants y convertibles por su valor intrínseco."""
+    symbols = [derivative.ticker.symbol for derivative in derivatives]
+    quotes = get_prices(symbols, refresh=refresh)
+    return combine_derivatives(derivatives, quotes, exchange_rates(quotes.values(), refresh=refresh))
+
+
+def combine_derivatives(derivatives: list, quotes: dict, rates: Optional[dict] = None) -> dict[str, object]:
+    """Valor intrínseco: lo que daría ejercer hoy, sin el valor temporal.
+
+    (precio del subyacente − precio de ejercicio) × acciones del subyacente, o
+    cero si el ejercicio cuesta más de lo que vale la acción. Una opción fuera
+    del dinero sigue valiendo algo en el mercado —su valor temporal—, pero
+    estimarlo exige un modelo y una volatilidad que los filings no dan: se
+    prefiere quedarse corto y decirlo.
+    """
+    rates = rates or {}
+    lines = []
+    total = ZERO
+    valued = 0
+    for derivative in derivatives:
+        symbol = derivative.ticker.symbol
+        quote = quotes.get(symbol)
+        rate = None
+        if quote is not None:
+            currency = quote.currency or "USD"
+            if currency == BASE_CURRENCY:
+                rate = Decimal(1)
+            elif currency in rates:
+                rate = to_decimal(rates[currency].price)
+        strike = to_decimal(derivative.exercise_price) or ZERO
+        value = None
+        if quote is not None and rate:
+            spread = max(to_decimal(quote.price) - strike, ZERO)
+            value = to_decimal(derivative.underlying_shares) * spread * rate
+            total += value
+            valued += 1
+        lines.append(
+            {
+                "symbol": symbol,
+                "title": derivative.title,
+                "underlying_shares": derivative.underlying_shares,
+                "exercise_price": derivative.exercise_price,
+                "expiration": derivative.expiration,
+                "as_of": derivative.as_of,
+                "price": quote.price if quote else None,
+                "currency": quote.currency if quote else None,
+                "in_the_money": value is not None and value > 0,
+                "value": value,
+            }
+        )
+    lines.sort(key=lambda item: (item["value"] is None, -(item["value"] or 0)))
+    return {
+        "positions": lines,
+        "total": total,
+        "currency": BASE_CURRENCY,
+        "valued": valued,
+        "missing": len(lines) - valued,
+    }
+
+
 def exchange_rates(quotes: Iterable, refresh: bool = False) -> dict[str, PriceQuote]:
     """Tipo de cambio a la divisa base de cada divisa que aparece en `quotes`."""
     currencies = sorted(
@@ -343,6 +404,7 @@ def combine_positions(
                 "symbol": symbol,
                 "name": holding.ticker.name,
                 "shares": holding.shares,
+                "shares_indirect": getattr(holding, "shares_indirect", None) or ZERO,
                 "as_of": holding.as_of,
                 "price": quote.price if quote else None,
                 "currency": currency,
@@ -380,15 +442,18 @@ def warm_cache(verbose: bool = True) -> dict[str, int]:
     Pensado para ejecutarse a mano o desde un cron: deja la caché lista para
     que ninguna visita a una ficha tenga que esperar al proveedor.
     """
-    from app.models import Holding, Ticker
+    from app.models import DerivativeHolding, Holding, Ticker
 
     with SessionLocal() as db:
-        symbols = [
-            row[0]
-            for row in db.execute(
-                select(Ticker.symbol).join(Holding, Holding.ticker_id == Ticker.id).distinct()
-            ).all()
-        ]
+        symbols = sorted(
+            {
+                row[0]
+                for model in (Holding, DerivativeHolding)
+                for row in db.execute(
+                    select(Ticker.symbol).join(model, model.ticker_id == Ticker.id).distinct()
+                ).all()
+            }
+        )
 
 
     stats = {"symbols": len(symbols), "priced": 0, "failed": 0}

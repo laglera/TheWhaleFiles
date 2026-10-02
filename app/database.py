@@ -121,6 +121,9 @@ ADDED_COLUMNS = {
     "trades": [
         ("transaction_date", "DATE"),
     ],
+    "holdings": [
+        ("shares_indirect", "NUMERIC(24,6) NOT NULL DEFAULT 0"),
+    ],
     "politicians": [
         ("category", "VARCHAR(20) NOT NULL DEFAULT 'congress'"),
         ("bio_es", "TEXT"),
