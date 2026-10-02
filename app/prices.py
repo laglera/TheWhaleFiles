@@ -37,8 +37,12 @@ YAHOO_HOSTS = (
     "https://query2.finance.yahoo.com/v8/finance/chart/",
 )
 FINNHUB_URL = "https://finnhub.io/api/v1/quote"
-# Yahoo rechaza las peticiones sin un User-Agent de navegador.
-BROWSER_UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/124 Safari/537.36"
+# Yahoo rechaza las peticiones sin un User-Agent de navegador, pero también
+# las que imitan uno concreto: a la cadena completa de Chrome 124 contestaba
+# 429 siempre, no por ráfaga, y ni el histórico del SPY ni las cotizaciones de
+# las carteras se refrescaban (había precios de hace 39 días). La forma corta
+# es la que acepta.
+BROWSER_UA = os.getenv("YAHOO_USER_AGENT", "Mozilla/5.0")
 # Espaciado mínimo entre llamadas al proveedor, para no provocar el 429.
 REQUEST_PAUSE = float(os.getenv("PRICE_REQUEST_PAUSE", "1.0"))
 # Esperas crecientes cuando aun así rechaza. El límite de Yahoo no es una
