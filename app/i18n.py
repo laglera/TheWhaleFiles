@@ -146,6 +146,8 @@ TRANSLATIONS: dict[str, dict[str, Any]] = {
             "Atención: hay cotizaciones de hace {hours} horas. El refresco automático "
             "no ha podido actualizarlas y el valor puede no ser el del mercado."
         ),
+        "wealth_stale_short": "Aproximado: precios de hace {hours} horas",
+        "wealth_position_dividends": "+{amount} en {n} dividendos, el último el {date}",
         "wealth_no_fx": "Sin tipo de cambio",
         "wealth_converted": (
             "{n} posiciones cotizan en otra divisa y se convierten a {currency} al tipo "
@@ -165,8 +167,9 @@ TRANSLATIONS: dict[str, dict[str, Any]] = {
         "wealth_indirect": "{n} indirectas",
         "wealth_split": "declaradas {declared}, ajustadas por split ×{factor}",
         "wealth_dividends": (
-            "Desde la fecha de cada saldo han repartido unos {amount} en dividendos, que no "
-            "se suman al total: no consta si se reinvirtieron."
+            "Desde la fecha de cada saldo han repartido unos {amount} en dividendos (el "
+            "detalle va en cada fila), que no se suman al total: no consta si se "
+            "reinvirtieron."
         ),
         "derivatives_title": "Opciones y convertibles",
         "derivatives_sub": (
@@ -432,6 +435,8 @@ TRANSLATIONS: dict[str, dict[str, Any]] = {
             "Warning: some quotes are {hours} hours old. The automatic refresh could not "
             "update them and the value may not match the market."
         ),
+        "wealth_stale_short": "Approximate: prices from {hours} hours ago",
+        "wealth_position_dividends": "+{amount} across {n} dividends, the last on {date}",
         "wealth_no_fx": "No exchange rate",
         "wealth_converted": (
             "{n} positions trade in another currency and are converted to {currency} at "
@@ -451,8 +456,9 @@ TRANSLATIONS: dict[str, dict[str, Any]] = {
         "wealth_indirect": "{n} indirect",
         "wealth_split": "{declared} declared, split-adjusted ×{factor}",
         "wealth_dividends": (
-            "Since the date of each balance they have paid out about {amount} in dividends, "
-            "not added to the total: it is unknown whether they were reinvested."
+            "Since the date of each balance they have paid out about {amount} in dividends "
+            "(itemised on each row), not added to the total: it is unknown whether they "
+            "were reinvested."
         ),
         "derivatives_title": "Options and convertibles",
         "derivatives_sub": (

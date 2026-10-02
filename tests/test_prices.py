@@ -143,6 +143,9 @@ class StalenessTests(unittest.TestCase):
         self.assertEqual(result["stale_hours"], 72)
         # La fecha que se enseña es la de la más vieja, no la de la más nueva.
         self.assertEqual(result["fetched_at"], old)
+        # Y la fila con la cotización vieja se marca, la fresca no.
+        stale = {item["symbol"]: item["stale"] for item in result["positions"]}
+        self.assertEqual(stale, {"AAPL": False, "TSLA": True})
 
     def test_the_profile_warns_when_quotes_are_stale(self):
         from datetime import date as day
@@ -167,7 +170,11 @@ class StalenessTests(unittest.TestCase):
         }):
             response = main.politician_detail_page(make_request(f"/politicians/{person.id}"), person.id, db)
         db.close()
-        self.assertIn("stale-note", response.body.decode())
+        html = response.body.decode()
+        self.assertIn("stale-note", html)
+        # El total se da por aproximado, no sólo se avisa debajo.
+        self.assertIn("wealth-total--stale", html)
+        self.assertIn("≈ $50", html)
 
 
 class ValueHoldingsTests(unittest.TestCase):

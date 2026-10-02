@@ -163,7 +163,11 @@
       <div class="wealth-total">
         <span>{{ t.wealth_total }}</span>
         {% if wealth.valued %}
-        <strong>{{ ui.money(wealth.total, wealth.currency) }}</strong>
+        {# Con precios de hace días el total no es el de hoy: se apaga y se
+           marca como aproximado, no sólo se avisa debajo. #}
+        <strong {% if wealth.stale %}class="wealth-total--stale" title="{{ t.wealth_stale_short.format(hours=wealth.stale_hours) }}"{% endif %}>
+          {%- if wealth.stale %}≈ {% endif %}{{ ui.money(wealth.total, wealth.currency) -}}
+        </strong>
         <small>
           {{ t.wealth_positions }}: {{ wealth.valued }}{% if wealth.missing %} · {{ t.wealth_missing_short.format(n=wealth.missing) }}{% endif %}
         </small>
@@ -191,7 +195,7 @@
         <span class="ledger__amount-head">{{ t.wealth_value }}</span>
       </div>
       {% for position in wealth.positions %}
-      <div class="ledger__row">
+      <div class="ledger__row{% if position.stale %} ledger__row--stale{% endif %}">
         <div class="ledger__symbol">
           <span class="avatar avatar--sm" data-slot="{{ position.symbol|accent_slot }}">
             {{ ui.initials(position.symbol) }}
@@ -214,7 +218,7 @@
           <em>{{ t.wealth_indirect.format(n='{:,.0f}'.format(position.shares_indirect)) }}</em>
           {% endif %}
         </span>
-        <span class="ledger__date" data-label="{{ t.wealth_price }}">
+        <span class="ledger__date ledger__price" data-label="{{ t.wealth_price }}">
           {%- if position.price -%}
           {%- if position.currency == 'USD' -%}
           ${{ '{:,.2f}'.format(position.price) }}
@@ -235,6 +239,9 @@
           {%- if position.value is not none -%}{{ ui.money(position.value, wealth.currency) }}
           {%- elif position.missing_reason == 'fx' -%}<em>{{ t.wealth_no_fx }}</em>
           {%- else -%}—{%- endif -%}
+          {%- if position.dividends %}
+          <em class="ledger__dividends">{{ t.wealth_position_dividends.format(amount=ui.money(position.dividends, wealth.currency), n=position.dividend_payments, date=position.last_dividend.strftime('%d/%m/%Y')) }}</em>
+          {%- endif -%}
         </span>
       </div>
       {% endfor %}
