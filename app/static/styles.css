@@ -2323,6 +2323,22 @@ img {
   font-variant-numeric: tabular-nums;
 }
 
+/* Retraso de declaración fuera de la ley o inverosímil, junto a la fecha. */
+.lag-flag {
+  display: block;
+  margin-top: 2px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.lag-flag--late {
+  color: var(--accent-warning);
+}
+
+.lag-flag--suspect {
+  color: var(--accent-danger);
+}
+
 /* Operación sin importe en el filing: texto, no una cifra que parezca cero. */
 .amount-missing {
   font-family: var(--font-body);
