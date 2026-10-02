@@ -161,7 +161,7 @@ class SchedulerTests(unittest.TestCase):
 
         with mock.patch("app.history.refresh_history", return_value={}) as history, mock.patch(
             "app.performance.compute_all", return_value={"people": people}
-        ) as compute:
+        ) as compute, mock.patch("app.ticker_names.fill_ticker_names"):
             result = self.scheduler.refresh_analytics(now)
         return result, history.call_count, compute.call_count
 
