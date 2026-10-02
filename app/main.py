@@ -4,6 +4,7 @@ import hashlib
 import json
 import logging
 import os
+import threading
 from contextlib import asynccontextmanager
 from functools import lru_cache
 from datetime import date, datetime, timedelta
@@ -30,7 +31,7 @@ from app.prices import provider_name as price_source
 from app.prices import value_holdings
 from app.runtime import is_serverless, utcnow
 from app.scheduler import polling_enabled, start_polling_loop, stop_polling_loop
-from app.security import require_admin, security_headers_middleware
+from app.security import rate_limit_middleware, require_admin, security_headers_middleware
 from app.sources import poll_official_sources
 
 logging.basicConfig(
@@ -87,6 +88,9 @@ class HeadAsGetMiddleware:
 
 
 app = FastAPI(title="TheWhaleFiles", version="0.1.0", lifespan=lifespan)
+# Límite por IP en la API. Se registra antes que las cabeceras para que éstas
+# lo envuelvan: un 429 también lleva su CSP.
+app.middleware("http")(rate_limit_middleware)
 # Cabeceras de seguridad y nonce de CSP para los scripts en línea.
 app.middleware("http")(security_headers_middleware)
 # El último añadido envuelve a todos: la petición llega ya como GET.
@@ -200,6 +204,10 @@ PHOTO_INDEX = _load_photo_index()
 _REMOTE_PHOTOS: dict[str, dict[str, Optional[str]]] = {}
 _REMOTE_PHOTOS_AT: Optional[datetime] = None
 REMOTE_PHOTO_TTL = timedelta(minutes=5)
+# Las rutas síncronas corren en un pool de hilos: sin cerrojo, si la caché
+# caducaba con varias páginas a medio pintar, cada hilo relanzaba la consulta.
+# Con él la relanza uno solo y los demás siguen con el índice anterior.
+_REMOTE_PHOTOS_LOCK = threading.Lock()
 
 
 def remote_photo_index() -> dict[str, dict[str, Optional[str]]]:
@@ -208,6 +216,20 @@ def remote_photo_index() -> dict[str, dict[str, Optional[str]]]:
     now = utcnow()
     if _REMOTE_PHOTOS_AT and now - _REMOTE_PHOTOS_AT < REMOTE_PHOTO_TTL:
         return _REMOTE_PHOTOS
+
+    if not _REMOTE_PHOTOS_LOCK.acquire(blocking=_REMOTE_PHOTOS_AT is None):
+        return _REMOTE_PHOTOS
+    try:
+        # Otro hilo pudo refrescarlo mientras éste esperaba el cerrojo.
+        if _REMOTE_PHOTOS_AT and utcnow() - _REMOTE_PHOTOS_AT < REMOTE_PHOTO_TTL:
+            return _REMOTE_PHOTOS
+        return _reload_remote_photos(now)
+    finally:
+        _REMOTE_PHOTOS_LOCK.release()
+
+
+def _reload_remote_photos(now: datetime) -> dict[str, dict[str, Optional[str]]]:
+    global _REMOTE_PHOTOS, _REMOTE_PHOTOS_AT
 
     with SessionLocal() as db:
         rows = db.execute(

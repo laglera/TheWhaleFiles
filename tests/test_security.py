@@ -122,3 +122,66 @@ class SecurityHeaderTests(unittest.IsolatedAsyncioTestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class RateLimitTests(unittest.TestCase):
+    def setUp(self):
+        security.rate_limiter.reset()
+        self.previous = os.environ.pop("RATE_LIMIT_API", None)
+
+    def tearDown(self):
+        security.rate_limiter.reset()
+        if self.previous is None:
+            os.environ.pop("RATE_LIMIT_API", None)
+        else:
+            os.environ["RATE_LIMIT_API"] = self.previous
+
+    def test_the_window_lets_through_up_to_the_limit(self):
+        limiter = security.RateLimiter()
+        results = [limiter.hit("api", "1.2.3.4", 3, 60.0) for _ in range(4)]
+        self.assertEqual(results[:3], [None, None, None])
+        self.assertGreater(results[3], 0)
+
+    def test_each_ip_has_its_own_count(self):
+        limiter = security.RateLimiter()
+        limiter.hit("api", "1.2.3.4", 1, 60.0)
+        self.assertIsNone(limiter.hit("api", "5.6.7.8", 1, 60.0))
+
+    def test_old_hits_fall_out_of_the_window(self):
+        limiter = security.RateLimiter()
+        self.assertIsNone(limiter.hit("api", "1.2.3.4", 1, 0.01))
+        import time
+
+        time.sleep(0.02)
+        self.assertIsNone(limiter.hit("api", "1.2.3.4", 1, 0.01))
+
+    def test_behind_the_proxy_the_real_ip_counts(self):
+        request = make_request(headers={"x-forwarded-for": "198.51.100.9, 10.0.0.1"})
+        self.assertEqual(security.client_ip(request), "198.51.100.9")
+        request = make_request(headers={"x-real-ip": "198.51.100.10"})
+        self.assertEqual(security.client_ip(request), "198.51.100.10")
+
+    def test_pages_are_not_limited_only_the_api(self):
+        self.assertIsNone(security.rate_limit_bucket("/"))
+        self.assertIsNone(security.rate_limit_bucket("/politicians/3"))
+        self.assertEqual(security.rate_limit_bucket("/api/trades"), "api")
+        self.assertEqual(security.rate_limit_bucket("/api/poll-sources"), "admin")
+
+    def test_the_api_answers_429_with_retry_after(self):
+        from tests.test_http import call
+
+        os.environ["RATE_LIMIT_API"] = "2"
+        statuses = [call("GET", "/api/politicians")[0] for _ in range(3)]
+        self.assertEqual(statuses, [200, 200, 429])
+        _status, headers, _body = call("GET", "/api/politicians")
+        self.assertIn(b"retry-after", headers)
+        # Y lleva las cabeceras de seguridad como cualquier otra respuesta.
+        self.assertIn(b"content-security-policy", headers)
+
+    def test_the_admin_door_counts_before_checking_the_token(self):
+        # Probar tokens a ciegas también gasta el cupo.
+        from tests.test_http import call
+
+        statuses = [call("POST", "/api/poll-sources")[0] for _ in range(6)]
+        self.assertEqual(statuses[:5], [404] * 5)
+        self.assertEqual(statuses[5], 429)
