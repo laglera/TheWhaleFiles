@@ -101,7 +101,17 @@
         <div class="metric">
           <span>{{ t.stat_capital }}</span>
           <strong>{{ ui.money(total_amount) }}</strong>
+          {% if declared_range %}
+          <small>
+            {%- if declared_range.max is none -%}
+            {{ t.stat_range_open.format(min=declared_range.min|short_money) }}
+            {%- else -%}
+            {{ t.stat_range.format(min=declared_range.min|short_money, max=declared_range.max|short_money) }}
+            {%- endif -%}
+          </small>
+          {% else %}
           <small>{{ t.stat_capital_sub }}</small>
+          {% endif %}
         </div>
         <div class="metric">
           <span>{{ t.stat_split }}</span>
@@ -115,7 +125,14 @@
         <div class="metric">
           <span>{{ t.stat_last_trade }}</span>
           <strong>{{ trades[0].reported_date.strftime('%d/%m/%Y') if trades else '—' }}</strong>
+          {% if average_lag is not none %}
+          <small>
+            {{ t.stat_lag.format(days=average_lag) }}
+            {%- if late_filings %} · {{ t.stat_late.format(n=late_filings) }}{% endif %}
+          </small>
+          {% else %}
           <small>{{ t.stat_last_sub }}</small>
+          {% endif %}
         </div>
       </div>
 
@@ -423,6 +440,7 @@
             {{ t.trade_executed }}:
             {% if trade.transaction_date %}
             {{ trade.transaction_date.strftime('%d/%m/%Y') }}
+            · {{ t.trade_lag.format(days=trade|disclosure_lag) }}
             {% else %}
             {{ t.trade_date_missing }}
             {% endif %}

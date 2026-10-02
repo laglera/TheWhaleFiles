@@ -171,6 +171,17 @@ GET /api/politicians?limit=100&offset=0
 GET /api/politicians/{id}?limit=100&offset=0
 ```
 
+`/api/trades` admite filtros para cribar: `side` (`buy`/`sell`), `ticker`,
+`politician_id`, `category` (`congress`/`business`), `min_amount` y
+`since_days`. Por ejemplo, las compras de más de 50.000 dólares de la última
+semana:
+
+```text
+GET /api/trades?side=buy&min_amount=50000&since_days=7
+GET /api/trades.csv?side=buy&min_amount=50000&since_days=7   # lo mismo en CSV (hasta 5.000 filas)
+GET /feed.xml?ticker=NVDA                                     # feed Atom para recibir avisos
+```
+
 Cada respuesta trae `total`, `limit`, `offset` y `results`. La documentación
 interactiva que genera FastAPI está en `/docs`.
 
@@ -180,6 +191,8 @@ Cada operación lleva las dos fechas del filing, que no son la misma cosa:
 | --- | --- |
 | `reported_date` | Cuándo se hizo público el documento. Es la que ordena la web. |
 | `transaction_date` | Cuándo se ejecutó la operación, según el propio documento. `null` si el filing no la trae o si es imposible. |
+| `disclosure_lag_days` | Días entre la operación y su publicación. |
+| `ingested_at` | Cuándo la leyó esta web (UTC); `null` en las importadas antes de guardarlo. |
 
 Los congresistas no declaran importes exactos sino tramos fijados por ley
 (`$1,001 - $15,000`, `$15,001 - $50,000`…). En sus operaciones `amount` es el

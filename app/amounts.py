@@ -87,3 +87,30 @@ def bracket_label(amount: Any) -> Optional[str]:
     if upper is None:
         return f">{short_money(lower - 1)}"
     return f"{short_money(lower - 1)}–{short_money(upper)}"
+
+
+def volume_range(amounts: Any) -> Optional[dict[str, Any]]:
+    """Horquilla real de un volumen sumado con puntos medios.
+
+    El punto medio es sólo una convención para poder sumar: una operación de
+    $1.001 cuenta como $8.000 y una de $14.999 también. La suma de los límites
+    inferiores y superiores dice entre qué cifras está de verdad el volumen.
+    `open_ended` indica que algún tramo no tiene techo (más de $50M).
+    """
+    lower = 0
+    upper = 0
+    open_ended = False
+    counted = 0
+    for amount in amounts:
+        bracket = bracket_for(amount)
+        if bracket is None:
+            continue
+        counted += 1
+        lower += bracket[0]
+        if bracket[1] is None:
+            open_ended = True
+        else:
+            upper += bracket[1]
+    if not counted:
+        return None
+    return {"min": lower, "max": None if open_ended else upper, "trades": counted}

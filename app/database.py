@@ -120,6 +120,7 @@ LEGACY_TRADE_IDENTITY_COLUMNS = "politician_id, ticker_id, trade_type, amount, r
 ADDED_COLUMNS = {
     "trades": [
         ("transaction_date", "DATE"),
+        ("ingested_at", "TIMESTAMP"),
     ],
     "holdings": [
         ("shares_indirect", "NUMERIC(24,6) NOT NULL DEFAULT 0"),

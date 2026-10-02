@@ -6,6 +6,7 @@ from sqlalchemy import Date, DateTime, ForeignKey, String, Text, UniqueConstrain
 from sqlalchemy.orm import Mapped, DeclarativeBase, mapped_column, relationship
 
 from app.money import ZERO, Money, Price, Shares
+from app.runtime import utcnow
 
 
 class Base(DeclarativeBase):
@@ -100,6 +101,10 @@ class Trade(Base):
     # publicación): antes que enseñar una fecha falsa, no se enseña ninguna.
     transaction_date: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
     notes: Mapped[str] = mapped_column(String(500), default="")
+    # Cuándo la leyó esta web. Frente a `reported_date` mide la latencia propia
+    # —la única que se puede reducir—; frente a `transaction_date`, la de la ley.
+    # Nula en las operaciones importadas antes de que existiera.
+    ingested_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True, default=utcnow)
 
     politician: Mapped[Politician] = relationship(back_populates="trades")
     ticker: Mapped[Ticker] = relationship(back_populates="trades")

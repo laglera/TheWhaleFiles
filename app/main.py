@@ -22,7 +22,7 @@ from sqlalchemy import case, func, or_, select
 from sqlalchemy.orm import Session, joinedload
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from app.amounts import bracket_for, bracket_label
+from app.amounts import bracket_for, bracket_label, short_money, volume_range
 from app.database import SessionLocal, get_db, init_db, prepare_database
 from app.i18n import DEFAULT_LANG, get_translations, normalise_lang
 from app.ingestion import load_filing_into_db
@@ -170,6 +170,17 @@ def published():
     return Trade.reported_date <= date.today()
 
 
+# Plazo máximo de la STOCK Act entre la operación y su declaración.
+LEGAL_DEADLINE_DAYS = 45
+
+
+def disclosure_lag(trade: Trade) -> Optional[int]:
+    """Días entre la operación y la publicación del filing que la declara."""
+    if trade.transaction_date is None or trade.reported_date is None:
+        return None
+    return (trade.reported_date - trade.transaction_date).days
+
+
 def compact_money(value: float) -> str:
     """Mismo formato compacto que el macro `money` de las plantillas."""
     amount = float(value or 0)
@@ -303,6 +314,8 @@ templates.env.filters["trade_side"] = trade_side
 templates.env.filters["trade_kind"] = trade_kind
 templates.env.filters["bracket_label"] = bracket_label
 templates.env.filters["accent_slot"] = accent_slot
+templates.env.filters["disclosure_lag"] = disclosure_lag
+templates.env.filters["short_money"] = short_money
 templates.env.filters["photo_url"] = photo_url
 templates.env.filters["photo_url_lg"] = photo_url_lg
 templates.env.filters["photo_credit"] = photo_credit
@@ -697,45 +710,206 @@ def amount_range(trade: Trade, category: str) -> Optional[list[Optional[int]]]:
     return list(bracket) if bracket else None
 
 
+class TradeFilters:
+    """Criterios de búsqueda de operaciones, comunes a la API, al CSV y al feed.
+
+    Lo que pedía quien quiere usar los datos para algo: "compras de más de
+    $50K en los últimos siete días", las de un valor o las de una persona.
+    """
+
+    def __init__(
+        self,
+        side: Optional[str] = None,
+        ticker: Optional[str] = None,
+        politician_id: Optional[int] = None,
+        category: Optional[str] = None,
+        min_amount: Optional[float] = None,
+        since_days: Optional[int] = None,
+    ):
+        self.side = side
+        self.ticker = ticker.strip().upper() if ticker else None
+        self.politician_id = politician_id
+        self.category = category
+        self.min_amount = min_amount
+        self.since_days = since_days
+
+    @classmethod
+    def of(cls, value: Any) -> "TradeFilters":
+        # Llamada la ruta desde Python —las pruebas lo hacen— el parámetro
+        # llega con el `Depends` por defecto en vez de con filtros.
+        return value if isinstance(value, cls) else cls()
+
+    def apply(self, query):
+        query = query.where(published())
+        trade_type = func.lower(Trade.trade_type)
+        if self.side == "buy":
+            query = query.where(trade_type.in_(BUY_TYPES))
+        elif self.side == "sell":
+            query = query.where(or_(trade_type.in_(SELL_TYPES), trade_type.like("sale%")))
+        if self.ticker:
+            query = query.where(Trade.ticker.has(Ticker.symbol == self.ticker))
+        if self.politician_id:
+            query = query.where(Trade.politician_id == self.politician_id)
+        if self.category:
+            query = query.where(Trade.politician.has(Politician.category == self.category))
+        if self.min_amount is not None:
+            query = query.where(Trade.amount >= self.min_amount)
+        if self.since_days:
+            query = query.where(Trade.reported_date >= date.today() - timedelta(days=self.since_days))
+        return query
+
+
+def trade_filters(
+    side: Optional[str] = Query(None, pattern="^(buy|sell)$", description="buy o sell"),
+    ticker: Optional[str] = Query(None, max_length=20),
+    politician_id: Optional[int] = Query(None, ge=1),
+    category: Optional[str] = Query(None, pattern="^(congress|business)$"),
+    min_amount: Optional[float] = Query(None, ge=0, description="Importe mínimo en USD"),
+    since_days: Optional[int] = Query(None, ge=1, le=3650, description="Publicadas en los últimos N días"),
+) -> TradeFilters:
+    return TradeFilters(side, ticker, politician_id, category, min_amount, since_days)
+
+
+def trade_record(trade: Trade) -> dict[str, Any]:
+    """Una operación tal como la publican la API, el CSV y el feed."""
+    return {
+        "id": trade.id,
+        "politician_id": trade.politician_id,
+        "politician": trade.politician.name,
+        "category": trade.politician.category,
+        "chamber": trade.politician.chamber,
+        "ticker": trade.ticker.symbol,
+        "trade_type": trade.trade_type,
+        "side": trade_side(trade.trade_type),
+        "amount": float(trade.amount),
+        "amount_range": amount_range(trade, trade.politician.category),
+        "reported_date": trade.reported_date.isoformat(),
+        "transaction_date": (
+            trade.transaction_date.isoformat() if trade.transaction_date else None
+        ),
+        # Días entre la operación y su publicación: el retraso que marca la ley.
+        "disclosure_lag_days": disclosure_lag(trade),
+        # Cuándo la leyó esta web: el retraso que es cosa nuestra.
+        "ingested_at": trade.ingested_at.isoformat() if trade.ingested_at else None,
+    }
+
+
+def filtered_trades(db: Session, filters: TradeFilters, limit: int, offset: int = 0):
+    filters = TradeFilters.of(filters)
+    query = filters.apply(
+        select(Trade).options(joinedload(Trade.politician), joinedload(Trade.ticker))
+    )
+    return db.scalars(
+        query.order_by(Trade.reported_date.desc(), Trade.id.desc()).limit(limit).offset(offset)
+    ).all()
+
+
 @app.get("/api/trades")
 def get_trades(
     db: Session = Depends(get_db),
     limit: int = Query(API_PAGE_SIZE, ge=1, le=API_MAX_PAGE_SIZE),
     offset: int = Query(0, ge=0),
+    filters: TradeFilters = Depends(trade_filters),
 ) -> dict[str, Any]:
-    total = db.scalar(select(func.count(Trade.id)).where(published())) or 0
-    trades = db.scalars(
-        select(Trade)
-        # Sin esto, pintar cien operaciones son doscientas consultas más: una
-        # por el político y otra por el valor de cada una.
-        .options(joinedload(Trade.politician), joinedload(Trade.ticker))
-        .where(published())
-        .order_by(Trade.reported_date.desc(), Trade.id.desc())
-        .limit(limit)
-        .offset(offset)
-    ).all()
-
+    filters = TradeFilters.of(filters)
+    total = db.scalar(filters.apply(select(func.count(Trade.id)))) or 0
+    # Con joinedload: sin él, pintar cien operaciones son doscientas consultas
+    # más, una por el político y otra por el valor de cada una.
+    trades = filtered_trades(db, filters, limit, offset)
     return {
         "total": total,
         "limit": limit,
         "offset": offset,
-        "results": [
-            {
-                "id": trade.id,
-                "politician": trade.politician.name,
-                "chamber": trade.politician.chamber,
-                "ticker": trade.ticker.symbol,
-                "trade_type": trade.trade_type,
-                "amount": float(trade.amount),
-                "amount_range": amount_range(trade, trade.politician.category),
-                "reported_date": trade.reported_date.isoformat(),
-                "transaction_date": (
-                    trade.transaction_date.isoformat() if trade.transaction_date else None
-                ),
-            }
-            for trade in trades
-        ],
+        "results": [trade_record(trade) for trade in trades],
     }
+
+
+# Tope del CSV: suficiente para cualquier hoja de cálculo y para no servir la
+# tabla entera en una sola respuesta.
+CSV_MAX_ROWS = 5000
+CSV_COLUMNS = (
+    "id", "reported_date", "transaction_date", "disclosure_lag_days", "politician",
+    "category", "chamber", "ticker", "side", "trade_type", "amount", "amount_min",
+    "amount_max", "ingested_at",
+)
+
+
+@app.get("/api/trades.csv")
+def export_trades_csv(
+    db: Session = Depends(get_db),
+    limit: int = Query(1000, ge=1, le=CSV_MAX_ROWS),
+    filters: TradeFilters = Depends(trade_filters),
+) -> Response:
+    """Las mismas operaciones y filtros que /api/trades, en CSV."""
+    import csv
+    import io
+
+    buffer = io.StringIO()
+    writer = csv.writer(buffer)
+    writer.writerow(CSV_COLUMNS)
+    for trade in filtered_trades(db, filters, limit):
+        record = trade_record(trade)
+        bracket = record["amount_range"] or [None, None]
+        record["amount_min"], record["amount_max"] = bracket
+        writer.writerow(["" if record[column] is None else record[column] for column in CSV_COLUMNS])
+    return Response(
+        content=buffer.getvalue(),
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": 'attachment; filename="thewhalefiles-trades.csv"'},
+    )
+
+
+FEED_SIZE = 50
+
+
+@app.get("/feed.xml")
+def trades_feed(
+    request: Request,
+    db: Session = Depends(get_db),
+    filters: TradeFilters = Depends(trade_filters),
+) -> Response:
+    """Feed Atom de las últimas operaciones publicadas, con los filtros de la API.
+
+    Es el aviso de operaciones nuevas que admite una web sin cuentas: cualquier
+    lector de feeds, o un servicio que convierta feeds en correos o mensajes,
+    avisa en cuanto el refresco programado las ingiere.
+    """
+    from xml.sax.saxutils import escape
+
+    base = site_base_url(request)
+    trades = filtered_trades(db, filters, FEED_SIZE)
+    updated = (
+        max((trade.ingested_at or datetime.combine(trade.reported_date, datetime.min.time())) for trade in trades)
+        if trades
+        else utcnow()
+    )
+    entries = []
+    for trade in trades:
+        record = trade_record(trade)
+        bracket = bracket_label(trade.amount) if record["category"] == "congress" else None
+        amount = bracket or compact_money(record["amount"])
+        title = f"{record['politician']}: {record['trade_type']} {record['ticker']} ({amount})"
+        summary = f"Publicada {record['reported_date']}, operación {record['transaction_date'] or '—'}."
+        entries.append(
+            "<entry>"
+            f"<id>{escape(base)}/trades/{trade.id}</id>"
+            f"<title>{escape(title)}</title>"
+            f'<link href="{escape(base)}/politicians/{trade.politician_id}"/>'
+            f"<updated>{record['reported_date']}T00:00:00Z</updated>"
+            f"<summary>{escape(summary)}</summary>"
+            "</entry>"
+        )
+    xml = (
+        '<?xml version="1.0" encoding="utf-8"?>'
+        '<feed xmlns="http://www.w3.org/2005/Atom">'
+        "<title>TheWhaleFiles · operaciones declaradas</title>"
+        f"<id>{escape(base)}/feed.xml</id>"
+        f'<link rel="self" href="{escape(base)}/feed.xml"/>'
+        f"<updated>{updated.strftime('%Y-%m-%dT%H:%M:%SZ')}</updated>"
+        + "".join(entries)
+        + "</feed>"
+    )
+    return Response(content=xml, media_type="application/atom+xml")
 
 
 @app.get("/api/politicians")
@@ -879,6 +1053,18 @@ def politician_detail_page(
     # Ordenado por capital, no por número de operaciones: en una ficha con
     # una operación por valor, contar operaciones no distingue nada.
     top_tickers = sorted(ticker_volume.values(), key=lambda item: item["volume"], reverse=True)[:5]
+
+    # Los tramos del Congreso se suman por su punto medio; al lado va la
+    # horquilla de verdad, la suma de sus límites.
+    declared_range = None
+    if politician.category == "congress":
+        declared_range = volume_range(
+            trade.amount for trade in ordered_trades if trade_side(trade.trade_type) != "other"
+        )
+
+    # Cuánto tarda en declarar: días entre la operación y su publicación.
+    lags = [lag for lag in (disclosure_lag(trade) for trade in ordered_trades) if lag is not None]
+    average_lag = round(sum(lags) / len(lags)) if lags else None
     visible_trades = ordered_trades[:60]
     resolved_lang = resolve_lang(request, lang)
 
@@ -937,6 +1123,11 @@ def politician_detail_page(
             "wealth": wealth,
             "derivatives": derivatives,
             "dormant_since": dormant_since,
+            "declared_range": declared_range,
+            "average_lag": average_lag,
+            "late_filings": sum(1 for lag in lags if lag > LEGAL_DEADLINE_DAYS)
+            if politician.category == "congress"
+            else 0,
             "performance": performance,
             "price_source": price_source(),
         },
@@ -1023,7 +1214,7 @@ def sitemap(request: Request, db: Session = Depends(get_db)) -> Any:
 
 def wants_json(request: Request) -> bool:
     path = request.url.path
-    return path.startswith("/api/") or path in {"/health", "/sitemap.xml"}
+    return path.startswith("/api/") or path in {"/health", "/sitemap.xml", "/feed.xml"}
 
 
 def error_page(request: Request, status_code: int) -> Any:
