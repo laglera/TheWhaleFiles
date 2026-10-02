@@ -174,11 +174,33 @@ def published():
 LEGAL_DEADLINE_DAYS = 45
 
 
+# Más de un año entre operar y declarar casi nunca es un retraso de verdad:
+# suele ser el año mal escrito en el filing (una operación "de 2015"
+# declarada en 2025). Se marca como dudosa y no entra en el retraso medio.
+SUSPECT_LAG_DAYS = 365
+
+
 def disclosure_lag(trade: Trade) -> Optional[int]:
     """Días entre la operación y la publicación del filing que la declara."""
     if trade.transaction_date is None or trade.reported_date is None:
         return None
     return (trade.reported_date - trade.transaction_date).days
+
+
+def lag_flag(trade: Trade) -> Optional[str]:
+    """"suspect" si el retraso es inverosímil, "late" si incumple la STOCK Act.
+
+    El plazo de 45 días es el del Congreso; los directivos declaran con el
+    Form 4 en dos días hábiles y no se les mide con esa vara.
+    """
+    lag = disclosure_lag(trade)
+    if lag is None:
+        return None
+    if lag > SUSPECT_LAG_DAYS:
+        return "suspect"
+    if lag > LEGAL_DEADLINE_DAYS and trade.politician.category == "congress":
+        return "late"
+    return None
 
 
 def compact_money(value: float) -> str:
@@ -316,6 +338,7 @@ templates.env.filters["trade_kind"] = trade_kind
 templates.env.filters["bracket_label"] = bracket_label
 templates.env.filters["accent_slot"] = accent_slot
 templates.env.filters["disclosure_lag"] = disclosure_lag
+templates.env.filters["lag_flag"] = lag_flag
 templates.env.filters["short_money"] = short_money
 templates.env.filters["photo_url"] = photo_url
 templates.env.filters["photo_url_lg"] = photo_url_lg
@@ -790,6 +813,10 @@ def trade_record(trade: Trade) -> dict[str, Any]:
         ),
         # Días entre la operación y su publicación: el retraso que marca la ley.
         "disclosure_lag_days": disclosure_lag(trade),
+        # Fuera del plazo de 45 días de la STOCK Act, o con un retraso tan
+        # grande que lo probable es una fecha mal escrita en el filing.
+        "late_filing": lag_flag(trade) == "late",
+        "date_suspect": lag_flag(trade) == "suspect",
         # Cuándo la leyó esta web: el retraso que es cosa nuestra.
         "ingested_at": trade.ingested_at.isoformat() if trade.ingested_at else None,
     }
@@ -829,7 +856,8 @@ def get_trades(
 # tabla entera en una sola respuesta.
 CSV_MAX_ROWS = 5000
 CSV_COLUMNS = (
-    "id", "reported_date", "transaction_date", "disclosure_lag_days", "politician",
+    "id", "reported_date", "transaction_date", "disclosure_lag_days", "late_filing",
+    "date_suspect", "politician",
     "category", "chamber", "ticker", "side", "trade_type", "amount", "amount_min",
     "amount_max", "ingested_at",
 )
@@ -1005,6 +1033,9 @@ def get_politician_detail(
                 "transaction_date": (
                     trade.transaction_date.isoformat() if trade.transaction_date else None
                 ),
+                "disclosure_lag_days": disclosure_lag(trade),
+                "late_filing": lag_flag(trade) == "late",
+                "date_suspect": lag_flag(trade) == "suspect",
             }
             for trade in trades
         ],
@@ -1070,7 +1101,10 @@ def politician_detail_page(
 
     # Cuánto tarda en declarar: días entre la operación y su publicación.
     lags = [lag for lag in (disclosure_lag(trade) for trade in ordered_trades) if lag is not None]
-    average_lag = round(sum(lags) / len(lags)) if lags else None
+    # Las fechas inverosímiles se cuentan aparte: un "2015" que era 2025
+    # convertía la media en años.
+    plausible_lags = [lag for lag in lags if lag <= SUSPECT_LAG_DAYS]
+    average_lag = round(sum(plausible_lags) / len(plausible_lags)) if plausible_lags else None
     visible_trades = ordered_trades[:60]
     resolved_lang = resolve_lang(request, lang)
 
@@ -1132,9 +1166,10 @@ def politician_detail_page(
             "dormant_since": dormant_since,
             "declared_range": declared_range,
             "average_lag": average_lag,
-            "late_filings": sum(1 for lag in lags if lag > LEGAL_DEADLINE_DAYS)
+            "late_filings": sum(1 for lag in plausible_lags if lag > LEGAL_DEADLINE_DAYS)
             if politician.category == "congress"
             else 0,
+            "suspect_dates": len(lags) - len(plausible_lags),
             "performance": performance,
             "price_source": price_source(),
         },

@@ -47,6 +47,8 @@ TRANSLATIONS: dict[str, dict[str, Any]] = {
         "stat_range_open": "Por tramos: más de {min}",
         "stat_lag": "Declara de media {days} días después de operar",
         "stat_late": "{n} fuera del plazo de 45 días",
+        "stat_suspect": "{n} con fecha dudosa, fuera de la media",
+        "stat_last_traded": "Operada el {date}",
         "trade_lag": "declarada {days} días después",
         # Los mismos números que antes ocupaban el hero, ahora en una línea de
         # contexto encima de las fichas.
@@ -248,6 +250,17 @@ TRANSLATIONS: dict[str, dict[str, Any]] = {
         "trade_filed": "Publicado",
         "trade_executed": "Operación",
         "trade_date_missing": "sin fecha en el filing",
+        "trade_date_missing_hint": (
+            "El filing no trae fecha de operación, o trae una imposible (posterior a su "
+            "propia publicación): no se puede medir cuánto tardó en declararse."
+        ),
+        "lag_late": "fuera de plazo STOCK Act",
+        "lag_late_hint": "Declarada más de 45 días después de operar: el plazo máximo de la STOCK Act.",
+        "lag_suspect": "fecha dudosa",
+        "lag_suspect_hint": (
+            "Más de un año entre operar y declarar: puede ser un retraso real o un año mal "
+            "escrito en el filing original. Compruébalo en la fuente oficial."
+        ),
         "history_more": "Mostrando las 60 más recientes · {n} operaciones más disponibles vía",
         "history_empty": "Este político aún no tiene operaciones registradas.",
         # Aviso permanente, encima de la navegación en todas las páginas.
@@ -338,6 +351,8 @@ TRANSLATIONS: dict[str, dict[str, Any]] = {
         "stat_range_open": "By brackets: over {min}",
         "stat_lag": "Discloses {days} days after trading on average",
         "stat_late": "{n} past the 45-day deadline",
+        "stat_suspect": "{n} with doubtful dates, left out of the average",
+        "stat_last_traded": "Traded on {date}",
         "trade_lag": "disclosed {days} days later",
         "facts_people": "profiles",
         "facts_trades": "trades",
@@ -534,6 +549,17 @@ TRANSLATIONS: dict[str, dict[str, Any]] = {
         "trade_filed": "Filed",
         "trade_executed": "Trade date",
         "trade_date_missing": "not stated in the filing",
+        "trade_date_missing_hint": (
+            "The filing has no trade date, or an impossible one (after its own "
+            "publication): the disclosure delay cannot be measured."
+        ),
+        "lag_late": "past STOCK Act deadline",
+        "lag_late_hint": "Disclosed more than 45 days after trading: the STOCK Act maximum.",
+        "lag_suspect": "doubtful date",
+        "lag_suspect_hint": (
+            "Over a year between trading and disclosure: either a real delay or a year "
+            "mistyped in the original filing. Check it against the official source."
+        ),
         "history_more": "Showing the 60 most recent · {n} more trades available through the",
         "history_empty": "This politician has no recorded trades yet.",
         # Permanent notice, above the navigation on every page.

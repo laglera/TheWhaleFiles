@@ -273,3 +273,52 @@ class AdminEndpointTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class DisclosureDeadlineTests(unittest.TestCase):
+    """El plazo de 45 días de la STOCK Act, y los retrasos que no se creen."""
+
+    def setUp(self):
+        from datetime import date, timedelta
+
+        from app.models import Ticker, Trade
+
+        self.db = memory_session()
+        self.person = seed_declarant(self.db, trades=0)
+        self.person.category = "congress"
+        ticker_id = self.db.query(Ticker.id).scalar()
+        reported = date(2025, 5, 15)
+        for amount, lag in ((8000, 10), (15000, 60), (32500, 3660)):
+            self.db.add(
+                Trade(
+                    politician_id=self.person.id,
+                    ticker_id=ticker_id,
+                    trade_type="Purchase",
+                    amount=amount,
+                    reported_date=reported,
+                    transaction_date=reported - timedelta(days=lag),
+                )
+            )
+        self.db.flush()
+
+    def tearDown(self):
+        self.db.close()
+
+    def test_each_trade_says_if_it_was_late_or_its_date_is_doubtful(self):
+        flags = {
+            trade["amount"]: (trade["late_filing"], trade["date_suspect"])
+            for trade in main.get_politician_detail(self.person.id, self.db, limit=10, offset=0)["trades"]
+        }
+        self.assertEqual(flags, {8000: (False, False), 15000: (True, False), 32500: (False, True)})
+
+    def test_a_ten_year_delay_does_not_drag_the_average(self):
+        response = main.politician_detail_page(
+            make_request(f"/politicians/{self.person.id}"), self.person.id, self.db
+        )
+        context = response.context
+        self.assertEqual(context["average_lag"], 35)
+        self.assertEqual((context["late_filings"], context["suspect_dates"]), (1, 1))
+        html = response.body.decode()
+        self.assertIn("fuera de plazo STOCK Act", html)
+        self.assertIn("fecha dudosa", html)
+        self.assertIn("Operada el", html)

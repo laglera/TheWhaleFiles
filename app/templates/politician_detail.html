@@ -134,10 +134,16 @@
         <div class="metric">
           <span>{{ t.stat_last_trade }}</span>
           <strong>{{ trades[0].reported_date.strftime('%d/%m/%Y') if trades else '—' }}</strong>
+          {# La publicación es la fecha de la burocracia; quien opera quiere
+             también la de la operación. #}
+          {% if trades and trades[0].transaction_date %}
+          <small>{{ t.stat_last_traded.format(date=trades[0].transaction_date.strftime('%d/%m/%Y')) }}</small>
+          {% endif %}
           {% if average_lag is not none %}
           <small>
             {{ t.stat_lag.format(days=average_lag) }}
             {%- if late_filings %} · {{ t.stat_late.format(n=late_filings) }}{% endif %}
+            {%- if suspect_dates %} · {{ t.stat_suspect.format(n=suspect_dates) }}{% endif %}
           </small>
           {% else %}
           <small>{{ t.stat_last_sub }}</small>
@@ -471,9 +477,13 @@
             {{ trade.transaction_date.strftime('%d/%m/%Y') }}
             · {{ t.trade_lag.format(days=trade|disclosure_lag) }}
             {% else %}
-            {{ t.trade_date_missing }}
+            <span title="{{ t.trade_date_missing_hint }}">{{ t.trade_date_missing }}</span>
             {% endif %}
           </em>
+          {% set flag = trade|lag_flag %}
+          {% if flag %}
+          <b class="lag-flag lag-flag--{{ flag }}" title="{{ t['lag_' ~ flag ~ '_hint'] }}">⚠ {{ t['lag_' ~ flag] }}</b>
+          {% endif %}
         </span>
         <span class="ledger__amount">{{ ui.trade_amount(trade, t) }}</span>
       </div>
