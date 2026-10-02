@@ -134,6 +134,35 @@ class HomePageTests(unittest.TestCase):
         self.assertEqual([person["name"] for person in context["politicians"]], ["Ana", "Elon Musk"])
         self.assertNotIn("Grant", [trade.trade_type for trade in context["hero_trades"]])
 
+    def profile(self, name):
+        from sqlalchemy import select
+
+        from app.models import Politician
+
+        person = self.db.scalar(select(Politician).where(Politician.name == name))
+        return main.politician_detail_page(make_request(f"/politicians/{person.id}"), person.id, self.db)
+
+    def test_the_profile_says_how_much_was_left_out_of_volume(self):
+        # El volumen excluye la concesión, pero callarla también desinforma:
+        # la ficha dice cuánto quedó fuera y reparte compras y ventas por importe.
+        self.add("Elon Musk", "Grant", 141_000_000_000, 1, symbol="TSLA")
+        self.add("Elon Musk", "Sale", 2_000_000, 2, symbol="TSLA")
+        self.add("Elon Musk", "Purchase", 999_960_000, 3, symbol="TSLA")
+
+        response = self.profile("Elon Musk")
+        context = response.context
+        self.assertEqual(context["total_amount"], 1_001_960_000.0)
+        self.assertEqual(context["side_volume"]["other"], 141_000_000_000.0)
+        html = response.body.decode()
+        self.assertIn("$141.0B", html)
+        self.assertIn("$1.0B comprados", html)
+
+    def test_a_trade_without_amount_is_not_shown_as_zero(self):
+        self.add("Ana", "Gift", 0, 1)
+        html = self.profile("Ana").body.decode()
+        self.assertIn("importe no declarado", html)
+        self.assertNotIn('class="ledger__amount">$0<', html)
+
 
 class PaginationTests(unittest.TestCase):
     def setUp(self):

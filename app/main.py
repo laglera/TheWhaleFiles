@@ -184,11 +184,12 @@ def disclosure_lag(trade: Trade) -> Optional[int]:
 def compact_money(value: float) -> str:
     """Mismo formato compacto que el macro `money` de las plantillas."""
     amount = float(value or 0)
-    if amount >= 1_000_000_000:
+    # Umbrales tras redondear: $999,96M se escribía "$1,000.0M".
+    if amount >= 999_950_000:
         return f"${amount / 1_000_000_000:,.1f}B"
-    if amount >= 1_000_000:
+    if amount >= 999_500:
         return f"${amount / 1_000_000:,.1f}M"
-    if amount >= 1_000:
+    if amount >= 999.5:
         return f"${amount / 1_000:,.0f}K"
     return f"${amount:,.0f}"
 
@@ -1037,10 +1038,15 @@ def politician_detail_page(
     # cuenta que la portada, para que la ficha no diga otra cifra.
     total_amount = 0.0
     side_counts = {"buy": 0, "sell": 0, "other": 0}
+    # El reparto por importe al lado del recuento: 25 compras frente a 51
+    # ventas no dice si se compró o se vendió más dinero. Lo que no es de
+    # mercado se suma aparte para decir cuánto se ha dejado fuera del volumen.
+    side_volume = {"buy": 0.0, "sell": 0.0, "other": 0.0}
     ticker_volume: dict[str, dict[str, Any]] = {}
     for trade in ordered_trades:
         side = trade_side(trade.trade_type)
         side_counts[side] += 1
+        side_volume[side] += float(trade.amount or 0)
         if side == "other":
             continue
         total_amount += float(trade.amount)
@@ -1116,6 +1122,7 @@ def politician_detail_page(
             "hidden_trades": max(len(ordered_trades) - len(visible_trades), 0),
             "total_amount": total_amount,
             "side_counts": side_counts,
+            "side_volume": side_volume,
             "top_tickers": top_tickers,
             "bio": bio,
             "bio_is_fallback": bio_is_fallback,

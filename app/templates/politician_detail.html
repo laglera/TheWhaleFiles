@@ -112,6 +112,11 @@
           {% else %}
           <small>{{ t.stat_capital_sub }}</small>
           {% endif %}
+          {# Lo que no entra en el volumen, con su cifra: una concesión de
+             $141B no es una compra, pero callarla también desinforma. #}
+          {% if side_volume.other %}
+          <small>{{ t.stat_non_market.format(amount=ui.money(side_volume.other), n='{:,.0f}'.format(side_counts.other)) }}</small>
+          {% endif %}
         </div>
         <div class="metric">
           <span>{{ t.stat_split }}</span>
@@ -120,7 +125,11 @@
             <em>/</em>
             <i class="swatch swatch--sell"></i>{{ '{:,.0f}'.format(side_counts.sell) }}
           </strong>
+          {% if side_volume.buy or side_volume.sell %}
+          <small>{{ t.stat_split_volume.format(buy=ui.money(side_volume.buy), sell=ui.money(side_volume.sell)) }}</small>
+          {% else %}
           <small>{{ t.stat_split_sub }}</small>
+          {% endif %}
         </div>
         <div class="metric">
           <span>{{ t.stat_last_trade }}</span>
@@ -459,7 +468,7 @@
             {% endif %}
           </em>
         </span>
-        <span class="ledger__amount">{{ ui.trade_amount(trade) }}</span>
+        <span class="ledger__amount">{{ ui.trade_amount(trade, t) }}</span>
       </div>
       {% endfor %}
     </div>

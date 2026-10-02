@@ -54,7 +54,7 @@
               <small>{{ trade.politician.name }}</small>
             </span>
             <span class="hero-feed__amount">
-              <b>{{ ui.trade_amount(trade) }}</b>
+              <b>{{ ui.trade_amount(trade, t) }}</b>
               <small>{{ trade.reported_date.strftime('%d/%m') }}</small>
             </span>
           </li>
@@ -312,7 +312,7 @@
         <div class="trade-card__foot">
           <div>
             <span>{{ t.trade_amount }}</span>
-            <strong>{{ ui.trade_amount(trade) }}</strong>
+            <strong>{{ ui.trade_amount(trade, t) }}</strong>
           </div>
           <span class="tag tag--plain">{{ trade.politician.state }}</span>
         </div>
