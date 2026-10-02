@@ -112,7 +112,9 @@
       {% endfor %}
     </nav>
 
-    <form class="filters" method="get">
+    {# El ancla devuelve a la lista al filtrar: sin ella la página volvía
+       arriba y había que bajar otra vez hasta donde se estaba. #}
+    <form class="filters" method="get" action="/#perfiles">
       <input type="hidden" name="lang" value="{{ lang }}" />
       <input type="hidden" name="category" value="{{ active_category }}" />
       <label class="field">

@@ -183,6 +183,19 @@ class HomePageTests(unittest.TestCase):
         self.assertIn("$141.0B", html)
         self.assertIn("$1.0B comprados", html)
 
+    def test_filtering_returns_to_the_list(self):
+        self.add("Ana", "Purchase", 5_000, 3)
+        html = self.home().body.decode()
+        self.assertIn('<form class="filters" method="get" action="/#perfiles">', html)
+
+    def test_avatars_fall_back_to_initials_if_the_photo_fails(self):
+        from unittest import mock
+
+        self.add("Ana Pérez", "Purchase", 5_000, 3)
+        with mock.patch.dict(main.PHOTO_INDEX, {"Ana Pérez": "missing.jpg"}):
+            html = self.home().body.decode()
+        self.assertIn('data-fallback="AP"', html)
+
     def test_a_trade_without_amount_is_not_shown_as_zero(self):
         self.add("Ana", "Gift", 0, 1)
         html = self.profile("Ana").body.decode()
