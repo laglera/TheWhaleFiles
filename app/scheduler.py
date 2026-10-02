@@ -42,6 +42,13 @@ def refresh_analytics(now: datetime | None = None) -> bool:
     refresh_history(verbose=False)
     if _last_performance is not None and now - _last_performance < PERFORMANCE_EVERY:
         return False
+    # Una vez al día también: nombre de empresa a los valores nuevos.
+    try:
+        from app.ticker_names import fill_ticker_names
+
+        fill_ticker_names(verbose=False)
+    except Exception:
+        logger.exception("Polling: fallo al poner nombre a los valores")
     stats = compute_all(verbose=False)
     # Sin el índice descargado no se calcula nada: se reintenta en la pasada
     # siguiente en vez de esperar un día entero.
