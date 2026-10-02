@@ -226,6 +226,10 @@ TRANSLATIONS: dict[str, dict[str, Any]] = {
             "son muy inestables, y rentabilidades pasadas no garantizan las futuras."
         ),
         "perf_computed": "Calculado el {when}",
+        "perf_pending": (
+            "Todavía no está calculada: falta el histórico de cotizaciones de sus valores "
+            "o del índice. Se completa en el próximo refresco diario de datos."
+        ),
         "history_title": "Últimas inversiones",
         "history_sub": "Ordenadas por fecha de publicación del filing, de más reciente a más antigua.",
         "history_type": "Tipo",
@@ -505,6 +509,10 @@ TRANSLATIONS: dict[str, dict[str, Any]] = {
             "past returns do not guarantee future ones."
         ),
         "perf_computed": "Computed {when}",
+        "perf_pending": (
+            "Not computed yet: the price history of these securities or of the index is "
+            "still missing. It is filled in by the next daily data refresh."
+        ),
         "history_title": "Latest investments",
         "history_sub": "Sorted by filing publication date, most recent first.",
         "history_type": "Type",

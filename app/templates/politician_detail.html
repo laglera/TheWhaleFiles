@@ -361,6 +361,19 @@
     </p>
   </div>
 </section>
+{% elif side_counts.buy %}
+{# Sin cálculo guardado todavía: la sección se anuncia en vez de desaparecer,
+   que parecía que la ficha no la tuviera. #}
+<section class="band band--light band--profile" id="rentabilidad">
+  <div class="inner">
+    <div class="band-head">
+      <div>
+        <h2>{{ t.perf_title }}</h2>
+      </div>
+    </div>
+    <p class="empty-state">{{ t.perf_pending }}</p>
+  </div>
+</section>
 {% endif %}
 
 {% if top_tickers %}
