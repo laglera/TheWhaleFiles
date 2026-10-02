@@ -852,37 +852,66 @@ def get_trades(
     }
 
 
-# Tope del CSV: suficiente para cualquier hoja de cálculo y para no servir la
-# tabla entera en una sola respuesta.
-CSV_MAX_ROWS = 5000
+# El CSV sale entero, sin tope: es la exportación para analizar los datos
+# fuera, y con 1.000 filas por defecto (5.000 como mucho) se quedaban fuera
+# veinte mil operaciones. Se escribe por tandas mientras se envía, así que la
+# tabla completa no pasa entera por memoria.
+CSV_BATCH_ROWS = 1000
 CSV_COLUMNS = (
     "id", "reported_date", "transaction_date", "disclosure_lag_days", "late_filing",
-    "date_suspect", "politician",
-    "category", "chamber", "ticker", "side", "trade_type", "amount", "amount_min",
-    "amount_max", "ingested_at",
+    "date_suspect", "politician", "category", "chamber", "ticker", "side", "trade_type",
+    "amount", "amount_min", "amount_max", "ingested_at",
 )
 
 
-@app.get("/api/trades.csv")
-def export_trades_csv(
-    db: Session = Depends(get_db),
-    limit: int = Query(1000, ge=1, le=CSV_MAX_ROWS),
-    filters: TradeFilters = Depends(trade_filters),
-) -> Response:
-    """Las mismas operaciones y filtros que /api/trades, en CSV."""
+def csv_chunks(bind, filters: TradeFilters, limit: Optional[int] = None, offset: int = 0):
+    """Las filas del CSV en trozos de texto, leyendo la base por tandas.
+
+    Con su propia sesión sobre el mismo motor: la de la petición se cierra al
+    salir de la ruta, antes de que termine de enviarse la respuesta.
+    """
     import csv
     import io
 
     buffer = io.StringIO()
     writer = csv.writer(buffer)
     writer.writerow(CSV_COLUMNS)
-    for trade in filtered_trades(db, filters, limit):
-        record = trade_record(trade)
-        bracket = record["amount_range"] or [None, None]
-        record["amount_min"], record["amount_max"] = bracket
-        writer.writerow(["" if record[column] is None else record[column] for column in CSV_COLUMNS])
-    return Response(
-        content=buffer.getvalue(),
+    yield buffer.getvalue()
+
+    sent = 0
+    with Session(bind=bind) as db:
+        while limit is None or sent < limit:
+            size = CSV_BATCH_ROWS if limit is None else min(CSV_BATCH_ROWS, limit - sent)
+            trades = filtered_trades(db, filters, size, offset + sent)
+            if not trades:
+                break
+            buffer.seek(0)
+            buffer.truncate()
+            for trade in trades:
+                record = trade_record(trade)
+                bracket = record["amount_range"] or [None, None]
+                record["amount_min"], record["amount_max"] = bracket
+                writer.writerow(
+                    ["" if record[column] is None else record[column] for column in CSV_COLUMNS]
+                )
+            yield buffer.getvalue()
+            sent += len(trades)
+            # Lo ya escrito no hace falta en la sesión: así no crece con la tabla.
+            db.expunge_all()
+
+
+@app.get("/api/trades.csv")
+def export_trades_csv(
+    db: Session = Depends(get_db),
+    limit: Optional[int] = Query(None, ge=1, description="Sin límite: todas las operaciones"),
+    offset: int = Query(0, ge=0),
+    filters: TradeFilters = Depends(trade_filters),
+) -> Response:
+    """Las mismas operaciones y filtros que /api/trades, en CSV y completas."""
+    from fastapi.responses import StreamingResponse
+
+    return StreamingResponse(
+        csv_chunks(db.get_bind(), TradeFilters.of(filters), limit, offset),
         media_type="text/csv; charset=utf-8",
         headers={"Content-Disposition": 'attachment; filename="thewhalefiles-trades.csv"'},
     )
