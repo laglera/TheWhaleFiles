@@ -2091,6 +2091,69 @@ img {
   max-width: 92ch;
 }
 
+/* La banda de métricas nace para el canvas oscuro de la cabecera; en la
+   sección de rentabilidad va sobre fondo claro. */
+.metric-band--perf {
+  background: var(--surface-card);
+  border-color: var(--hairline-light);
+  backdrop-filter: none;
+}
+
+.metric-band--perf .metric {
+  border-left-color: var(--hairline-light);
+}
+
+.metric-band--perf .metric span,
+.metric-band--perf .metric small {
+  color: var(--mute);
+}
+
+.metric-band--perf .metric strong {
+  color: var(--ink);
+}
+
+.perf-table {
+  margin-top: 24px;
+  background: var(--surface-card);
+  border: 1px solid var(--hairline-light);
+  border-radius: var(--r-lg);
+  padding: 8px 24px;
+}
+
+.perf-table dl {
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: 40px;
+}
+
+.perf-table dl > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--hairline-light);
+  font-size: 14px;
+}
+
+.perf-table dt {
+  color: var(--mute);
+}
+
+.perf-table dd {
+  margin: 0;
+  color: var(--ink);
+  font-weight: 600;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 767px) {
+  .perf-table dl {
+    grid-template-columns: 1fr;
+  }
+}
+
 .stale-note {
   margin: 0 0 20px;
   padding: 12px 16px;

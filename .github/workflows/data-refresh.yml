@@ -128,3 +128,6 @@ jobs:
         # Por tandas (HISTORY_MAX_SYMBOLS por pasada): Yahoo limita por ráfaga
         # y el universo completo se renueva en pocas pasadas.
         run: python -m app.history
+
+      - name: Rentabilidad y riesgo de copiar a cada persona
+        run: python -m app.performance

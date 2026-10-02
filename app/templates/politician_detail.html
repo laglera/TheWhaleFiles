@@ -286,6 +286,66 @@
 </section>
 {% endif %}
 
+{% if performance %}
+<section class="band band--light band--profile" id="rentabilidad">
+  <div class="inner">
+    <div class="band-head">
+      <div>
+        <h2>{{ t.perf_title }}</h2>
+        <p>{{ t.perf_sub.format(hold=performance.hold_sessions, cost=performance.cost_bps|int, benchmark=performance.benchmark) }}</p>
+      </div>
+    </div>
+
+    {% if performance.available %}
+    <div class="metric-band metric-band--perf">
+      <div class="metric">
+        <span>{{ t.perf_total }}</span>
+        <strong>{{ ui.pct(performance.total_return) }}</strong>
+        <small>{{ t.perf_vs_benchmark.format(benchmark=performance.benchmark, value=ui.pct(performance.benchmark_return)) }}</small>
+      </div>
+      <div class="metric">
+        <span>{{ t.perf_alpha }}</span>
+        <strong>{{ ui.pct(performance.alpha) }}</strong>
+        <small>{{ t.perf_alpha_sub.format(beta=ui.ratio(performance.beta)) }}</small>
+      </div>
+      <div class="metric">
+        <span>Sharpe · Sortino</span>
+        <strong>{{ ui.ratio(performance.sharpe) }} · {{ ui.ratio(performance.sortino) }}</strong>
+        <small>{{ t.perf_sharpe_sub.format(rf=ui.pct(performance.risk_free_rate, false)) }}</small>
+      </div>
+      <div class="metric">
+        <span>{{ t.perf_drawdown }}</span>
+        <strong>{{ ui.pct(performance.max_drawdown) }}</strong>
+        <small>{{ t.perf_drawdown_sub.format(benchmark=performance.benchmark, value=ui.pct(performance.benchmark_max_drawdown)) }}</small>
+      </div>
+    </div>
+
+    <div class="perf-table">
+      <dl>
+        <div><dt>{{ t.perf_cagr }}</dt><dd>{{ ui.pct(performance.cagr) }}</dd></div>
+        <div><dt>{{ t.perf_volatility }}</dt><dd>{{ ui.pct(performance.volatility, false) }}</dd></div>
+        <div><dt>{{ t.perf_correlation }}</dt><dd>{{ ui.ratio(performance.correlation) }}</dd></div>
+        <div><dt>{{ t.perf_tracking }}</dt><dd>{{ ui.pct(performance.tracking_error, false) }}</dd></div>
+        <div><dt>{{ t.perf_ir }}</dt><dd>{{ ui.ratio(performance.information_ratio) }}</dd></div>
+        <div><dt>{{ t.perf_win_rate }}</dt><dd>{{ ui.pct(performance.win_rate, false) }}</dd></div>
+        <div><dt>{{ t.perf_avg_win_loss }}</dt><dd>{{ ui.pct(performance.avg_win) }} / {{ ui.pct(performance.avg_loss) }}</dd></div>
+        <div><dt>{{ t.perf_payoff }}</dt><dd>{{ ui.ratio(performance.payoff_ratio) }}</dd></div>
+        <div><dt>{{ t.perf_ic }}</dt><dd>{{ ui.ratio(performance.information_coefficient) }}</dd></div>
+        <div><dt>{{ t.perf_sample }}</dt><dd>{{ t.perf_sample_value.format(trades=performance.copied_trades, sessions=performance.sessions, start=performance.start, end=performance.end) }}</dd></div>
+      </dl>
+    </div>
+    {% else %}
+    <p class="empty-state">{{ t.perf_unavailable.format(signals=performance.signals, priced=performance.priced_signals, trades=performance.copied_trades) }}</p>
+    {% endif %}
+
+    <p class="more-note more-note--left">
+      {{ t.perf_disclaimer }}
+      {% if performance.computed_at %} · {{ t.perf_computed.format(when=performance.computed_at.strftime('%d/%m/%Y %H:%M UTC')) }}{% endif %}
+    </p>
+  </div>
+</section>
+{% endif %}
+
 {% if top_tickers %}
 <section class="band band--soft band--profile">
   <div class="inner">

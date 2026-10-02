@@ -104,3 +104,12 @@
   </div>
 </div>
 {%- endmacro %}
+
+{# Porcentaje con signo para las métricas de rentabilidad; guion si no hay. #}
+{% macro pct(value, signed=true) -%}
+{%- if value is none -%}—{%- else -%}{{ ('{:+.1f}' if signed else '{:.1f}').format(value * 100) }}%{%- endif -%}
+{%- endmacro %}
+
+{% macro ratio(value) -%}
+{%- if value is none -%}—{%- else -%}{{ '{:.2f}'.format(value) }}{%- endif -%}
+{%- endmacro %}

@@ -222,3 +222,21 @@ class CorporateAction(Base):
     ratio: Mapped[Optional[Decimal]] = mapped_column(Price, nullable=True)
     # Dividendo por acción, en la divisa de cotización.
     amount: Mapped[Optional[Decimal]] = mapped_column(Price, nullable=True)
+
+
+class Performance(Base):
+    """Rentabilidad y riesgo de copiar a una persona (app/performance.py).
+
+    Se calcula en el refresco programado y la ficha sólo lo lee: necesita el
+    histórico de cada valor que ha operado, y eso no cabe en una petición web.
+    """
+
+    __tablename__ = "performance"
+
+    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    politician_id: Mapped[int] = mapped_column(
+        ForeignKey("politicians.id"), unique=True, nullable=False
+    )
+    computed_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    # Métricas y parámetros de la simulación, en JSON.
+    payload: Mapped[str] = mapped_column(Text, nullable=False, default="")
