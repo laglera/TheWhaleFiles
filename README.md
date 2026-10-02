@@ -114,6 +114,12 @@ al tipo de cambio del día, que se refresca con las cotizaciones; sin tipo de
 cambio quedan fuera del total y la ficha dice por qué. Si la cotización más
 vieja de una ficha supera `PRICE_STALE_HOURS` (24 h), la ficha lo avisa.
 
+Las posiciones declaradas antes de un split se cuentan con los títulos de
+después, y los dividendos repartidos desde la fecha de cada saldo se estiman
+aparte (no se suman al total). Ambos salen de `python -m app.history`, que
+guarda también los cierres diarios ajustados que usa el cálculo de
+rentabilidad; cada pasada pide como mucho `HISTORY_MAX_SYMBOLS` valores (300).
+
 El refresco de precios importa más de lo que parece: en serverless las fichas
 sirven las cotizaciones ya guardadas y no llaman al proveedor, porque Yahoo
 devuelve 429 con frecuencia y sus reintentos esperan hasta medio minuto por
@@ -212,6 +218,7 @@ python -m app.insiders    # Form 4 de la SEC: operaciones y posiciones
 python -m app.prices      # precarga las cotizaciones en caché
 python -m app.backfill    # normaliza nombres y corrige cámara/estado
 python -m app.legislators # partido de cada congresista (lo lanza también el refresco)
+python -m app.history     # cierres ajustados, splits y dividendos (por tandas)
 ```
 
 Sobre una base creada antes de que existiera `transaction_date`, todas las

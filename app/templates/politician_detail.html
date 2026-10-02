@@ -180,7 +180,10 @@
         {# data-label alimenta el encabezado de cada dato en móvil, donde la
            cabecera de la tabla no cabe y las cifras quedarían sin nombre. #}
         <span class="ledger__date" data-label="{{ t.wealth_shares }}">
-          {{ '{:,.0f}'.format(position.shares) }}
+          {{ '{:,.0f}'.format(position.shares_now) }}
+          {% if position.split_factor != 1 %}
+          <em>{{ t.wealth_split.format(declared='{:,.0f}'.format(position.shares), factor='{:g}'.format(position.split_factor)) }}</em>
+          {% endif %}
           {% if position.shares_indirect %}
           <em>{{ t.wealth_indirect.format(n='{:,.0f}'.format(position.shares_indirect)) }}</em>
           {% endif %}
@@ -214,6 +217,7 @@
     <p class="more-note more-note--left">
       {{ t.wealth_disclaimer }}
       {% if wealth.missing %} {{ t.wealth_missing.format(n=wealth.missing) }}{% endif %}
+      {% if wealth.dividends %} {{ t.wealth_dividends.format(amount=ui.money(wealth.dividends, wealth.currency)) }}{% endif %}
       {% if wealth.converted %} {{ t.wealth_converted.format(n=wealth.converted, currency=wealth.currency) }}{% endif %}
       {% if wealth.fetched_at %}
       · {{ t.wealth_updated.format(when=wealth.fetched_at.strftime('%d/%m/%Y %H:%M UTC'), source=price_source) }}

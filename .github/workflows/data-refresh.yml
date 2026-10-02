@@ -123,3 +123,8 @@ jobs:
         env:
           FINNHUB_API_KEY: ${{ secrets.FINNHUB_API_KEY }}
         run: python -m app.prices
+
+      - name: Histórico de cotizaciones, splits y dividendos
+        # Por tandas (HISTORY_MAX_SYMBOLS por pasada): Yahoo limita por ráfaga
+        # y el universo completo se renueva en pocas pasadas.
+        run: python -m app.history
