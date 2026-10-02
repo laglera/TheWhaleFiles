@@ -90,6 +90,9 @@ class ScreeningTests(unittest.TestCase):
         body = response.body.decode()
         self.assertIn('<feed xmlns="http://www.w3.org/2005/Atom">', body)
         self.assertEqual(body.count("<entry>"), 2)
+        # Cada entrada con su fecha de publicación y la de actualización.
+        self.assertEqual(body.count("<published>"), 2)
+        self.assertEqual(body.count("<updated>"), 3)
 
     def test_the_api_rejects_unknown_sides(self):
         from tests.test_http import call

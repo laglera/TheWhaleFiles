@@ -333,6 +333,8 @@ def static_url(filename: str) -> str:
 
 
 templates.env.globals["static_url"] = static_url
+templates.env.globals["site_base_url"] = lambda request: site_base_url(request)
+templates.env.globals["page_url"] = lambda request: page_url(request)
 templates.env.filters["trade_side"] = trade_side
 templates.env.filters["trade_kind"] = trade_kind
 templates.env.filters["bracket_label"] = bracket_label
@@ -948,12 +950,21 @@ def trades_feed(
         amount = bracket or compact_money(record["amount"])
         title = f"{record['politician']}: {record['trade_type']} {record['ticker']} ({amount})"
         summary = f"Publicada {record['reported_date']}, operación {record['transaction_date'] or '—'}."
+        # <published> es el día del filing; <updated>, cuándo lo leyó esta web,
+        # que es cuando la entrada apareció en el feed. Un lector ordena y
+        # avisa por esta última: con sólo la fecha del filing, lo ingerido hoy
+        # de un filing de hace una semana parecía viejo.
+        published_at = f"{record['reported_date']}T00:00:00Z"
+        updated_at = (
+            trade.ingested_at.strftime("%Y-%m-%dT%H:%M:%SZ") if trade.ingested_at else published_at
+        )
         entries.append(
             "<entry>"
             f"<id>{escape(base)}/trades/{trade.id}</id>"
             f"<title>{escape(title)}</title>"
             f'<link href="{escape(base)}/politicians/{trade.politician_id}"/>'
-            f"<updated>{record['reported_date']}T00:00:00Z</updated>"
+            f"<published>{published_at}</published>"
+            f"<updated>{updated_at}</updated>"
             f"<summary>{escape(summary)}</summary>"
             "</entry>"
         )
@@ -1251,8 +1262,21 @@ Sitemap: {base}/sitemap.xml
 """
 
 
+# Dirección pública de la web. Sin ella se deduce de la petición, y eso
+# publicaba en el sitemap y en el feed "http://127.0.0.1:8765/…" desde local,
+# o "http://…" detrás de un proxy que termina el TLS aunque el público entre
+# por https.
+SITE_BASE_URL = os.getenv("SITE_BASE_URL", "").strip().rstrip("/")
+
+
 def site_base_url(request: Request) -> str:
-    return str(request.base_url).rstrip("/")
+    return SITE_BASE_URL or str(request.base_url).rstrip("/")
+
+
+def page_url(request: Request) -> str:
+    """URL canónica de la página actual, sobre la dirección pública."""
+    query = request.url.query
+    return site_base_url(request) + request.url.path + (f"?{query}" if query else "")
 
 
 @app.get("/robots.txt", response_class=PlainTextResponse)

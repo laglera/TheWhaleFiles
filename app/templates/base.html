@@ -11,8 +11,8 @@
     <meta property="og:site_name" content="TheWhaleFiles" />
     <meta property="og:title" content="{% block og_title %}TheWhaleFiles{% endblock %}" />
     <meta property="og:description" content="{{ t.meta_description }}" />
-    <meta property="og:image" content="{{ request.base_url }}static/logo.png" />
-    <meta property="og:url" content="{{ request.url }}" />
+    <meta property="og:image" content="{{ site_base_url(request) }}/static/logo.png" />
+    <meta property="og:url" content="{{ page_url(request) }}" />
     <meta name="twitter:card" content="summary" />
     <link rel="alternate" type="application/atom+xml" title="TheWhaleFiles" href="/feed.xml" />
     {% block head_extra %}{% endblock %}
