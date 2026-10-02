@@ -54,6 +54,32 @@ class IndexingTests(unittest.TestCase):
         self.assertNotIn(f"/politicians/{silent.id}<", xml)
 
 
+class PublicUrlTests(unittest.TestCase):
+    def test_the_configured_public_url_wins_over_the_request_host(self):
+        # Desde local el sitemap publicaba "http://127.0.0.1:8765/…", y detrás
+        # de un proxy salía http aunque el público entre por https.
+        from unittest import mock
+
+        db = memory_session()
+        try:
+            person = seed_declarant(db)
+            with mock.patch.object(main, "SITE_BASE_URL", "https://thewhalefiles.example"):
+                xml = main.sitemap(make_request("/sitemap.xml"), db).body.decode()
+                robots = main.robots(make_request("/robots.txt"))
+                html = main.politician_detail_page(
+                    make_request(f"/politicians/{person.id}"), person.id, db
+                ).body.decode()
+        finally:
+            db.close()
+        self.assertIn(f"<loc>https://thewhalefiles.example/politicians/{person.id}</loc>", xml)
+        self.assertNotIn("testserver", xml)
+        self.assertIn("Sitemap: https://thewhalefiles.example/sitemap.xml", robots)
+        self.assertIn(
+            f'<meta property="og:url" content="https://thewhalefiles.example/politicians/{person.id}" />',
+            html,
+        )
+
+
 class HomePageTests(unittest.TestCase):
     def setUp(self):
         self.db = memory_session()
